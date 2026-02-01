@@ -1,0 +1,30 @@
+{
+  "name": "event-management-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel --no-cache",
+    "dev:backend": "turbo run dev --filter=event-management-backend",
+    "dev:frontend": "turbo run dev --filter=event-management-frontend",
+    "seed:demo": "turbo run seed:demo",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
+    "lint": "turbo run lint",
+    "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
+    "visualize:deps": "depcruise --config .dependency-cruiser.js --output-type dot apps | dot -T svg > dependency-graph.svg",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "dependency-cruiser": "^17.3.6",
+    "turbo": "^1.10.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "pnpm@8.6.0"
+}

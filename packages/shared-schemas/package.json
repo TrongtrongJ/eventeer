@@ -1,0 +1,21 @@
+{
+  "name": "@event-mgmt/shared-schemas",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.2.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

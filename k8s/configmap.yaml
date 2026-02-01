@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: event-management
+data:
+  smtp-host: smtp.gmail.com
+  smtp-port: "587"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: event-management
+data:
+  stripe-publishable-key: pk_test_your_key_here
+
+---

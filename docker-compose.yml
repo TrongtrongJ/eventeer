@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # Redis - Required for sessions, queues, and distributed locks
+  redis:
+    image: redis:7-alpine
+    container_name: event-mgmt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - event-mgmt-network
+    restart: unless-stopped
+
+  # Backend - NestJS API
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    container_name: event-mgmt-backend
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      
+      # PostgreSQL (Local - host.docker.internal)
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-event_management}
+      
+      # Redis (Docker service)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # JWT Secrets
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-demo-jwt-access-secret-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-demo-jwt-refresh-secret-change-in-production}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      
+      # Stripe (Optional - for real payments)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      
+      # Email (Optional)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@eventmanagement.com}
+      
+      # OAuth (Optional)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:4000/auth/oauth/google/callback}
+      
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:4000/auth/oauth/github/callback}
+      
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      FACEBOOK_REDIRECT_URI: ${FACEBOOK_REDIRECT_URI:-http://localhost:4000/auth/oauth/facebook/callback}
+      
+      # Frontend URL
+      FRONTEND_URL: http://localhost:5173
+      
+      # Feature Flags
+      FEATURE_PAYMENT_ENABLED: ${FEATURE_PAYMENT_ENABLED:-true}
+      FEATURE_EMAIL_ENABLED: ${FEATURE_EMAIL_ENABLED:-false}
+      
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT: 60000
+      CIRCUIT_BREAKER_RESET_TIMEOUT: 30000
+    volumes:
+      - ./apps/backend/src:/app/apps/backend/src
+      - ./packages/shared-schemas/src:/app/packages/shared-schemas/src
+      - /app/node_modules
+      - /app/apps/backend/node_modules
+      - /app/packages/shared-schemas/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - event-mgmt-network
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Frontend - React + Vite
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.dev
+    container_name: event-mgmt-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:4000
+      VITE_WS_URL: http://localhost:4000
+      VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}
+    volumes:
+      - ./apps/frontend/src:/app/apps/frontend/src
+      - ./apps/frontend/public:/app/apps/frontend/public
+      - ./packages/shared-schemas/src:/app/packages/shared-schemas/src
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/packages/shared-schemas/node_modules
+    depends_on:
+      - backend
+    networks:
+      - event-mgmt-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  event-mgmt-network:
+    driver: bridge

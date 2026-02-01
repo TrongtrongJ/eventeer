@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: event-management
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: event-management-backend:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: "4000"
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: event_management
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: "6379"
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secret
+              key: secret-key
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secret
+              key: webhook-secret
+        - name: SMTP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: smtp-host
+        - name: SMTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: smtp-port
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: smtp-secret
+              key: username
+        - name: SMTP_PASS
+          valueFrom:
+            secretKeyRef:
+              name: smtp-secret
+              key: password
+        - name: FEATURE_EMAIL_ENABLED
+          value: "true"
+        - name: FEATURE_PAYMENT_ENABLED
+          value: "true"
+        ports:
+        - containerPort: 4000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: event-management
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 4000
+    targetPort: 4000
+  type: ClusterIP
+
+---

@@ -1,0 +1,172 @@
+type Event {
+  id: ID!
+  title: String!
+  description: String!
+  location: String!
+  startDate: DateTime!
+  endDate: DateTime!
+  capacity: Int!
+  availableSeats: Int!
+  ticketPrice: Float!
+  currency: String!
+  imageUrl: String
+  organizerId: ID
+  organizer: User
+  bookings: [Booking!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type User {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: UserRole!
+  provider: AuthProvider!
+  isEmailVerified: Boolean!
+  isActive: Boolean!
+  createdAt: DateTime!
+}
+
+type Booking {
+  id: ID!
+  eventId: ID!
+  event: Event!
+  userId: ID!
+  user: User!
+  quantity: Int!
+  totalAmount: Float!
+  finalAmount: Float!
+  discount: Float!
+  status: BookingStatus!
+  createdAt: DateTime!
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  CUSTOMER
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
+  FACEBOOK
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  FAILED
+}
+
+scalar DateTime
+
+# Pagination types
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type EventEdge {
+  node: Event!
+  cursor: String!
+}
+
+type EventConnection {
+  edges: [EventEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# Input types
+input CreateEventInput {
+  title: String!
+  description: String!
+  location: String!
+  startDate: DateTime!
+  endDate: DateTime!
+  capacity: Int!
+  ticketPrice: Float!
+  currency: String = "USD"
+  imageUrl: String
+}
+
+input UpdateEventInput {
+  title: String
+  description: String
+  location: String
+  startDate: DateTime
+  endDate: DateTime
+  capacity: Int
+  ticketPrice: Float
+  currency: String
+  imageUrl: String
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+input EventFilterInput {
+  search: String
+  minPrice: Float
+  maxPrice: Float
+  startDateFrom: DateTime
+  startDateTo: DateTime
+  location: String
+  sortOrder: SortOrder = "ASC"
+}
+
+input PaginationInput {
+  first: Int
+  after: String
+  last: Int
+  before: String
+}
+
+# Queries
+type Query {
+  # Get single event
+  event(id: ID!): Event
+  
+  # Get all events with pagination and filtering
+  events(
+    filter: EventFilterInput
+    pagination: PaginationInput
+    sortBy: String
+    sortOrder: SortOrder
+  ): EventConnection!
+  
+  # Get events by organizer
+  myEvents(
+    pagination: PaginationInput
+  ): EventConnection!
+  
+  # Get current user
+  me: User!
+}
+
+# Mutations
+type Mutation {
+  # Create new event (ORGANIZER/ADMIN only)
+  createEvent(input: CreateEventInput!): Event!
+  
+  # Update event (owner or ADMIN only)
+  updateEvent(id: ID!, input: UpdateEventInput!): Event!
+  
+  # Delete event (owner or ADMIN only)
+  deleteEvent(id: ID!): Boolean!
+}
+
+# Subscriptions (bonus - real-time updates)
+type Subscription {
+  # Subscribe to seat availability updates for an event
+  seatAvailabilityUpdated(eventId: ID!): Event!
+}
