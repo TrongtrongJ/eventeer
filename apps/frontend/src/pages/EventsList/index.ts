@@ -1,0 +1,1 @@
+export { EventsList as default } from './EventsList'

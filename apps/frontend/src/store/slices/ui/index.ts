@@ -1,14 +1,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { ToastState, UiState } from './types'
+export * from './types'
 
-interface UiState {
-  toasts: {
-    id: string;
-    message: string;
-    type: "success" | "error" | "info";
-  }[];
-}
 
-const initialState: UiState = {
+const initialState: Readonly<UiState> = {
   toasts: [],
 };
 

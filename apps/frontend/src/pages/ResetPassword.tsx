@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resetPassword } from '../store/slices/authSlice';
 import { AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { addToast } from '../store/slices/ui';
 
 const ResetPassword: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

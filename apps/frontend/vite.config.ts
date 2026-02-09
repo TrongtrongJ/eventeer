@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 import AutoImport from 'unplugin-auto-import/vite';
+import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,6 +22,7 @@ export default defineConfig({
       ],
       dts: './src/auto-imports.d.ts', 
       imports: ['react'],
+      '@constants': path.resolve(__dirname, './src/constants'),
     }),
   ],
 })

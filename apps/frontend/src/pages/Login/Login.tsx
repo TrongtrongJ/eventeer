@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../store/slices/authSlice';
-import { RootState, AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { login } from '../../store/slices/authSlice';
+import { RootState, AppDispatch } from '../../store';
+import { addToast } from '../../store/slices/ui';
 import { LoginDto } from '@event-mgmt/shared-schemas';
+import { apiUrl } from '@constants/config'
+import { initialFormData } from './constants'
 
 const Login: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { loading, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  const [formData, setFormData] = useState<LoginDto>({
-    email: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState<LoginDto>(
+    structuredClone(initialFormData)
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -22,7 +23,7 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
@@ -37,12 +38,11 @@ const Login: React.FC = () => {
         })
       );
     }
-  };
+  }, [dispatch]);
 
-  const handleOAuthLogin = (provider: 'google' | 'github' | 'facebook') => {
-    const apiUrl = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:4000';
+  const handleOAuthLogin = useCallback((provider: 'google' | 'github' | 'facebook') => {
     window.location.href = `${apiUrl}/auth/oauth/${provider}`;
-  };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -175,4 +175,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export { Login };

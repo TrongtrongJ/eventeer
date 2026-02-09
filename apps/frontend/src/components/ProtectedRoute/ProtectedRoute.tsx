@@ -1,14 +1,9 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '../store';
-import { getCurrentUser } from '../store/slices/authSlice';
-import { UserDto } from '@event-mgmt/shared-schemas';
-
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requireRole?: 'ADMIN' | 'ORGANIZER' | 'CUSTOMER';
-}
+import { RootState, AppDispatch } from '../../store';
+import { getCurrentUser } from '../../store/slices/authSlice';
+import type { ProtectedRouteProps } from './types'
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireRole }) => {
   const { isAuthenticated, user, loading } = useSelector((state: RootState) => state.auth);
@@ -21,7 +16,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireRole }
     }
   }, [isAuthenticated, user, dispatch]);
 
-  const notMetRequiredRole = requireRole && user?.role !== requireRole
+  const unmetRequiredRole = requireRole && user?.role !== requireRole
 
   if (loading) {
     return (
@@ -35,7 +30,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireRole }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (notMetRequiredRole) {
+  if (unmetRequiredRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -49,4 +44,4 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireRole }
   return <>{children}</>;
 };
 
-export default ProtectedRoute;
+export { ProtectedRoute };

@@ -3,21 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { confirmBooking } from '../store/slices/bookingsSlice';
-import { RootState, AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { confirmBooking } from '../../store/slices/bookingsSlice';
+import { RootState, AppDispatch } from '../../store';
+import { addToast } from '../../store/slices/ui';
+import { stripePublishableKey } from '@constants/config'
 
-const stripePromise = loadStripe(import.meta.env.VITE_REACT_APP_STRIPE_PUBLISHABLE_KEY || '');
+const stripePromise = loadStripe(stripePublishableKey);
 
 const CheckoutForm: React.FC = () => {
   const stripe = useStripe();
   const elements = useElements();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [ isProcessing, setIsProcessing ] = useState(false);
   const { currentBooking } = useSelector((state: RootState) => state.bookings);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!stripe || !elements || !currentBooking) {
@@ -53,7 +54,10 @@ const CheckoutForm: React.FC = () => {
       dispatch(addToast({ message: error.message || 'Payment failed', type: 'error' }));
       setIsProcessing(false);
     }
-  };
+
+    // The following initiated instants are stable and would not change.
+    // However, official docs like React-Redux specificly recommends to include them for linting & future-proof.
+  }, [stripe, elements, currentBooking, dispatch, navigate]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -136,4 +140,4 @@ const Checkout: React.FC = () => {
   );
 };
 
-export default Checkout;
+export { Checkout };

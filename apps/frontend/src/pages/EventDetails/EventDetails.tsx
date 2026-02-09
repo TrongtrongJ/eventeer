@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchEventById } from '../store/slices/eventsSlice';
-import { createBooking } from '../store/slices/bookingsSlice';
-import { RootState, AppDispatch } from '../store';
-import { useWebSocket } from '../hooks/useWebSocket';
-import { addToast } from '../store/slices/uiSlice';
+import { fetchEventById } from '../../store/slices/eventsSlice';
+import { createBooking } from '../../store/slices/bookingsSlice';
+import { RootState, AppDispatch } from '../../store';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { addToast } from '../../store/slices/ui';
 import { CreateBookingDto } from '@event-mgmt/shared-schemas';
+import { formatEventDate } from './helpers'
 
 const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,7 +44,7 @@ const EventDetails: React.FC = () => {
     }
   }, [user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedEvent) return;
@@ -76,7 +77,7 @@ const EventDetails: React.FC = () => {
     } catch (error: any) {
       dispatch(addToast({ message: error.message || 'Failed to create booking', type: 'error' }));
     }
-  };
+  }, [ selectedEvent, isAuthenticated, formData, dispatch ]);
 
   if (loading || !selectedEvent) {
     return (
@@ -86,7 +87,10 @@ const EventDetails: React.FC = () => {
     );
   }
 
+  // No need to use useMemo, these are already fast with low overhead
   const totalPrice = selectedEvent.ticketPrice * formData.quantity;
+  const selectedEventData = formatEventDate(selectedEvent.startDate)
+  const canPurchase = selectedEvent.availableSeats > 0 && isAuthenticated
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -128,7 +132,7 @@ const EventDetails: React.FC = () => {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              {new Date(selectedEvent.startDate).toLocaleString()}
+              {selectedEventData}
             </div>
 
             <div className="flex items-center">
@@ -186,7 +190,7 @@ const EventDetails: React.FC = () => {
             </div>
           )}
 
-          {selectedEvent.availableSeats > 0 && isAuthenticated && (
+          {canPurchase && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -273,4 +277,4 @@ const EventDetails: React.FC = () => {
   );
 };
 
-export default EventDetails;
+export { EventDetails };

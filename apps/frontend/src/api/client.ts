@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { store } from '../store';
 import { refreshAccessToken, clearCredentials } from '../store/slices/authSlice';
+import { apiUrl } from '@constants/config'
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:4000',
+  baseURL: apiUrl,
   headers: {
     'Content-Type': 'application/json',
   },

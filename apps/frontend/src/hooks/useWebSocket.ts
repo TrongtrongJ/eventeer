@@ -3,13 +3,14 @@ import { useDispatch } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
 import { updateEventSeats } from '../store/slices/eventsSlice';
 import { SeatAvailabilityUpdate } from '@event-mgmt/shared-schemas';
+import { webSocketUrl } from '@constants/config'
 
-export const useWebSocket = (eventId?: string) => {
+export const useWebSocket = (eventId?: string): Socket<any> | null => {
   const dispatch = useDispatch();
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_REACT_APP_WS_URL || 'http://localhost:4000', {
+    const socket = io(webSocketUrl, {
       transports: ['websocket'],
     });
 

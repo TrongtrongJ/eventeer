@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { forgotPassword } from '../store/slices/authSlice';
 import { AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { addToast } from '../store/slices/ui';
 
 const ForgotPassword: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

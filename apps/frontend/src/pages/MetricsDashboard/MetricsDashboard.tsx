@@ -1,75 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { RootState } from '../store';
-import { apiClient } from '../api/client';
-
-interface Metrics {
-  health: {
-    status: string;
-    uptime: number;
-    memory: {
-      used: number;
-      total: number;
-      percentage: number;
-    };
-    cpu: {
-      usage: number;
-      loadAverage: number[];
-    };
-  };
-  requests: {
-    total: number;
-    success: number;
-    errors: number;
-    byEndpoint: Record<string, number>;
-  };
-  response: {
-    averageTime: number;
-    p95: number;
-    p99: number;
-  };
-  database: {
-    queries: {
-      total: number;
-      slow: number;
-      errors: number;
-      averageTime: number;
-    };
-  };
-  business: {
-    events: {
-      total: number;
-      active: number;
-      soldOut: number;
-      topEvents: Array<{
-        title: string;
-        bookings: number;
-        revenue: number;
-      }>;
-    };
-    bookings: {
-      total: number;
-      confirmed: number;
-      revenue: {
-        total: number;
-        thisMonth: number;
-        growth: number;
-      };
-    };
-    users: {
-      total: number;
-      active: number;
-      newToday: number;
-      newThisWeek: number;
-    };
-  };
-}
+import { RootState } from '../../store';
+import { apiClient } from '../../api/client';
+import { formatUptime, formatCurrency } from './helpers'
+import type { Metrics } from './types'
 
 const MetricsDashboard: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [ metrics, setMetrics ] = useState<Metrics | null>(null);
+  const [ loading, setLoading ] = useState(true);
+  const [ autoRefresh, setAutoRefresh ] = useState(true);
 
   useEffect(() => {
     fetchMetrics();
@@ -82,7 +22,7 @@ const MetricsDashboard: React.FC = () => {
 
   const fetchMetrics = async () => {
     try {
-      const [healthRes, metricsRes] = await Promise.all([
+      const [ healthRes, metricsRes ] = await Promise.all([
         apiClient.get('/observability/health'),
         apiClient.get('/observability/metrics'),
       ]);
@@ -96,20 +36,6 @@ const MetricsDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${days}d ${hours}h ${minutes}m`;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   if (loading) {
@@ -355,5 +281,4 @@ const MetricsDashboard: React.FC = () => {
     </div>
   );
 };
-
-export default MetricsDashboard;
+export { MetricsDashboard };

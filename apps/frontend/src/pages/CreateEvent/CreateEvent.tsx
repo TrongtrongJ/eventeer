@@ -1,29 +1,22 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { createEvent } from '../store/slices/eventsSlice';
-import { AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { createEvent } from '../../store/slices/eventsSlice';
+import { AppDispatch } from '../../store';
+import { addToast } from '../../store/slices/ui';
 import { CreateEventDto } from '@event-mgmt/shared-schemas';
+import { initialFormData } from './constants'
 
 const CreateEvent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [ loading, setLoading ] = useState(false);
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    location: '',
-    startDate: '',
-    endDate: '',
-    capacity: 100,
-    ticketPrice: 0,
-    currency: 'USD' as const,
-    imageUrl: '',
-  });
+  const [ formData, setFormData ] = useState<CreateEventDto>(
+    {...structuredClone(initialFormData)}
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -48,7 +41,7 @@ const CreateEvent: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -189,4 +182,4 @@ const CreateEvent: React.FC = () => {
   );
 };
 
-export default CreateEvent;
+export { CreateEvent };

@@ -1,0 +1,1 @@
+export { MetricsDashboard as default } from './MetricsDashboard';

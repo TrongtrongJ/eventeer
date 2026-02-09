@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchEvents } from '../store/slices/eventsSlice';
-import { RootState, AppDispatch } from '../store';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { fetchEvents } from '../../store/slices/eventsSlice';
+import { RootState, AppDispatch } from '../../store';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 const EventsList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -107,4 +107,4 @@ const EventsList: React.FC = () => {
   );
 };
 
-export default EventsList;
+export { EventsList };

@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import eventsReducer from './slices/eventsSlice';
 import bookingsReducer from './slices/bookingsSlice';
-import uiReducer from './slices/uiSlice';
+import uiReducer from './slices/ui';
 import authReducer from './slices/authSlice';
 
 export const store = configureStore({

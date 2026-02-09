@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { register } from '../store/slices/authSlice';
-import { RootState, AppDispatch } from '../store';
-import { addToast } from '../store/slices/uiSlice';
+import { register } from '../../store/slices/authSlice';
+import { RootState, AppDispatch } from '../../store';
+import { addToast } from '../../store/slices/ui';
 import { RegisterDto } from '@event-mgmt/shared-schemas';
+import { initialFormData } from './constants'
 
 const Register: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { loading, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  const [formData, setFormData] = useState<RegisterDto>({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-  });
+  const [formData, setFormData] = useState<RegisterDto>(
+    structuredClone(initialFormData)
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -24,7 +22,7 @@ const Register: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
@@ -44,7 +42,7 @@ const Register: React.FC = () => {
         })
       );
     }
-  };
+  }, [dispatch, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -139,4 +137,4 @@ const Register: React.FC = () => {
   );
 };
 
-export default Register;
+export { Register };

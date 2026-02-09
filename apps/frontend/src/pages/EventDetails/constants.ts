@@ -1,0 +1,1 @@
+import { CreateBookingDto } from '@event-mgmt/shared-schemas';

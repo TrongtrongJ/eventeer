@@ -21,6 +21,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
+      "@constants/*": ["./src/constants/*"],
       "@event-mgmt/shared-schemas": ["../../packages/shared-schemas/src"],
       "@vitejs/plugin-react": ["./node_modules/@vitejs/plugin-react"]
     }
