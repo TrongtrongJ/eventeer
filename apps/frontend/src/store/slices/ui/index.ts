@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ToastState, UiState } from './types'
+import { generateToastId } from './helpers'
+import { UiState } from './types'
 export * from './types'
 
 
@@ -19,7 +20,7 @@ const uiSlice = createSlice({
       }>
     ) => {
       state.toasts.push({
-        id: Date.now().toString(),
+        id: generateToastId(),
         ...action.payload,
       });
     },
