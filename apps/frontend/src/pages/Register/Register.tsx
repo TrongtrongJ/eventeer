@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../../store/slices/authSlice';
 import { RootState, AppDispatch } from '../../store';
 import { addToast } from '../../store/slices/ui';
-import { RegisterDto } from '@event-mgmt/shared-schemas';
+import { type RegisterDto, RegisterSchema } from '@event-mgmt/shared-schemas';
 import { initialFormData } from './constants'
 
 const Register: React.FC = () => {
@@ -22,10 +22,15 @@ const Register: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const validationResult = RegisterSchema.safeParse(formData);
+  const isFormValid = validationResult.success;
+  const formValidationErrors = !validationResult.success ? validationResult.error.format() : null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
+    if (isFormValid) {
+      try {
       await dispatch(register(formData)).unwrap();
       dispatch(
         addToast({
@@ -34,15 +39,18 @@ const Register: React.FC = () => {
         })
       );
       navigate('/');
-    } catch (error: any) {
-      dispatch(
-        addToast({
-          message: error.message || 'Registration failed',
-          type: 'error',
-        })
-      );
+      } catch (error: any) {
+        dispatch(
+          addToast({
+            message: error.message || 'Registration failed',
+            type: 'error',
+          })
+        );
+      }
     }
-  }, [dispatch, navigate]);
+  };
+
+  const isCreateAccountButtonDisabled = loading || !isFormValid
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -125,7 +133,7 @@ const Register: React.FC = () => {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={isCreateAccountButtonDisabled}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Create account'}

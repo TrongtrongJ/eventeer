@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  VITE_APP_TITLE: z.string(),
+  VITE_APP_TITLE: z.string().optional(),
   VITE_REACT_APP_API_URL: z.string().url().optional(),
   VITE_REACT_APP_WS_URL: z.string().url().optional(),
   VITE_REACT_APP_STRIPE_PUBLISHABLE_KEY: z.string().optional(),

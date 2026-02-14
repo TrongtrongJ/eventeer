@@ -39,6 +39,7 @@ export class AuthController {
     private readonly oauthService: OAuthService,
   ) {}
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(

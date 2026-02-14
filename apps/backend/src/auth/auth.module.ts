@@ -30,13 +30,13 @@ import { Booking } from '../entities/booking.entity';
         const secret = configService.get<string>('JWT_ACCESS_SECRET');
         
         if (!secret) {
-          console.warn('⚠️  JWT_ACCESS_SECRET not set, using fallback (NOT FOR PRODUCTION)');
+          console.warn('JWT_ACCESS_SECRET not set, using fallback (NOT FOR PRODUCTION)');
         }
         
         return {
           secret: secret || 'fallback-secret-key-change-in-production',
           signOptions: {
-            expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES') || '15m',
+            expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES') || '60m',
           },
         };
       },
