@@ -44,7 +44,7 @@ const EventDetails: React.FC = () => {
     }
   }, [user]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedEvent) return;
@@ -77,7 +77,7 @@ const EventDetails: React.FC = () => {
     } catch (error: any) {
       dispatch(addToast({ message: error.message || 'Failed to create booking', type: 'error' }));
     }
-  }, [ selectedEvent, isAuthenticated, formData, dispatch ]);
+  };
 
   if (loading || !selectedEvent) {
     return (

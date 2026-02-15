@@ -13,6 +13,9 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import OAuthCallback from './pages/OAuthCallback';
+import MyBookings from './pages/MyBookings';
+import EventCoupons from './pages/EventCoupons';
+import CreateCoupon from './pages/CreateCoupon';
 import MetricsDashboard from './pages/MetricsDashboard';
 import Profile from './pages/Profile';
 import ToastContainer from './components/ToastContainer';
@@ -41,45 +44,74 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
-
-          {/* Protected Routes */}
+          
+          {/* Public Event Browsing */}
           <Route path="/" element={<EventsList />} />
           <Route path="/events/:id" element={<EventDetails />} />
-
-          <Route
-            path="/checkout"
+          
+          {/* Protected Routes - Require Authentication */}
+          <Route 
+            path="/checkout" 
             element={
               <ProtectedRoute>
                 <Checkout />
               </ProtectedRoute>
-            }
+            } 
           />
-
-          <Route
-            path="/booking/:id"
+          
+          <Route 
+            path="/booking/:id" 
             element={
               <ProtectedRoute>
                 <BookingConfirmation />
               </ProtectedRoute>
-            }
+            } 
           />
-
-          <Route
-            path="/profile"
+          
+          <Route 
+            path="/profile" 
             element={
               <ProtectedRoute>
                 <Profile />
               </ProtectedRoute>
-            }
+            } 
           />
 
-          <Route
-            path="/create"
+          <Route 
+            path="/bookings" 
+            element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Protected Routes - Require ORGANIZER or ADMIN Role */}
+          <Route 
+            path="/create" 
             element={
               <ProtectedRoute requireRole="ORGANIZER">
                 <CreateEvent />
               </ProtectedRoute>
-            }
+            } 
+          />
+
+          <Route 
+            path="/events/:eventId/coupons" 
+            element={
+              <ProtectedRoute requireRole="ORGANIZER">
+                <EventCoupons />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/events/:eventId/coupons/create" 
+            element={
+              <ProtectedRoute requireRole="ORGANIZER">
+                <CreateCoupon />
+              </ProtectedRoute>
+            } 
           />
 
           <Route

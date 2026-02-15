@@ -30,10 +30,10 @@ apiClient.interceptors.request.use((config) => {
 
 // Handle token refresh on 401
 let isRefreshing = false;
-let failedQueue: Array<{
+let failedQueue: {
   resolve: (value?: unknown) => void;
   reject: (reason?: any) => void;
-}> = [];
+}[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {

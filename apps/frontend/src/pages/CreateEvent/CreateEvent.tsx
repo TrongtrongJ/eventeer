@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { createEvent } from '../../store/slices/eventsSlice';
 import { AppDispatch } from '../../store';
 import { addToast } from '../../store/slices/ui';
-import { CreateEventDto } from '@event-mgmt/shared-schemas';
+import { type CreateEventDto, CreateEventSchema } from '@event-mgmt/shared-schemas';
 import { initialFormData } from './constants'
 
 const CreateEvent: React.FC = () => {
@@ -42,6 +42,12 @@ const CreateEvent: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  const validationResult = CreateEventSchema.safeParse(formData);
+  const isFormValid = validationResult.success;
+  const formValidationErrors = !validationResult.success ? validationResult.error.format() : null;
+
+  const isSubmitButtonDisabled = loading || !isFormValid
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -163,7 +169,7 @@ const CreateEvent: React.FC = () => {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitButtonDisabled}
             className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-semibold"
           >
             {loading ? 'Creating...' : 'Create Event'}

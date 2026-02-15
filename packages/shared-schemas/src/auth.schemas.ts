@@ -30,6 +30,16 @@ export const ResetPasswordSchema = z.object({
   newPassword: z.string().min(8).max(100),
 });
 
+export const ResetPasswordFormSchema = z
+  .object({
+    password: z.string().min(8, "Password too short").max(100, 'Password too long'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
 export const UpdateProfileSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
@@ -76,6 +86,7 @@ export type LoginDto = z.infer<typeof LoginSchema>;
 export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 export type ForgotPasswordDto = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
+export type ResetPasswordFormDto = z.infer<typeof ResetPasswordFormSchema>;
 export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
 export type UserDto = z.infer<typeof UserSchema>;
 export type UserRole = UserDto['role'];

@@ -7,7 +7,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  UseGuards,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -97,6 +96,7 @@ export class AuthController {
     await this.authService.logout(user.sessionId, req.correlationId);
   }
 
+  @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   async verifyEmail(
@@ -112,6 +112,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
@@ -127,6 +128,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
@@ -153,6 +155,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Get('oauth/google')
   googleAuth(@Res() res: Response) {
     const state = crypto.randomBytes(16).toString('hex');
@@ -176,6 +179,7 @@ export class AuthController {
     );
   }
 
+  @Public()
   @Get('oauth/github')
   githubAuth(@Res() res: Response) {
     const state = crypto.randomBytes(16).toString('hex');
@@ -198,6 +202,7 @@ export class AuthController {
     );
   }
 
+  @Public()
   @Get('oauth/facebook')
   facebookAuth(@Res() res: Response) {
     const state = crypto.randomBytes(16).toString('hex');

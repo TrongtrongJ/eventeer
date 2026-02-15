@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Coupon, DiscountType } from '../entities/coupon.entity';
+import { Event } from '../entities/event.entity';
 import { CreateCouponDto, CouponDto, ApplyCouponDto } from '@event-mgmt/shared-schemas';
 import { InjectRedis } from '@liaoliaots/nestjs-redis';
 import Redis from 'ioredis';
+import { UserRole } from '../entities/user.entity';
 
 @Injectable()
 export class CouponsService {
@@ -16,20 +18,40 @@ export class CouponsService {
   constructor(
     @InjectRepository(Coupon)
     private readonly couponRepository: Repository<Coupon>,
+    @InjectRepository(Event)
+    private readonly eventRepository: Repository<Event>,
     @InjectRedis()
     private readonly redis: Redis,
   ) {}
 
-  async create(createCouponDto: CreateCouponDto, correlationId: string): Promise<CouponDto> {
+  async create(
+    createCouponDto: CreateCouponDto, 
+    userId: string,
+    userRole: string,
+    correlationId: string
+  ): Promise<CouponDto> {
     this.logger.log({
       message: 'Creating coupon',
       correlationId,
       code: createCouponDto.code,
+      eventId: createCouponDto.eventId,
+      userId,
     });
+
+    // Verify user owns the event (unless admin)
+    if (userRole !== UserRole.ADMIN) {
+      const event = await this.eventRepository.findOne({
+        where: { id: createCouponDto.eventId },
+      });
+
+      if (!event || event.organizerId !== userId) {
+        throw new ForbiddenException('You can only create coupons for your own events');
+      }
+    }
 
     const existingCoupon = await this.couponRepository.findOne({
       where: {
-        code: createCouponDto.code,
+        code: createCouponDto.code.toUpperCase(),
         eventId: createCouponDto.eventId,
       },
     });
@@ -40,6 +62,7 @@ export class CouponsService {
 
     const coupon = this.couponRepository.create({
       ...createCouponDto,
+      code: createCouponDto.code.toUpperCase(),
       expiresAt: new Date(createCouponDto.expiresAt),
       discountType: createCouponDto.discountType as DiscountType,
     });
@@ -63,6 +86,26 @@ export class CouponsService {
     return this.toDto(savedCoupon);
   }
 
+  async findByEvent(eventId: string, userId: string, userRole: string): Promise<CouponDto[]> {
+    // Verify user owns the event (unless admin)
+    if (userRole !== UserRole.ADMIN) {
+      const event = await this.eventRepository.findOne({
+        where: { id: eventId },
+      });
+
+      if (!event || event.organizerId !== userId) {
+        throw new ForbiddenException('You can only view coupons for your own events');
+      }
+    }
+
+    const coupons = await this.couponRepository.find({
+      where: { eventId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return coupons.map(coupon => this.toDto(coupon));
+  }
+
   async findByCode(code: string, eventId: string): Promise<CouponDto> {
     const coupon = await this.couponRepository.findOne({
       where: { code: code.toUpperCase(), eventId, isActive: true },
@@ -75,16 +118,51 @@ export class CouponsService {
     return this.toDto(coupon);
   }
 
+  async update(
+    id: string,
+    updateData: { isActive?: boolean },
+    userId: string,
+    userRole: string,
+    correlationId: string,
+  ): Promise<CouponDto> {
+    const coupon = await this.couponRepository.findOne({
+      where: { id },
+      relations: ['event'],
+    });
+
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found');
+    }
+
+    // Verify user owns the event (unless admin)
+    if (userRole !== UserRole.ADMIN) {
+      const event = await this.eventRepository.findOne({
+        where: { id: coupon.eventId },
+      });
+
+      if (!event || event.organizerId !== userId) {
+        throw new ForbiddenException('You can only update coupons for your own events');
+      }
+    }
+
+    Object.assign(coupon, updateData);
+    const updatedCoupon = await this.couponRepository.save(coupon);
+
+    this.logger.log({
+      message: 'Coupon updated',
+      correlationId,
+      couponId: id,
+      changes: updateData,
+    });
+
+    return this.toDto(updatedCoupon);
+  }
+
   async validateAndApply(
     applyCouponDto: ApplyCouponDto,
     amount: number,
     correlationId: string,
-  ): Promise<{
-    isValid: boolean;
-    discount: number;
-    finalAmount: number;
-    coupon?: CouponDto;
-  }> {
+  ): Promise<{ isValid: boolean; discount: number; finalAmount: number; coupon?: CouponDto }> {
     const lockKey = `${this.COUPON_LOCK_PREFIX}${applyCouponDto.code}:${applyCouponDto.eventId}`;
     const lockValue = `${correlationId}:${Date.now()}`;
 
@@ -218,20 +296,20 @@ export class CouponsService {
         return true;
       }
       // Wait before retry with exponential backoff
-      await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, i)));
+      await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, i)));
     }
     return false;
   }
 
   private async releaseLock(key: string, value: string): Promise<void> {
-    const redisReleaseLockScript = `
+    const script = `
       if redis.call("get", KEYS[1]) == ARGV[1] then
         return redis.call("del", KEYS[1])
       else
         return 0
       end
     `;
-    await this.redis.eval(redisReleaseLockScript, 1, key, value);
+    await this.redis.eval(script, 1, key, value);
   }
 
   private toDto(coupon: Coupon): CouponDto {
@@ -239,8 +317,7 @@ export class CouponsService {
       id: coupon.id,
       code: coupon.code,
       eventId: coupon.eventId,
-      // discountType: coupon.discountType as any,
-      discountType: coupon.discountType,
+      discountType: coupon.discountType as any,
       discountValue: Number(coupon.discountValue),
       maxUsages: coupon.maxUsages,
       currentUsages: coupon.currentUsages,
