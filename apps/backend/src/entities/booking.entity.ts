@@ -71,6 +71,9 @@ export class Booking {
   @JoinColumn({ name: 'userId' })
   user?: User;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  clientSecret?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

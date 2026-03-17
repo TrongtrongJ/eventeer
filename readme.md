@@ -68,11 +68,12 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 
 ### Technical Features
 - ⚡ **Real-time Updates** with WebSocket
-- 🔄 **Circuit Breaker Pattern** for service resilience
+- 🔀 **Circuit Breaker Pattern** for service resilience
 - 📬 **Message Queue** (Bull + Redis) for async operations
 - 🎯 **Correlation IDs** for distributed tracing
 - 🏥 **Health Checks** for monitoring
-- 🐳 **Docker & Kubernetes** ready
+- 🐳 **Docker & Kubernetes**
+- 🔄 **Automated Cache Sync and Request Mutax**
 
 ---
 
@@ -82,10 +83,11 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 - [X] Complete initial (alpha) k8s & terraform template
 - [X] Ensure code quality and readability
 - [X] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
-- [ ] Ensure secondary workflows functionality
-- [ ] Flesh out API documentation & finalize dependency-cruiser
+- [-] [Partial] Edge cases handling like thundering herd problems, etc.
+- [-] [Partial] Ensure secondary workflows functionality
+- [-] [Partial] Flesh out API documentation & finalize dependency-cruiser
 - [ ] Complete dockerization support
-- [ ] Better test coverage & CI/CD
+- [-] [Partial] Better test coverage & CI/CD
 
 ---
 

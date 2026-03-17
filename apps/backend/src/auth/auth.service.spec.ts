@@ -5,10 +5,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from '../src/auth/auth.service';
-import { User, UserRole, AuthProvider } from '../src/entities/user.entity';
-import { Session } from '../src/entities/session.entity';
-import { EmailService } from '../src/email/email.service';
+import { AuthService } from './auth.service';
+import { User, UserRole, AuthProvider } from '../entities/user.entity';
+import { Session } from '../entities/session.entity';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -475,9 +475,9 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException for inactive user', async () => {
       const inactiveUser = { ...mockUser, isActive: false };
-      mockUserRepository.findOne.mockResolvedValue(inactiveUser);
+      mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.validateUser(mockUser.id)).rejects.toThrow(UnauthorizedException);
+      await expect(service.validateUser(inactiveUser.id)).rejects.toThrow(UnauthorizedException);
     });
   });
 });

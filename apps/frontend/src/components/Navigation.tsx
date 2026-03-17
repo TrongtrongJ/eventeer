@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '../store';
-import { logout } from '../store/slices/authSlice';
+import { RootState } from '../store';
+import { clearCredentials } from '../store/slices/auth/authSlice';
 import { addToast } from '../store/slices/ui';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { selectIsAuthenticated } from '../store/slices/auth/authSlice';
 
 const Navigation: React.FC = () => {
-  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
-  const dispatch = useDispatch<AppDispatch>();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const { user } = useAppSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(() => {
     try {
-      await dispatch(logout()).unwrap();
+      dispatch(clearCredentials());
       dispatch(addToast({ message: 'Logged out successfully', type: 'success' }));
       navigate('/login');
     } catch (error) {
@@ -21,13 +23,26 @@ const Navigation: React.FC = () => {
       console.error('Logout error:', error);
       navigate('/login');
     }
-  };
+  }, [dispatch, clearCredentials, addToast, navigate]);
 
-  const menuOpenHandler = useCallback(() => {
+  const menuToggleHandler = useCallback(() => {
     setIsMenuOpen(is => !is)
-  }, [])
+  }, []);
+
+  const menuCloseHandler = useCallback(() => {
+    setIsMenuOpen(false)
+  }, []);
 
   const canCreateEvent = isAuthenticated && user && (user.role === 'ORGANIZER' || user.role === 'ADMIN')
+
+  const userFirstName = user?.firstName?.[0] || '';
+  const userLastName = user?.lastName?.[0] || '';
+  const userFullName = `${userFirstName} ${userLastName}`
+
+  const signoutHandler = useCallback(() => {
+    setIsMenuOpen(false);
+    handleLogout();
+  }, [handleLogout])
 
   return (
     <nav className="bg-white shadow-sm">
@@ -61,25 +76,25 @@ const Navigation: React.FC = () => {
             {isAuthenticated ? (
               <div className="relative">
                 <button
-                  onClick={menuOpenHandler}
+                  onClick={menuToggleHandler}
                   className="flex items-center space-x-3 focus:outline-none"
                 >
                   {user?.avatarUrl ? (
                     <img
                       src={user.avatarUrl}
-                      alt={`${user.firstName} ${user.lastName}`}
+                      alt={userFullName}
                       className="h-8 w-8 rounded-full"
                     />
                   ) : (
                     <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
                       <span className="text-white text-sm font-medium">
-                        {user?.firstName?.[0]}
-                        {user?.lastName?.[0]}
+                        {userFirstName}
+                        {userLastName}
                       </span>
                     </div>
                   )}
                   <span className="hidden md:block text-sm font-medium text-gray-700">
-                    {user?.firstName} {user?.lastName}
+                    {userFullName}
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-500"
@@ -101,15 +116,12 @@ const Navigation: React.FC = () => {
                     <Link
                       to="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => setIsMenuOpen(false)}
+                      onClick={menuCloseHandler}
                     >
                       Profile
                     </Link>
                     <button
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleLogout();
-                      }}
+                      onClick={signoutHandler}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                     >
                       Sign out
@@ -138,7 +150,7 @@ const Navigation: React.FC = () => {
       </div>
 
       {/* Close menu when clicking outside */}
-      {isMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />}
+      {isMenuOpen && <div className="fixed inset-0 z-10" onClick={menuCloseHandler} />}
     </nav>
   );
 };

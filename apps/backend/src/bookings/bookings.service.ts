@@ -142,6 +142,7 @@ export class BookingsService {
         );
 
         savedBooking.paymentIntentId = paymentIntent.paymentIntentId;
+        savedBooking.clientSecret = paymentIntent.clientSecret;
         await manager.save(Booking, savedBooking);
 
         this.logger.log({

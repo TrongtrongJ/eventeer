@@ -1,14 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EventsService } from '../src/events/events.service';
-import { Event } from '../src/entities/event.entity';
-import { WebsocketGateway } from '../src/websocket/websocket.gateway';
+import { EventsService } from './events.service';
+import { Event } from '../entities/event.entity';
+import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { NotFoundException } from '@nestjs/common';
+import { EntityManager, DataSource } from 'typeorm';
+import { ResourceNotFoundException } from 'src/common/exceptions/business.exception';
+
 
 describe('EventsService', () => {
   let service: EventsService;
   let repository: Repository<Event>;
+  let module: TestingModule;
 
   const mockRepository = {
     create: jest.fn(),
@@ -20,7 +24,7 @@ describe('EventsService', () => {
       transaction: jest.fn(),
       findOne: jest.fn(),
       save: jest.fn(),
-    },
+    } as unknown as jest.Mocked<EntityManager>,
   };
 
   const mockWebsocketGateway = {
@@ -28,7 +32,7 @@ describe('EventsService', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         EventsService,
         {
@@ -38,6 +42,13 @@ describe('EventsService', () => {
         {
           provide: WebsocketGateway,
           useValue: mockWebsocketGateway,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            createQueryRunner: jest.fn(),
+            transaction: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -81,6 +92,7 @@ describe('EventsService', () => {
       expect(mockRepository.create).toHaveBeenCalledWith({
         ...createEventDto,
         availableSeats: createEventDto.capacity,
+        organizerId: "test_org123",
         startDate: expect.any(Date),
         endDate: expect.any(Date),
       });
@@ -95,6 +107,8 @@ describe('EventsService', () => {
         id: '123',
         title: 'Test Event',
         availableSeats: 50,
+        startDate: new Date('2025-12-31T00:00:00Z'),
+        endDate: new Date('2025-12-31T23:59:59Z'),
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Event;
@@ -103,11 +117,11 @@ describe('EventsService', () => {
 
       const result = await service.findOne('123', 'test-correlation-id');
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: '123' } });
+      expect(mockRepository.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: '123' } }));
       expect(result.id).toBe('123');
     });
 
-    it('should throw NotFoundException when event not found', async () => {
+    it('should throw ResourceNotFoundException when event not found', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('999', 'test-correlation-id')).rejects.toThrow(
@@ -132,10 +146,10 @@ describe('EventsService', () => {
           availableSeats: 45,
           version: 1,
         });
-        return callback(mockRepository.manager);
+        return mockRepository.manager;
       });
 
-      await service.updateAvailableSeats('123', -5, 'test-correlation-id');
+      await service.updateAvailableSeats('123', -5, 'test-correlation-id', mockRepository.manager);
 
       expect(mockRepository.manager.findOne).toHaveBeenCalledWith(Event, {
         where: { id: '123' },
@@ -153,10 +167,10 @@ describe('EventsService', () => {
 
       mockRepository.manager.transaction.mockImplementation(async (callback) => {
         mockRepository.manager.findOne.mockResolvedValue(mockEvent);
-        return callback(mockRepository.manager);
+        return mockRepository.manager;
       });
 
-      await expect(service.updateAvailableSeats('123', -10, 'test-correlation-id')).rejects.toThrow(
+      await expect(service.updateAvailableSeats('123', -10, 'test-correlation-id', mockRepository.manager)).rejects.toThrow(
         'Insufficient available seats',
       );
     });

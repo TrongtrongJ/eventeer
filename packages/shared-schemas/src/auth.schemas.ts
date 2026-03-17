@@ -53,7 +53,7 @@ export const UserSchema = z.object({
   lastName: z.string(),
   avatarUrl: z.string().optional(),
   role: z.enum(["ADMIN", "ORGANIZER", "CUSTOMER"]),
-  provider: z.enum(["LOCAL", "GOOGLE", "GITHUB", "FACEBOOK"]),
+  provider: z.enum(["LOCAL", "GOOGLE", "GITHUB", "FACEBOOK"]).optional(),
   isEmailVerified: z.boolean(),
   isActive: z.boolean(),
   lastLoginAt: z.string().datetime().nullable(),

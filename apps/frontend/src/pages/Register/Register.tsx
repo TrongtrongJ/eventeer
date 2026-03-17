@@ -1,20 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link } from 'react-router-dom';
-import { register } from '../../store/slices/authSlice';
-import { RootState, AppDispatch } from '../../store';
-import { addToast } from '../../store/slices/ui';
 import { type RegisterDto, RegisterSchema } from '@event-mgmt/shared-schemas';
 import { initialFormData } from './constants'
+import { useAppSelector } from '../../store/hooks';
+import { selectIsAuthenticated } from '../../store/slices/auth/authSlice';
+import { useRegisterUserMutation } from '../../store/slices/auth/authApi';
 
 const Register: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { loading, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
-  const [formData, setFormData] = useState<RegisterDto>(
-    structuredClone(initialFormData)
-  );
+  const [registerUser, { isLoading, isError }] = useRegisterUserMutation();
+
+  const {
+    watch,
+    register,
+    handleSubmit,
+    formState: {
+      isValid,
+      errors,
+    }
+  } = useForm<RegisterDto>({
+    resolver: zodResolver(RegisterSchema),
+    defaultValues: initialFormData,
+  })
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -22,35 +33,15 @@ const Register: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const validationResult = RegisterSchema.safeParse(formData);
-  const isFormValid = validationResult.success;
-  const formValidationErrors = !validationResult.success ? validationResult.error.format() : null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (isFormValid) {
-      try {
-      await dispatch(register(formData)).unwrap();
-      dispatch(
-        addToast({
-          message: 'Registration successful! Please check your email to verify your account.',
-          type: 'success',
-        })
-      );
-      navigate('/');
-      } catch (error: any) {
-        dispatch(
-          addToast({
-            message: error.message || 'Registration failed',
-            type: 'error',
-          })
-        );
-      }
+  const onSubmit = async (data: RegisterDto) => {
+    try {
+      await registerUser(data).unwrap();
+    } catch (err) {
+      console.error('Failed to register user:', err);
     }
   };
 
-  const isCreateAccountButtonDisabled = loading || !isFormValid
+  const isCreateAccountButtonDisabled = isLoading || !isValid;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -67,7 +58,7 @@ const Register: React.FC = () => {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="rounded-md shadow-sm space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -78,8 +69,7 @@ const Register: React.FC = () => {
                   id="firstName"
                   type="text"
                   required
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  {...register('firstName')}
                   className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
@@ -92,8 +82,7 @@ const Register: React.FC = () => {
                   id="lastName"
                   type="text"
                   required
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  {...register('lastName')}
                   className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
@@ -107,8 +96,7 @@ const Register: React.FC = () => {
                 id="email"
                 type="email"
                 required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                {...register('email')}
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
@@ -122,8 +110,7 @@ const Register: React.FC = () => {
                 type="password"
                 required
                 minLength={8}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                {...register('password')}
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
               <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
@@ -136,7 +123,7 @@ const Register: React.FC = () => {
               disabled={isCreateAccountButtonDisabled}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {isLoading ? 'Creating account...' : 'Create account'}
             </button>
           </div>
         </form>

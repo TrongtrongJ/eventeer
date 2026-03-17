@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { confirmBooking } from '../../store/slices/bookingsSlice';
-import { RootState, AppDispatch } from '../../store';
+import { AppDispatch } from '../../store';
 import { addToast } from '../../store/slices/ui';
 import { stripePublishableKey } from '@constants/config'
+import { useGetBookingByIdQuery, useConfirmBookingMutation } from '../../store/slices/bookings/bookingsApi';
+import FullScreenLoader from '../../components/Loader/FullScreenLoader';
+import { BookingDto } from '@event-mgmt/shared-schemas';
 
 const stripePromise = loadStripe(stripePublishableKey);
 
-const CheckoutForm: React.FC = () => {
+const CheckoutForm: React.FC<{currentBooking: BookingDto}> = ({ currentBooking }) => {
   const stripe = useStripe();
   const elements = useElements();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [ isProcessing, setIsProcessing ] = useState(false);
-  const { currentBooking } = useSelector((state: RootState) => state.bookings);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const [confirmBooking, { isLoading: isConfirmLoading, isError, error, isSuccess }] = useConfirmBookingMutation()
+
+  const handleSubmit = useCallback(async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     if (!stripe || !elements || !currentBooking) {
@@ -46,7 +49,8 @@ const CheckoutForm: React.FC = () => {
       }
 
       // Confirm booking on backend
-      await dispatch(confirmBooking(currentBooking.id)).unwrap();
+      // await dispatch(confirmBooking(currentBooking.id)).unwrap();
+      await confirmBooking(currentBooking.id!).unwrap()
 
       dispatch(addToast({ message: 'Payment successful!', type: 'success' }));
       navigate(`/booking/${currentBooking.id}`);
@@ -59,6 +63,10 @@ const CheckoutForm: React.FC = () => {
     // However, official docs like React-Redux specificly recommends to include them for linting & future-proof.
   }, [stripe, elements, currentBooking, dispatch, navigate]);
 
+  const finalAmount = currentBooking?.finalAmount.toFixed(2);
+
+  const isSubmitButtonDisabled = !stripe || isProcessing
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow">
@@ -68,26 +76,24 @@ const CheckoutForm: React.FC = () => {
 
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
+        disabled={isSubmitButtonDisabled}
         className="w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg font-semibold"
       >
-        {isProcessing ? 'Processing...' : `Pay $${currentBooking?.finalAmount.toFixed(2)}`}
+        {isProcessing ? 'Processing...' : `Pay $${finalAmount}`}
       </button>
     </form>
   );
 };
 
 const Checkout: React.FC = () => {
-  const { currentBooking } = useSelector((state: RootState) => state.bookings);
+  const { bookingId } = useParams<{ bookingId: string }>();
+
+  const { data: currentBooking, isLoading } = useGetBookingByIdQuery(bookingId!, {
+    skip: !bookingId
+  });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!currentBooking || !currentBooking.clientSecret) {
-      navigate('/');
-    }
-  }, [currentBooking, navigate]);
-
-  if (!currentBooking || !currentBooking.clientSecret) {
+  if (!currentBooking) {
     return null;
   }
 
@@ -100,6 +106,10 @@ const Checkout: React.FC = () => {
       },
     },
   };
+
+  if (isLoading) return (
+    <FullScreenLoader message='Loading booking details' />
+  )
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -134,7 +144,7 @@ const Checkout: React.FC = () => {
       </div>
 
       <Elements stripe={stripePromise} options={options}>
-        <CheckoutForm />
+        <CheckoutForm currentBooking={currentBooking} />
       </Elements>
     </div>
   );

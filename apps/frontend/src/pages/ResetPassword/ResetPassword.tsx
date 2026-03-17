@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { resetPassword } from '../../store/slices/authSlice';
 import { AppDispatch } from '../../store';
-import { addToast } from '../../store/slices/ui';
 import { type ResetPasswordFormDto, ResetPasswordFormSchema} from '@event-mgmt/shared-schemas'
 import { initialFormData } from './constants'
+import { useResetPasswordMutation } from '../../store/slices/auth/authApi';
 
 const ResetPassword: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -13,7 +12,7 @@ const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
 
-  const [loading, setLoading] = useState(false);
+  const [resetPassword, { isLoading, isError, error }] = useResetPasswordMutation()
 
   const [formData, setFormData] = useState<ResetPasswordFormDto>(
     structuredClone(initialFormData)
@@ -23,28 +22,25 @@ const ResetPassword: React.FC = () => {
   const isFormValid = validationResult.success;
   const formValidationErrors = !validationResult.success ? validationResult.error.format() : null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
-    setLoading(true);
-
     try {
-      await dispatch(resetPassword({ token, newPassword: formData.password })).unwrap();
-      dispatch(addToast({ message: 'Password reset successful!', type: 'success' }));
+      await resetPassword({ password: formData.password, confirmPassword: formData.confirmPassword  }).unwrap();
+      // dispatch(addToast({ message: 'Password reset successful!', type: 'success' }));
       navigate('/login');
     } catch (error: any) {
-      dispatch(
+      /* dispatch(
         addToast({
           message: error.message || 'Failed to reset password',
           type: 'error',
         })
-      );
+      ); */
     } finally {
-      setLoading(false);
     }
   };
 
-  const isSubmitButtonDisabled = loading || !isFormValid
+  const isSubmitButtonDisabled = isLoading || !isFormValid
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -97,7 +93,7 @@ const ResetPassword: React.FC = () => {
               disabled={isSubmitButtonDisabled}
               className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'Resetting...' : 'Reset password'}
+              {isLoading ? 'Resetting...' : 'Reset password'}
             </button>
           </div>
         </form>

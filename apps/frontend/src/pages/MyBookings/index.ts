@@ -1,0 +1,1 @@
+export { MyBookings as default } from './MyBookings';

@@ -23,7 +23,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  @Post()
+  @Post('/create')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body(new ZodValidationPipe(CreateBookingSchema)) createBookingDto: CreateBookingDto,
@@ -77,7 +77,7 @@ export class BookingsController {
     };
   }
 
-  @Get('my/bookings')
+  @Get('bookings/me')
   async getMyBookings(@CurrentUser() user: CurrentUserData, @Req() req: any) {
     const bookings = await this.bookingsService.findByUser(user.userId);
     return {

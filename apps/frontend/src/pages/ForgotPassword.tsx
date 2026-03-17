@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { forgotPassword } from '../store/slices/authSlice';
+import { useForgotPasswordMutation } from '../store/slices/auth/authApi';
 import { AppDispatch } from '../store';
 import { addToast } from '../store/slices/ui';
 
@@ -11,12 +11,16 @@ const ForgotPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [forgotPassword, { isLoading, isError }] = useForgotPasswordMutation();
+
+
+
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await dispatch(forgotPassword(email)).unwrap();
+      await forgotPassword({ email }).unwrap();
       setSubmitted(true);
       dispatch(
         addToast({
@@ -35,7 +39,6 @@ const ForgotPassword: React.FC = () => {
       setLoading(false);
     }
   };
-
   if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { setCredentials } from '../store/slices/authSlice';
+import { setCredentials } from '../store/slices/auth/authSlice';
 import { addToast } from '../store/slices/ui';
 
 const OAuthCallback: React.FC = () => {

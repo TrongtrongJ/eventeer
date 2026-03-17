@@ -1,0 +1,1 @@
+export { EventCoupons as default } from './EventCoupons';

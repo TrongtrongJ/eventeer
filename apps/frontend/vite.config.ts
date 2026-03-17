@@ -11,7 +11,7 @@ export default defineConfig({
     fs: {
       // Allow serving files from the monorepo root
       allow: ['../..']
-    }
+    },
   },
   plugins: [
     react({
@@ -30,13 +30,15 @@ export default defineConfig({
   ],
   resolve:{
     alias: {
-      '@constants': path.resolve(__dirname, './src/constants')
+      '@constants': path.resolve(__dirname, './src/constants'),
     }
   },
   optimizeDeps: {
     // Force Vite to re-evaluate the shared package
-    exclude: ['@repo/shared-schemas']
-  }  
+    exclude: [
+      '@event-mgmt/shared-schemas',
+    ]
+  },
   /*optimizeDeps: {
     include: ['@repo/shared-schemas'],
   },

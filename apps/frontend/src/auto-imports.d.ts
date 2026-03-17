@@ -7,6 +7,7 @@
 export {}
 declare global {
   const Activity: typeof import('react').Activity
+  const EmptyList: typeof import('./components/EmptyList').default
   const Fragment: typeof import('react').Fragment
   const Navigation: typeof import('./components/Navigation').default
   const ProtectedRoute: typeof import('./components/ProtectedRoute').default

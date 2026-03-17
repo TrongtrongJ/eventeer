@@ -1,21 +1,20 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchEvents } from '../../store/slices/eventsSlice';
-import { RootState, AppDispatch } from '../../store';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useGetEventsQuery } from '../../store/slices/events/eventsApi';
+import EmptyList from '../../components/EmptyList';
 
 const EventsList: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { events, loading, error } = useSelector((state: RootState) => state.events);
-  useWebSocket();
 
-  useEffect(() => {
-    dispatch(fetchEvents());
-  }, [dispatch]);
+  const { 
+    data: events, 
+    isLoading, 
+    isFetching, 
+    isError, 
+    error 
+  } = useGetEventsQuery();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -23,10 +22,16 @@ const EventsList: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        {(error as any)?.data?.message || 'Something went wrong'}
+      </div>
     );
+  }
+
+  if (!events || events.length === 0) {
+    return <EmptyList message='No events found. Create one!' />;
   }
 
   return (
@@ -34,7 +39,7 @@ const EventsList: React.FC = () => {
       <h2 className="text-3xl font-bold text-gray-900 mb-6">Upcoming Events</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {events.map((event) => (
+        {events && events.map((event) => (
           <div
             key={event.id}
             className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"

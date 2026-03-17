@@ -1,28 +1,16 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchBooking } from '../store/slices/bookingsSlice';
-import { RootState, AppDispatch } from '../store';
 import QRCode from 'react-qr-code';
+import { useGetBookingByIdQuery } from '../store/slices/bookings/bookingsApi';
+import SpinnerLoader from '../components/Loader/SpinnerLoader';
 
 const BookingConfirmation: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { currentBooking } = useSelector((state: RootState) => state.bookings);
+  const { data: currentBooking, isLoading: isBookingLoading, isError: isBookingError } = useGetBookingByIdQuery(id!)
 
-  useEffect(() => {
-    if (id) {
-      dispatch(fetchBooking(id));
-    }
-  }, [id, dispatch]);
-
-  if (!currentBooking) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+  if (isBookingLoading || !currentBooking) {
+    return <SpinnerLoader />
   }
 
   return (

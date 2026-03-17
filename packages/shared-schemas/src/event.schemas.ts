@@ -3,17 +3,20 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
+export const currency = ["THB", "USD", "EUR", "GBP"] as const;
+
+export type Currency = typeof currency[number];
 // Event Schemas
 export const CreateEventSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(5000),
   location: z.string().min(3).max(500),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
   capacity: z.number().int().positive().max(100000),
-  ticketPrice: z.number().positive().max(1000000),
-  currency: z.enum(["USD", "EUR", "GBP"]).default("USD"),
-  imageUrl: z.string().url().optional(),
+  ticketPrice: z.number().nonnegative().max(1000000),
+  currency: z.enum(currency).optional().default(currency[0]),
+  imageUrl: z.string().url().or(z.literal('')).optional(),
 });
 
 export const UpdateEventSchema = CreateEventSchema.partial();

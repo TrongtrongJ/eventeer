@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../../store/slices/authSlice';
 import { RootState, AppDispatch } from '../../store';
 import { addToast } from '../../store/slices/ui';
 import { LoginDto } from '@event-mgmt/shared-schemas';
 import { apiUrl } from '@constants/config'
 import { initialFormData } from './constants'
+import { useLoginMutation } from '../../store/slices/auth/authApi';
+import { selectIsAuthenticated } from '../../store/slices/auth/authSlice';
+import { useAppSelector } from '../../store/hooks';
 
 const Login: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { loading, isAuthenticated } = useSelector((state: RootState) => state.auth);
+
+  // const { loading, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const isAuthenticated = useAppSelector(state => selectIsAuthenticated(state))
 
   const [formData, setFormData] = useState<LoginDto>(
     structuredClone(initialFormData)
   );
+
+  const [login, { data, isLoading, isError }] = useLoginMutation()
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -23,11 +29,11 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
     try {
-      await dispatch(login(formData)).unwrap();
+      await login(formData).unwrap();
       dispatch(addToast({ message: 'Login successful!', type: 'success' }));
       navigate('/');
     } catch (error: any) {
@@ -38,7 +44,8 @@ const Login: React.FC = () => {
         })
       );
     }
-  }, [dispatch]);
+  };
+
 
   const handleOAuthLogin = useCallback((provider: 'google' | 'github' | 'facebook') => {
     window.location.href = `${apiUrl}/auth/oauth/${provider}`;
@@ -108,10 +115,10 @@ const Login: React.FC = () => {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>

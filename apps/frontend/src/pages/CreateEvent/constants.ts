@@ -3,10 +3,10 @@ export const initialFormData: Readonly<CreateEventDto> = {
   title: '',
   description: '',
   location: '',
-  startDate: '',
-  endDate: '',
+  startDate: new Date(),
+  endDate:  new Date(),
   capacity: 100,
   ticketPrice: 0,
-  currency: 'USD',
+  currency: 'THB',
   imageUrl: '',
 }

@@ -1,4 +1,4 @@
-import axios from 'axios';
+/* import axios from 'axios';
 import { store } from '../store';
 import { refreshAccessToken, clearCredentials } from '../store/slices/authSlice';
 import { apiUrl } from '@constants/config'
@@ -116,3 +116,4 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+*/

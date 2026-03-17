@@ -15,20 +15,28 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "node16",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "rootDir": "./",
+    "rootDirs": ["./src", "../../packages/shared-schemas/src"],
     "paths": {
       "@constants/*": ["./src/constants/*"],
       "@event-mgmt/shared-schemas": ["../../packages/shared-schemas/src"],
-      "@vitejs/plugin-react": ["./node_modules/@vitejs/plugin-react"]
+      "@vitejs/plugin-react": ["./node_modules/@vitejs/plugin-react"],
     }
   },
   "include": [
     "src/**/*.ts", 
     "src/**/*.tsx",
-    "src/vite-env.d.ts"
+    "src/vite-env.d.ts",
+    "../../packages/shared-schemas/src"
   ],
+  "references": [
+    { 
+      "path": "../../packages/shared-schemas" 
+    }
+  ]
 }

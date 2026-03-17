@@ -3,6 +3,8 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
+const bookingStatus = ["PENDING", "CONFIRMED", "CANCELLED", "FAILED"] as const
+export type BookingStatus = typeof bookingStatus[number]
 export const CreateBookingSchema = z.object({
   eventId: z.string().uuid(),
   quantity: z.number().int().positive().max(20),
@@ -18,8 +20,9 @@ export const BookingSchema = CreateBookingSchema.extend({
   totalAmount: z.number().positive(),
   finalAmount: z.number().positive(),
   discount: z.number().min(0),
-  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED", "FAILED"]),
+  status: z.enum(bookingStatus),
   paymentIntentId: z.string().optional(),
+  clientSecret: z.string().optional(),
   tickets: z.array(
     z.object({
       id: z.string().uuid(),
