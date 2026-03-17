@@ -83,11 +83,11 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 - [X] Complete initial (alpha) k8s & terraform template
 - [X] Ensure code quality and readability
 - [X] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
-- [-] [Partial] Edge cases handling like thundering herd problems, etc.
-- [-] [Partial] Ensure secondary workflows functionality
-- [-] [Partial] Flesh out API documentation & finalize dependency-cruiser
+- [ ] [Partial] Edge cases handling like thundering herd problems, etc.
+- [ ] [Partial] Ensure secondary workflows functionality
+- [ ] [Partial] Flesh out API documentation & finalize dependency-cruiser
 - [ ] Complete dockerization support
-- [-] [Partial] Better test coverage & CI/CD
+- [ ] [Partial] Better test coverage & CI/CD
 
 ---
 
