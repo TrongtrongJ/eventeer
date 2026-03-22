@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { BookingsService } from '../src/bookings/bookings.service';
-import { Booking, BookingStatus } from '../src/entities/booking.entity';
-import { Ticket } from '../src/entities/ticket.entity';
-import { Event } from '../src/entities/event.entity';
-import { EventsService } from '../src/events/events.service';
-import { CouponsService } from '../src/coupons/coupons.service';
-import { PaymentService } from '../src/payment/payment.service';
-import { EmailService } from '../src/email/email.service';
+import { BookingsService } from './bookings.service';
+import { Booking, BookingStatus } from '../entities/booking.entity';
+import { Ticket } from '../entities/ticket.entity';
+import { Event } from '../entities/event.entity';
+import { EventsService } from '../events/events.service';
+import { CouponsService } from '../coupons/coupons.service';
+import { PaymentService } from '../payment/payment.service';
+import { EmailService } from '../email/email.service';
 
 describe('BookingsService', () => {
   let service: BookingsService;
@@ -175,6 +175,7 @@ describe('BookingsService', () => {
         'event-123',
         -2,
         'corr-123',
+        expect.anything()
       );
     });
 

@@ -10,8 +10,8 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    "composite": true,
     "baseUrl": ".",
-    //"rootDir": "src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
@@ -19,16 +19,18 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    //"paths": {
-    //  "@event-mgmt/shared-schemas": ["../../packages/shared-schemas/src"],
-      //"*": ["node_modules/*", "../../node_modules/*"]
-    //},
+    "paths": {
+     "@event-mgmt/shared-schemas": ["../../packages/shared-schemas/dist"],
+    },
     "types": ["jest", "node"],
     "typeRoots": [
       "./node_modules/@types",
       "../../node_modules/@types"
     ]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../../packages/shared-schemas" }
+  ],
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

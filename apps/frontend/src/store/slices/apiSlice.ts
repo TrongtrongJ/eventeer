@@ -52,7 +52,7 @@ const baseQueryWithReauth: BaseQueryFn<
             {
               url: '/auth/refresh',
               method: 'POST',
-              body: { token: refreshToken },
+              body: { refreshToken },
             },
             api,
             extraOptions

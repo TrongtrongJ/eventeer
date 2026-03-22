@@ -1,0 +1,7 @@
+{
+  "entryFile": "src/main",
+  "sourceRoot": "apps/backend/src",
+  "compilerOptions": {
+    "tsConfigPath": "./tsconfig.json"
+  }
+}

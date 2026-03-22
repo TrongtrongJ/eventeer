@@ -19,7 +19,7 @@
     "src"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts-resolve --clean",
+    "build": "tsup src/index.ts --format cjs,esm --dts-resolve",
     "dev": "tsup src/index.ts --format cjs,esm --watch --dts",
     "lint": "eslint ."
   },

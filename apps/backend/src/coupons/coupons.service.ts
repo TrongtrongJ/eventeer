@@ -18,8 +18,10 @@ export class CouponsService {
   constructor(
     @InjectRepository(Coupon)
     private readonly couponRepository: Repository<Coupon>,
+
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
+    
     @InjectRedis()
     private readonly redis: Redis,
   ) {}

@@ -32,7 +32,7 @@
     "src/**/*.ts", 
     "src/**/*.tsx",
     "src/vite-env.d.ts",
-    "../../packages/shared-schemas/src"
+    "../../packages/shared-schemas/src/index.ts"
   ],
   "references": [
     { 

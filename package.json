@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev --parallel --no-cache",
+    "dev": "turbo run dev --no-cache",
     "dev:backend": "turbo run dev --filter=event-management-backend",
     "dev:frontend": "turbo run dev --filter=event-management-frontend",
     "seed:demo": "turbo run seed:demo",
@@ -16,7 +16,7 @@
     "test:integration": "turbo run test:integration",
     "lint": "turbo run lint",
     "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
-    "visualize:deps": "depcruise --config .dependency-cruiser.js --output-type dot apps | dot -T svg > dependency-graph.svg",
+    "visualize:deps": "depcruise --config .dependency-cruiser.js apps --output-type dot | dot -T svg > dependency-graph.svg",
     "clean": "turbo run clean && rm -rf node_modules",
     "install:all": "pnpm install"
   },

@@ -1,18 +1,21 @@
 import { z } from "zod";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { inputAwareDateTime } from "./constants";
 
 extendZodWithOpenApi(z);
 
 export const currency = ["THB", "USD", "EUR", "GBP"] as const;
 
 export type Currency = typeof currency[number];
+  
 // Event Schemas
 export const CreateEventSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(5000),
   location: z.string().min(3).max(500),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  //startDate: z.coerce.date(),
+  startDate: inputAwareDateTime(),
+  endDate: inputAwareDateTime(),
   capacity: z.number().int().positive().max(100000),
   ticketPrice: z.number().nonnegative().max(1000000),
   currency: z.enum(currency).optional().default(currency[0]),
