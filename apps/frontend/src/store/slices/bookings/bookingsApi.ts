@@ -1,5 +1,5 @@
 import type { BookingDto, CreateBookingDto } from "@event-mgmt/shared-schemas";
-import { apiSlice } from '../apiSlice'
+import { apiSlice } from '../apiSlice';
 import { addToast } from '../../../store/slices/ui';
 export const bookingsApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({

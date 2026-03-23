@@ -2,8 +2,7 @@ import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError 
 import { Mutex } from 'async-mutex'
 import { apiUrl } from '@constants/config'
 import { setCredentials, clearCredentials } from './auth/authSlice'
-import type { RootState } from '../index';
-import { AuthResponseDto } from '@event-mgmt/shared-schemas';
+import { AuthResponseDto, RefreshTokenDto } from '@event-mgmt/shared-schemas';
 
 interface ServerResponse<T> {
   statusCode: number;
@@ -17,10 +16,16 @@ const apiTags = ['Event', 'User', 'Booking', 'Coupon'] as const;
 
 const mutex = new Mutex();
 
+interface PartialAuthState {
+  auth: {
+    accessToken?: string,
+    refreshToken?: string,
+  }
+}
 const baseQuery = fetchBaseQuery({
   baseUrl: new URL(apiUrl, location.origin).href,
   prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.accessToken;
+    const token = (getState() as PartialAuthState).auth.accessToken;
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -43,7 +48,7 @@ const baseQueryWithReauth: BaseQueryFn<
     if (!mutex.isLocked()) {
       const release = await mutex.acquire();
       try {
-        const state = api.getState() as RootState;
+        const state = api.getState() as PartialAuthState;
         const refreshToken = state.auth.refreshToken;
 
         if (refreshToken) {
@@ -52,7 +57,7 @@ const baseQueryWithReauth: BaseQueryFn<
             {
               url: '/auth/refresh',
               method: 'POST',
-              body: { refreshToken },
+              body: { refreshToken } as RefreshTokenDto,
             },
             api,
             extraOptions

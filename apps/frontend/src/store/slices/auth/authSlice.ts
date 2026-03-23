@@ -1,7 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction, Reducer } from '@reduxjs/toolkit';
 import { UserDto, RegisterDto, LoginDto, AuthResponseDto } from '@event-mgmt/shared-schemas';
-import type { RootState } from '../../index'
-
 export interface AuthState {
   user: UserDto | null;
   accessToken: string | null;
@@ -85,18 +83,21 @@ const authSlice = createSlice({
   },
 });
 
-export const selectIsAuthenticated = (state: RootState) => 
+interface AuthRootState {
+  auth: AuthState;
+}
+export const selectIsAuthenticated = (state: AuthRootState) => 
   !!state.auth.accessToken && !!state.auth.user;
 
-export const selectIsInitializing = (state: RootState) =>
+export const selectIsInitializing = (state: AuthRootState) =>
   !!state.auth.accessToken && !state.auth.user;
 
-export const selectCurrentUserData = (state: RootState) => 
+export const selectCurrentUserData = (state: AuthRootState) => 
   !!state.auth.user && state.auth.user
-export const selectUserRole = (state: RootState) => 
+export const selectUserRole = (state: AuthRootState) => 
   !!state.auth.user && state.auth.user.role || 'CUSTOMER'
 
-export const selectUserAccessToken = (state: RootState) =>
+export const selectUserAccessToken = (state: AuthRootState) =>
   state.auth.accessToken
 
 export const { 

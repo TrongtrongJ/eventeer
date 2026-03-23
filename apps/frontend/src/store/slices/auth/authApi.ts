@@ -1,6 +1,15 @@
-import { AuthResponseDto, ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, ResetPasswordFormDto, UserDto } from '@event-mgmt/shared-schemas';
-import { apiSlice } from '../apiSlice'
-import { setCredentials, clearCredentials, setUserData } from './authSlice'
+import { 
+  AuthResponseDto, 
+  ChangePasswordDto, 
+  ForgotPasswordDto, 
+  LoginDto, 
+  RegisterDto, 
+  ResetPasswordDto, 
+  ResetPasswordFormDto, 
+  UserDto 
+} from '@event-mgmt/shared-schemas';
+import { apiSlice } from '../apiSlice';
+import { setCredentials, clearCredentials, setUserData } from './authSlice';
 import { addToast } from '../ui';
 
 export const authApi = apiSlice.injectEndpoints({

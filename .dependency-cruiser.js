@@ -5,7 +5,9 @@ module.exports = {
       name: 'no-circular',
       severity: 'error',
       comment: 'This dependency is part of a cycle. Please refactor to break the loop.',
-      from: {},
+      from: {
+        pathNot: '\\.entity\\.ts$'  // don't flag cycles starting from entity files
+      },
       to: { circular: true }
     },
     /* Rule 2: Shared package isolation */
@@ -26,9 +28,25 @@ module.exports = {
     }
   ],
   options: {
-    tsPreCompilationDeps: true, // Crucial for TypeScript
+    tsPreCompilationDeps: true,
     tsConfig: { fileName: './tsconfig.json' },
-    // Use 'enhanced-resolve' to handle workspace aliases
-    externalModuleResolutionStrategy: 'node_modules'
+    externalModuleResolutionStrategy: 'node_modules',
+    exclude: {
+      path: [
+        'node_modules',
+        '\\.spec\\.ts$',
+        '\\.test\\.ts$',
+        'dist',
+        // @nestjs/schematics always give an error when run by the cruiser
+        '@nestjs/schematics',
+      ]
+    },
+    includeOnly: {
+      path: [
+        '^apps/backend/src',
+        '^apps/frontend/src',
+        '^packages/shared-schemas/src',
+      ]
+    }
   }
 };

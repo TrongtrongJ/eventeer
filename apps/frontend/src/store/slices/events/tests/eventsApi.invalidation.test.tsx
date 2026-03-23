@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { useGetEventsQuery, useCreateEventMutation } from '../eventsApi';
 import { setupTestStore } from '../../../../test-utils/test-utils'; // Assume you moved the store setup here
 import { apiSlice } from '../../apiSlice';
-import { AppStore } from '../../..';
+import { AppStore } from '../../../types';
 import { eventsApiMock, mockEventNew, mockEventNewTitle, resetMockEventDb } from './mock-data';
 
 let store: AppStore;

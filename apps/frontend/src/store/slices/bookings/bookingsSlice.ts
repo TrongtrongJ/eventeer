@@ -1,7 +1,5 @@
 import { createSlice, Reducer } from "@reduxjs/toolkit";
 import { BookingDto } from "@event-mgmt/shared-schemas";
-import { RootState } from "../../index";
-
 export interface BookingsState {
   currentBooking: (BookingDto & { clientSecret?: string }) | null;
 }
@@ -18,7 +16,5 @@ const bookingsSlice = createSlice({
     },
   },
 });
-
-const useCurrentBookingSelector = (state: RootState) => state.bookings.currentBooking;
 export const { clearCurrentBooking } = bookingsSlice.actions;
 export default bookingsSlice.reducer as Reducer<BookingsState>;
