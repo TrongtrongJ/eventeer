@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { Booking } from './booking.entity';
 import { Event } from './event.entity';
 import { Session } from './session.entity';
+import { RefreshToken } from '../users/refresh-token.entity';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -25,8 +26,11 @@ export class User {
   @Index()
   email: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  password?: string; // Nullable for OAuth users
+  //@Column({ type: 'varchar', length: 255, nullable: true })
+  // password?: string; // Nullable for OAuth users
+
+  @Column({ type: "varchar", name: "password_hash" })
+  passwordHash: string;
 
   @Column({ type: 'varchar', length: 100 })
   firstName: string;
@@ -50,16 +54,16 @@ export class User {
   isEmailVerified: boolean;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  emailVerificationToken?: string;
+  emailVerificationToken?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  emailVerificationExpires?: Date;
+  emailVerificationExpires?: Date | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  passwordResetToken?: string;
+  passwordResetToken?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  passwordResetExpires?: Date;
+  passwordResetExpires?: Date | null;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
@@ -75,6 +79,9 @@ export class User {
 
   @OneToMany(() => Session, session => session.user)
   sessions: Session[];
+
+  @OneToMany(() => RefreshToken, rt => rt.user, { cascade: true })
+  refreshTokens: RefreshToken[];
 
   @Column({ type: 'simple-json', nullable: true })
   metadata?: Record<string, any>; // For storing OAuth profile data

@@ -19,11 +19,11 @@ async function bootstrap() {
   const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
   
   if (!jwtSecret || !jwtRefreshSecret) {
-    console.error('❌ CRITICAL: JWT secrets not configured!');
+    console.error('RITICAL: JWT secrets not configured!');
     console.error('Please set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET in your .env file');
     console.warn('Using fallback secrets for development (NOT SECURE)');
   } else {
-    console.log('✅ JWT secrets configured');
+    console.log('JWT secrets configured');
   }
 
   app.use(CorrelationIdMiddleware);
@@ -48,7 +48,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`Application is running on: http://localhost:${port}`);
 }
 
 bootstrap();

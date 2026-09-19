@@ -1,33 +1,47 @@
 {
-  "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
-  "pipeline": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "build/**"]
-    },
-    "test": {
-      "dependsOn": ["build"],
-      "outputs": ["coverage/**"],
-      "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
-    },
-    "test:integration": {
-      "dependsOn": ["build"]
-    },
-    "lint": {
-      "outputs": []
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true,
-      "outputMode": "full"
-    },
-    "seed:demo": {
-      "cache": false,
-      "interactive": true
-    },
-    "clean": {
-      "cache": false
+    "globalDependencies": ["**/.env.*local"],
+    "tasks": {
+        "build": {
+            "dependsOn": ["^build"],
+            "outputs": ["dist/**", ".next/**", "build/**"]
+        },
+        "lint": {},
+        "test": {
+            "dependsOn": ["build"],
+            "outputs": ["coverage/**"],
+            "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
+        },
+        "test:integration": {
+            "cache": false,
+            "dependsOn": ["build"],
+            "env": ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "COOKIE_SECRET", "TESTCONTAINERS_RYUK_DISABLED"]
+        },
+        "typecheck": {
+            "outputs": []
+        },
+        "//#knip": {
+            "inputs": ["**/*.ts", "**/*.tsx", "package.json", "knip.json"],
+            "cache": true
+        },
+        "format": {
+            "dependsOn": [],
+            "outputs": []
+        },
+        "format:check": {
+            "dependsOn": [],
+            "outputs": []
+        },
+        "dev": {
+            "dependsOn": ["^build"],
+            "cache": false,
+            "persistent": true
+        },
+        "seed:demo": {
+            "cache": false,
+            "interactive": true
+        },
+        "clean": {
+            "cache": false
+        }
     }
-  }
 }

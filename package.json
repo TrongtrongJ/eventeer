@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev --no-cache",
-    "dev:backend": "turbo run dev --filter=event-management-backend",
-    "dev:frontend": "turbo run dev --filter=event-management-frontend",
+    "dev": "turbo run dev --ui=tui",
+    "dev:backend": "turbo run dev --ui=tui --filter=@eventeer/backend",
+    "dev:frontend": "turbo run dev --ui=tui --filter=@eventeer/frontend",
     "seed:demo": "turbo run seed:demo",
     "build": "turbo run build",
     "test": "turbo run test",
@@ -17,18 +17,16 @@
     "lint": "turbo run lint",
     "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
     "visualize:deps": "depcruise --config .dependency-cruiser.js apps --output-type dot | dot -T svg > dependency-graph.svg",
-    "clean": "turbo run clean && rm -rf node_modules",
-    "install:all": "pnpm install"
+    "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@commitlint/config-conventional": "^21.2.2",
     "concurrently": "^8.2.2",
     "dependency-cruiser": "^17.3.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
     "prettier": "^3.8.1",
-    "turbo": "^1.10.0",
+    "turbo": "^2.9.0",
     "typescript": "^5.0.0"
-  },
-  "packageManager": "pnpm@8.6.0",
-  "dependencies": {
-    "zod": "4.0.0"
   }
 }

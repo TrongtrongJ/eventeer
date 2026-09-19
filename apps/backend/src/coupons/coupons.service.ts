@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Coupon, DiscountType } from '../entities/coupon.entity';
 import { Event } from '../entities/event.entity';
-import { CreateCouponDto, CouponDto, ApplyCouponDto } from '@event-mgmt/shared-schemas';
+import { CreateCouponDto, CouponDto, ApplyCouponDto } from '@packages/shared-schemas';
 import { InjectRedis } from '@liaoliaots/nestjs-redis';
 import Redis from 'ioredis';
 import { UserRole } from '../entities/user.entity';
@@ -328,6 +328,7 @@ export class CouponsService {
       isActive: coupon.isActive,
       createdAt: coupon.createdAt.toISOString(),
       updatedAt: coupon.updatedAt.toISOString(),
+      eventTicketPrice: coupon.event.ticketPrice
     };
   }
 }

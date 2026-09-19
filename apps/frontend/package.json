@@ -2,15 +2,35 @@
   "name": "@eventeer/web",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "analyze:bundler": "next experimental-analyze",
+    "analyze:bundler:output": "next experimental-analyze --output",
+    "build": "next build",
+    "dev": "rimraf .next && next dev --port 3000",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint src",
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .next out",
+    "generate:api": "rtk-query-codegen-openapi openapi-config.ts",
+    "test": "vitest run --passWithNoTests",
+    "prepare": "husky"
+  },
   "dependencies": {
-    "@event-mgmt/shared-schemas": "workspace:*",
     "@hookform/resolvers": "^3.10.0",
+    "@orpc/client": "^1.15.0",
+    "@orpc/react-query": "^1.15.0",
+    "@packages/contract": "workspace:*",
+    "@packages/shared-schemas": "workspace:*",
     "@reduxjs/toolkit": "^2.11.2",
     "@stripe/react-stripe-js": "^2.4.0",
     "@stripe/stripe-js": "^2.2.0",
     "@tanstack/react-query": "^5.90.21",
     "async-mutex": "^0.5.0",
     "axios": "^1.6.0",
+    "next": "^16.3.3",
+    "next-intl": "^4.14.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.71.2",
@@ -21,9 +41,12 @@
     "redux-thunk": "^3.1.0",
     "socket.io-client": "^4.6.0",
     "vite-plugin-pages": "^0.33.2",
-    "zod": "^3.25.67"
+    "zod": "^4"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.3.3",
+    "@packages/eslint-config": "workspace:*",
+    "@packages/prettier-config": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^25.2.3",
@@ -40,12 +63,6 @@
     "unplugin-auto-import": "^21.0.0",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
-  },
-  "scripts": {
-    "dev": "vite",
-    "preview": "vite preview",
-    "build": "tsc && vite build",
-    "test": "vitest run"
   },
   "eslintConfig": {
     "extends": [

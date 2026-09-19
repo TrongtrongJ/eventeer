@@ -1,35 +1,20 @@
 import {
   Controller,
-  Post,
   Get,
-  Body,
   Req,
   Query,
-  HttpCode,
-  HttpStatus,
   Res,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
-import {
-  RegisterDto,
-  LoginDto,
-  RefreshTokenDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  VerifyEmailDto,
-  RegisterSchema,
-  LoginSchema,
-  RefreshTokenSchema,
-  ForgotPasswordSchema,
-  ResetPasswordSchema,
-  VerifyEmailSchema,
-} from '@event-mgmt/shared-schemas';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { CurrentUser, CurrentUserData } from './decorators/current-user.decorator';
 import * as crypto from 'crypto';
-import { Public } from 'src/auth/decorators/public.decorator';
+import { Implement } from '@orpc/nest';
+import { implement } from '@orpc/server';
+import { authContract } from '@packages/contract';
+import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
+import { withCurrentUser } from '../common/middleware/current-user.middleware';
+import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -38,122 +23,140 @@ export class AuthController {
     private readonly oauthService: OAuthService,
   ) {}
 
-  @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(
-    @Body(new ZodValidationPipe(RegisterSchema)) registerDto: RegisterDto,
-    @Req() req: any,
-  ) {
-    const result = await this.authService.register(registerDto, req.correlationId);
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.register)
+  async register() {
+    return implement(authContract.register)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { correlationId } = context;
+        const result = await this.authService.register(input, correlationId);
+        return {
+          success: true,
+          data: result,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body(new ZodValidationPipe(LoginSchema)) loginDto: LoginDto, @Req() req: any) {
-    const result = await this.authService.login(
-      loginDto,
-      req.ip,
-      req.headers['user-agent'],
-      req.correlationId,
-    );
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.login)
+  async login() {
+    return implement(authContract.login)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { correlationId, request } = context;
+        const result = await this.authService.login(
+          input,
+          request.ip || '',
+          request.headers['user-agent'] || '',
+          correlationId,
+        );
+        return {
+          success: true,
+          data: result,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body(new ZodValidationPipe(RefreshTokenSchema)) refreshTokenDto: RefreshTokenDto,
-    @Req() req: any,
-  ) {
-    const result = await this.authService.refreshToken(
-      refreshTokenDto.refreshToken,
-      req.correlationId,
-    );
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.refresh)
+  async refresh() {
+    return implement(authContract.refresh)
+      .use(withCorrelationId)
+      .handler(async ({ context }) => {
+        const { correlationId, request } = context;
+        const result = await this.authService.refresh(request);
+        return {
+          success: true,
+          data: result,
+          correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@CurrentUser() user: CurrentUserData, @Req() req: any) {
-    await this.authService.logout(user.sessionId, req.correlationId);
+  @Implement(authContract.logout)
+  async logout() {
+    return implement(authContract.logout)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ context }) => {
+        const { request, user, correlationId } = context;
+        await this.authService.logout(user.sessionId, request, correlationId);
+        return {
+          success: true,
+          data: null,
+          correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
-  @Post('verify-email')
-  @HttpCode(HttpStatus.OK)
-  async verifyEmail(
-    @Body(new ZodValidationPipe(VerifyEmailSchema)) verifyDto: VerifyEmailDto,
-    @Req() req: any,
-  ) {
-    await this.authService.verifyEmail(verifyDto.token, req.correlationId);
-    return {
-      success: true,
-      message: 'Email verified successfully',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.verifyEmail)
+  async verifyEmail() {
+    return implement(authContract.verifyEmail)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { correlationId } = context;
+        await this.authService.verifyEmail(input.token, correlationId);
+        return {
+          success: true,
+          data: { message: 'Email verified successfully' },
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  async forgotPassword(
-    @Body(new ZodValidationPipe(ForgotPasswordSchema)) forgotDto: ForgotPasswordDto,
-    @Req() req: any,
-  ) {
-    await this.authService.forgotPassword(forgotDto.email, req.correlationId);
-    return {
-      success: true,
-      message: 'Password reset email sent',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.forgotPassword)
+  async forgotPassword() {
+    return implement(authContract.forgotPassword)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { correlationId } = context;
+        await this.authService.forgotPassword(input.email, correlationId);
+        return {
+          success: true,
+          data: { message: 'Password reset email sent' },
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  async resetPassword(
-    @Body(new ZodValidationPipe(ResetPasswordSchema)) resetDto: ResetPasswordDto,
-    @Req() req: any,
-  ) {
-    await this.authService.resetPassword(resetDto.token, resetDto.newPassword, req.correlationId);
-    return {
-      success: true,
-      message: 'Password reset successfully',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.resetPassword)
+  async resetPassword() {
+    return implement(authContract.resetPassword)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { token, newPassword } = input;
+        const { correlationId } = context;
+        await this.authService.resetPassword(token, newPassword, correlationId);
+        return {
+          success: true,
+          data: { message: 'Password reset successfully' },
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Get('me')
-  async getCurrentUser(@CurrentUser() user: CurrentUserData, @Req() req: any) {
-    const fullUser = await this.authService.validateUser(user.userId);
-    return {
-      success: true,
-      data: fullUser,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(authContract.me)
+  async me() {
+    return implement(authContract.me)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ context }) => {
+        const { user, correlationId } = context;
+        const fullUser = await this.authService.validateUser(user.userId);
+        return {
+          success: true,
+          data: fullUser,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
   @Public()

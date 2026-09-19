@@ -1,41 +1,42 @@
 import {
   Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  Req,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { EventsService, EventFilters } from './events.service';
-import {
-  CreateEventDto,
-  UpdateEventDto,
-  CreateEventSchema,
-  UpdateEventSchema,
-} from '@event-mgmt/shared-schemas';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '../entities/user.entity';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { PaginationQueryDto } from '../common/dto/pagination.dto';
-import { ApiPaginatedResponse } from '../common/decorators/api-paginated-response.decorator';
+import { Implement } from '@orpc/nest';
+import { eventContract } from '@packages/contract';
+import { implement } from '@orpc/server';
+import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
+import { withCurrentUser } from '../common/middleware/current-user.middleware';
+import { requireRoles } from '../common/middleware/require-roles.middleware';
+import { withBaseUrl } from '../common/middleware/base-url.middleware';
 
 @ApiTags('events')
 @Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  @Post()
+  @Implement(eventContract.create)
+  async create() {
+    return implement(eventContract.create)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+      .handler(async ({ input, context }) => {
+        const { user, correlationId } = context;
+        const event = await this.eventsService.create(input, user.userId, correlationId);
+        return {
+          success: true,
+          data: event,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
+  }
+
+  /*@Post()
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.CREATED)
@@ -52,9 +53,38 @@ export class EventsController {
       correlationId: req.correlationId,
       timestamp: new Date().toISOString(),
     };
+  } */
+
+  @Implement(eventContract.findAll)
+  async findAll() {
+    return implement(eventContract.findAll)
+      .use(withCorrelationId)
+      .use(withBaseUrl)
+      .handler(async ({ input, context }) => {
+        const { pagination, location, minPrice, maxPrice, startDate, endDate, availableOnly } = input;
+        const { correlationId, baseUrl } = context;
+        const filters: EventFilters = {
+          location: location,
+          minPrice: minPrice ? Number(minPrice) : undefined,
+          maxPrice: maxPrice ? Number(maxPrice) : undefined,
+          startDate: startDate,
+          endDate: endDate,
+          availableOnly: availableOnly === true,
+        };
+
+        const result = await this.eventsService.findAllPaginated(pagination, filters, baseUrl);
+
+        return {
+          success: true,
+          ...result,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Public()
+
+  /* @Public()
   @Get()
   @ApiOperation({ summary: 'Get all events with pagination and filtering' })
   @ApiPaginatedResponse(Object)
@@ -97,9 +127,25 @@ export class EventsController {
       correlationId: req.correlationId,
       timestamp: new Date().toISOString(),
     };
-  }
+  } */
 
-  @Public()
+  @Implement(eventContract.findOne)
+  async findOne() {
+    return implement(eventContract.findOne)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { correlationId } = context;
+        const event = await this.eventsService.findOne(input.id, correlationId);
+        return {
+          success: true,
+          data: event,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
+  }
+  
+  /*@Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get event by ID' })
   async findOne(@Param('id') id: string, @Req() req: any) {
@@ -110,9 +156,27 @@ export class EventsController {
       correlationId: req.correlationId,
       timestamp: new Date().toISOString(),
     };
+  }*/
+
+  @Implement(eventContract.getMyEvents)
+  async getMyEvents() {
+    return implement(eventContract.getMyEvents)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+      .handler(async ({ context }) => {
+        const { user, correlationId } = context;
+        const events = await this.eventsService.findByOrganizer(user.userId);
+        return {
+          success: true,
+          data: events,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Get('my/events')
+  /* @Get('my/events')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get current user events' })
@@ -124,9 +188,35 @@ export class EventsController {
       correlationId: req.correlationId,
       timestamp: new Date().toISOString(),
     };
+  } */
+
+  @Implement(eventContract.updateEvent)
+  async updateEvent() {
+    return implement(eventContract.updateEvent)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+      .handler(async ({ input, context }) => {
+        const { user, correlationId } = context;
+        
+        if (user.role !== UserRole.ADMIN) {
+          const event = await this.eventsService.findOne(input.params.id, correlationId);
+          if (event.organizerId !== user.userId) {
+            throw new ForbiddenException('You can only update your own events');
+          }
+        }
+
+        const event = await this.eventsService.update(input.params.id, input.body, correlationId);
+        return {
+          success: true,
+          data: event,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        };
+      });
   }
 
-  @Put(':id')
+  /*@Put(':id')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Update event' })
@@ -150,9 +240,36 @@ export class EventsController {
       correlationId: req.correlationId,
       timestamp: new Date().toISOString(),
     };
+  }*/
+
+  @Implement(eventContract.deleteEvent)
+  async deleteEvent() {
+    return implement(eventContract.deleteEvent)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+      .handler(async ({ input, context }) => {
+        const { id } = input;
+        const { user, correlationId } = context;
+        if (user.role !== UserRole.ADMIN) {
+          const event = await this.eventsService.findOne(id, correlationId);
+          if (event.organizerId !== user.userId) {
+            throw new ForbiddenException('You can only delete your own events');
+          }
+        }
+
+        await this.eventsService.delete(id, correlationId);
+
+        return {
+          success: true,
+          data: null,
+          correlationId: correlationId,
+          timestamp: new Date().toISOString(),
+        }
+      });
   }
 
-  @Delete(':id')
+  /*@Delete(':id')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -166,5 +283,12 @@ export class EventsController {
     }
 
     await this.eventsService.delete(id, req.correlationId);
-  }
+
+    return {
+      success: true,
+      data: null,
+      correlationId: req.correlationId,
+      timestamp: new Date().toISOString(),
+    }
+  }*/
 }

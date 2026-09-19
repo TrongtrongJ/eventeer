@@ -3,6 +3,7 @@
   "references": [
     { "path": "./apps/frontend" },
     { "path": "./apps/backend" },
-    { "path": "./packages/shared-schemas"}
+    { "path": "./packages/shared-schemas" },
+    { "path": "./packages/contract" }
   ]
 }

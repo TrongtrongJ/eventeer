@@ -1,35 +1,34 @@
 {
-  "name": "@event-mgmt/shared-schemas",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+    "name": "@packages/shared-schemas",
+    "version": "0.0.1",
+    "private": true,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "lint": "eslint src",
+        "type-check": "tsc --noEmit",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "zod": "^4.0.0"
+    },
+    "devDependencies": {
+        "@packages/eslint-config": "workspace:*",
+        "@packages/prettier-config": "workspace:*",
+        "eslint": "^10.4.0",
+        "prettier": "^3.8.3",
+        "typescript": "^5.8.3"
     }
-  },
-  "outDir": "./dist",
-  "rootDir": "./src",
-  "files": [
-    "dist",
-    "src"
-  ],
-  "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts-resolve",
-    "dev": "tsup src/index.ts --format cjs,esm --watch --dts",
-    "lint": "eslint ."
-  },
-  "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^8.2.0",
-    "zod": "^3.22.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.5.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.0.0"
-  }
 }

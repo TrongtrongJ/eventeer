@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullModule } from '@nestjs/bull';
+import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
@@ -18,13 +16,9 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
-import { Event } from './entities/event.entity';
-import { Booking } from './entities/booking.entity';
-import { Coupon } from './entities/coupon.entity';
-import { Ticket } from './entities/ticket.entity';
-import { User } from './entities/user.entity';
-import { Session } from './entities/session.entity';
-import { Role } from './entities/role.entity';
+import { UsersModule } from './users/user.module';
+import { registerTypeORMWithConfig } from './config/typeorm.config';
+import { registerBullMQWithConfig } from './config/bull.config';
 
 @Module({
   imports: [
@@ -32,33 +26,10 @@ import { Role } from './entities/role.entity';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('DB_HOST', 'localhost'),
-        port: config.get('DB_PORT', 5432),
-        username: config.get('DB_USERNAME', 'postgres'),
-        password: config.get('DB_PASSWORD', 'postgres'),
-        database: config.get('DB_NAME', 'event_management'),
-        entities: [Event, Booking, Coupon, Ticket, User, Session, Role],
-        synchronize: config.get('NODE_ENV') !== 'production',
-        logging: config.get('NODE_ENV') === 'development',
-      }),
-    }),
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get('REDIS_HOST', 'localhost'),
-          port: config.get('REDIS_PORT', 6379),
-        },
-      }),
-    }),
+    registerTypeORMWithConfig(),
+    registerBullMQWithConfig(),
     AuthModule,
-    // UsersModule,
+    UsersModule,
     EventsModule,
     BookingsModule,
     CouponsModule,

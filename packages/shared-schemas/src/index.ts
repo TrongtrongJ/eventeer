@@ -7,10 +7,12 @@ export * from "./payment.schemas";
 export * from "./ticket-validation.schemas";
 export * from "./pagination.schemas";
 export * from "./user.schemas";
+export * from './cookie.const';
+export * from './base/const';
 
 // WebSocket Event Types
 export const SeatAvailabilityUpdateSchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: z.uuid(),
   availableSeats: z.number().int().min(0),
   capacity: z.number().int().positive(),
   timestamp: z.string().datetime(),
@@ -26,8 +28,8 @@ export const ApiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
     success: z.boolean(),
     data: dataSchema.optional(),
     error: z.string().optional(),
-    correlationId: z.string().uuid(),
-    timestamp: z.string().datetime(),
+    correlationId: z.uuid(),
+    timestamp: z.iso.datetime(),
   });
 
 export type ApiResponse<T> = {

@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Event } from '../entities/event.entity';
 import { Booking } from '../entities/booking.entity';
+import { UsersModule } from '../users/user.module';
 
 @Global()
 @Module({
@@ -23,6 +24,7 @@ import { Booking } from '../entities/booking.entity';
     HttpModule,
     TypeOrmModule.forFeature([User, Session, Role, Event, Booking]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    UsersModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

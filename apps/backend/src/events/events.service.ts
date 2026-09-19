@@ -2,9 +2,9 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, DataSource, EntityManager } from 'typeorm';
 import { Event } from '../entities/event.entity';
-import { CreateEventDto, UpdateEventDto, EventDto } from '@event-mgmt/shared-schemas';
+import { CreateEventDto, UpdateEventDto, EventDto } from '@packages/shared-schemas';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
-import { PaginationQueryDto, PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { PaginationQueryDto, PaginatedResponseDto, buildPaginatedResponse } from '../common/dto/pagination.dto';
 import { ResourceNotFoundException } from '../common/exceptions/business.exception';
 
 export interface EventFilters {
@@ -42,7 +42,7 @@ export class EventsService {
     filters: EventFilters,
     baseUrl?: string,
   ): Promise<PaginatedResponseDto<EventDto>> {
-    const { page = 1, limit = 10, sortBy = 'startDate', sortOrder = 'ASC', search } = pagination;
+    const { page = 1, limit = 10, sortBy = 'startDate', sortOrder, search } = pagination;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -121,7 +121,7 @@ export class EventsService {
 
     const eventDtos = events.map((event) => this.toDto(event));
 
-    return new PaginatedResponseDto(eventDtos, total, page, limit, baseUrl);
+    return new PaginatedResponseDto(eventDtos, total, page, limit, baseUrl!);
   }
 
   async create(

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Ticket } from '../entities/ticket.entity';
-import { ValidateTicketDto } from '@event-mgmt/shared-schemas';
+import { EventTicketDataDto, ValidateTicketDto, ValidateTicketResDto } from '@packages/shared-schemas';
 
 @Injectable()
 export class TicketsService {
@@ -16,11 +16,7 @@ export class TicketsService {
   async validateTicket(
     validateDto: ValidateTicketDto,
     correlationId: string,
-  ): Promise<{
-    isValid: boolean;
-    ticket?: any;
-    message: string;
-  }> {
+  ): Promise<ValidateTicketResDto> {
     this.logger.log({
       message: 'Validating ticket',
       correlationId,
@@ -62,7 +58,7 @@ export class TicketsService {
         isValid: false,
         ticket: {
           ticketNumber: ticket.ticketNumber,
-          validatedAt: ticket.validatedAt,
+          validatedAt: ticket.validatedAt!.toISOString(),
         },
         message: 'Ticket already used',
       };
@@ -86,13 +82,13 @@ export class TicketsService {
         ticketNumber: ticket.ticketNumber,
         eventTitle: ticket.booking.event.title,
         holderName: `${ticket.booking.firstName} ${ticket.booking.lastName}`,
-        validatedAt: ticket.validatedAt,
+        validatedAt: ticket.validatedAt!.toISOString(),
       },
       message: 'Ticket validated successfully',
     };
   }
 
-  async getTicketByQRCode(qrCode: string): Promise<any> {
+  async getTicketByQRCode(qrCode: string): Promise<EventTicketDataDto> {
     const ticket = await this.ticketRepository.findOne({
       where: { qrCode },
       relations: ['booking', 'booking.event'],

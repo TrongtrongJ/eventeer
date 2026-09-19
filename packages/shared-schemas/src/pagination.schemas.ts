@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
-extendZodWithOpenApi(z);
-
+const validSortOrder = ["ASC", "DESC"] as const
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
   sortBy: z.string().optional(),
-  sortOrder: z.enum(["ASC", "DESC"]).default("ASC"),
+  sortOrder: z.enum(validSortOrder).default("ASC"),
   search: z.string().optional(),
 });
 

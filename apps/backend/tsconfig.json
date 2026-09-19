@@ -1,36 +1,26 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "Node",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "composite": true,
-    "baseUrl": ".",
-    "incremental": true,
-    "skipLibCheck": true,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false,
-    "paths": {
-     "@event-mgmt/shared-schemas": ["../../packages/shared-schemas/dist"],
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES2021",
+        //"module": "CommonJS",
+        //"moduleResolution": "node",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "types": ["jest", "node"],
+        "sourceMap": true,
+        "declaration": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "resolveJsonModule": true,
+        "strictPropertyInitialization": false
     },
-    "types": ["jest", "node"],
-    "typeRoots": [
-      "./node_modules/@types",
-      "../../node_modules/@types"
-    ]
-  },
-  "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../../packages/shared-schemas" }
-  ],
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+    "ts-node": {
+      "compilerOptions": {
+        "module": "CommonJS"
+      }
+    },
+    "include": ["src/**/*", "eslint.config.js"],
+    "exclude": ["node_modules", "dist"]
 }

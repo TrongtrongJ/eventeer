@@ -4,3 +4,9 @@ coverage
 *.log
 *.md
 .turbo
+.next
+build
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+**/migrations/**
