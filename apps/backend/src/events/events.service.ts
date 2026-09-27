@@ -232,13 +232,10 @@ export class EventsService {
     manager: EntityManager,
   ): Promise<void> {
     await manager.transaction(async (manager) => {
-      console.log("before finding one !!!")
       const event = await manager.findOne(Event, {
         where: { id: eventId },
         lock: { mode: 'pessimistic_write_or_fail' },
       });
-
-      console.log("after finding one !!!")
 
       if (!event) {
         throw new ResourceNotFoundException('Event', eventId);
@@ -282,80 +279,6 @@ export class EventsService {
       });
     });
   }
- /* async updateAvailableSeats(eventId: string, change: number, correlationId: string): Promise<void> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    console.log("Starting available seats transaction !!!!")
-
-    try {
-      // Lock the event row with FOR UPDATE
-      const event = await queryRunner.manager
-        .createQueryBuilder(Event, 'event')
-        .setLock('pessimistic_write')
-        .where('event.id = :id', { id: eventId })
-        .getOne();
-
-      if (!event) {
-        throw new NotFoundException(`Event with ID ${eventId} not found`);
-      }
-
-      const newAvailable = event.availableSeats + change;
-
-      if (newAvailable < 0) {
-        throw new Error('Insufficient available seats');
-      }
-
-      if (newAvailable > event.capacity) {
-        throw new Error('Available seats cannot exceed capacity');
-      }
-
-      // Update using query builder to avoid version conflicts
-      await queryRunner.manager
-        .createQueryBuilder()
-        .update(Event)
-        .set({ 
-          availableSeats: newAvailable,
-          version: () => 'version + 1'
-        })
-        .where('id = :id', { id: eventId })
-        .execute();
-
-      await queryRunner.commitTransaction();
-
-      this.logger.log({
-        message: 'Seat availability updated',
-        correlationId,
-        eventId,
-        change,
-        newAvailable,
-      });
-
-      // Emit real-time update (outside transaction)
-      this.websocketGateway.emitSeatUpdate({
-        eventId: event.id,
-        availableSeats: newAvailable,
-        capacity: event.capacity,
-        timestamp: new Date().toISOString(),
-      });
-
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error({
-        message: 'Failed to update seat availability',
-        correlationId,
-        eventId,
-        change,
-        error: error.message,
-      });
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  } */
-
 
   async delete(id: string, correlationId: string): Promise<void> {
     const result = await this.eventRepository.delete(id);

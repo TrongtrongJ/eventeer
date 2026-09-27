@@ -1,12 +1,10 @@
 import { Injectable, Inject, ConflictException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThan, Repository } from "typeorm";
-import bcrypt from "bcrypt";
+import bcrypt from "@node-rs/bcrypt";
 import crypto from "crypto";
 import { User } from "../entities/user.entity";
 import { RefreshToken } from "./refresh-token.entity";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import type { Cache } from "cache-manager";
 import { EnvConfig } from "../env.validation";
 import { ConfigService } from "@nestjs/config";
 
@@ -23,8 +21,6 @@ export class UsersService {
         private readonly rtRepo: Repository<RefreshToken>,
 
         private readonly configService: ConfigService<EnvConfig, true>,
-
-        @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) {}
 
     // ── User CRUD ─────────────────────────────────────────────────────────────

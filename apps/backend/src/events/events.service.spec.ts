@@ -6,7 +6,6 @@ import { Event } from '../entities/event.entity';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { NotFoundException } from '@nestjs/common';
 import { EntityManager, DataSource } from 'typeorm';
-import { ResourceNotFoundException } from 'src/common/exceptions/business.exception';
 
 
 describe('EventsService', () => {

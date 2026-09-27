@@ -13,7 +13,7 @@ import { BookingsModule } from '../bookings/bookings.module';
       sortSchema: true,
       playground: true, // Enable GraphQL Playground
       context: ({ req }) => ({ req }), // Pass request to resolvers
-      formatError: (error) => {
+      formatError: (error: any) => {
         return {
           message: error.message,
           code: error.extensions?.code,

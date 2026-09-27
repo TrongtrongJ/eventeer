@@ -10,7 +10,6 @@ import { GqlRolesGuard } from '../auth/guards/gql-roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
-import { SortOrder } from 'src/common/dto/pagination.dto';
 
 @Resolver(() => EventType)
 export class EventsResolver {
@@ -30,7 +29,7 @@ export class EventsResolver {
       search: filters?.search,
       // location: filters?.location,
       sortBy: filters?.sortBy || 'startDate',
-      sortOrder: filters?.sortOrder || SortOrder.ASC,
+      sortOrder: filters?.sortOrder || 'DESC',
     }, {});
 
     return events;

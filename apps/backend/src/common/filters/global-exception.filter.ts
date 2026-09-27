@@ -6,9 +6,10 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { CurrentUserData } from '@event-mgmt/shared-schemas';
+import { CurrentUserData } from '@packages/shared-schemas';
 import { QueryFailedError } from 'typeorm';
 import type { Request, Response } from 'express';
+import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware';
 
 interface ErrorResponse {
   statusCode: number;
@@ -32,7 +33,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<RequestWithUserData>();
-    const correlationId = request['correlationId'] || 'unknown';
+    const correlationId = (request.headers[CORRELATION_ID_HEADER] || 'unknown') as string;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';

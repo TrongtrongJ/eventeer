@@ -9,12 +9,12 @@ declare module "@orpc/server" {
 }
 export const CORRELATION_ID_HEADER = 'x-correlation-id';
 
-export function CorrelationIdMiddleware(req: Request, res: Response, next: NextFunction) {
+/*export function CorrelationIdMiddleware(req: Request, res: Response, next: NextFunction) {
   const correlationId = req.headers[CORRELATION_ID_HEADER] as string || uuidv7();
   req['correlationId'] = correlationId;
   res.setHeader(CORRELATION_ID_HEADER, correlationId);
   next();
-};
+};*/
 
 export const withCorrelationId = os
   // Explicitly expect the request object in the initial context

@@ -1,5 +1,5 @@
 import { Processor, Process } from '@nestjs/bull';
-import { Job } from 'bull';
+import type { Job } from 'bull';
 import { Logger } from '@nestjs/common';
 import { EmailService, EmailJob } from './email.service';
 
@@ -26,7 +26,7 @@ export class EmailProcessor {
         jobId: job.id,
         correlationId: job.data.correlationId,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to process booking confirmation email',
         jobId: job.id,
@@ -55,7 +55,7 @@ export class EmailProcessor {
         jobId: job.id,
         correlationId: job.data.correlationId,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to send verification email',
         jobId: job.id,
@@ -84,7 +84,7 @@ export class EmailProcessor {
         jobId: job.id,
         correlationId: job.data.correlationId,
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to send password reset email',
         jobId: job.id,

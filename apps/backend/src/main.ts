@@ -3,7 +3,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 
@@ -12,6 +11,7 @@ patchNestJsSwagger();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    bodyParser: false
   });
 
   // Log environment check
@@ -26,7 +26,6 @@ async function bootstrap() {
     console.log('JWT secrets configured');
   }
 
-  app.use(CorrelationIdMiddleware);
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({

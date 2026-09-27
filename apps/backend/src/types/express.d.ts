@@ -1,4 +1,4 @@
-import { CurrentUserData } from '@event-mgmt/shared-schemas';
+import { CurrentUserData } from '@packages/shared-schemas';
 import { Request } from 'express'
 
 /* declare global {

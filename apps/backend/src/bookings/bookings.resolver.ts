@@ -3,7 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingType } from '../graphql/types/booking.type';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
-import { CreateBookingDto } from '@event-mgmt/shared-schemas';
+import { CreateBookingDto } from '@packages/shared-schemas';
 
 @Resolver(() => BookingType)
 export class BookingsResolver {

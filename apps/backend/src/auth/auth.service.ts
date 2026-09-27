@@ -1,17 +1,19 @@
 import type { Request } from 'express';
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from '@node-rs/bcrypt';
 import * as crypto from 'crypto';
-import { setCookie, deleteCookie } from '@orpc/server/helpers';
+// import { setCookie, deleteCookie } from '@orpc/server/helpers';
 import { User, UserRole, AuthProvider } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { RegisterDto, LoginDto, UserDto, AuthResponseDto, AUTH_COOKIE, JwtUserData, getCookieOptions } from '@packages/shared-schemas';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../users/user.service';
+
+type ORPCHelpers = typeof import('@orpc/server/helpers');
 interface JwtPayload {
   sub: string;
   email: string;
@@ -20,8 +22,11 @@ interface JwtPayload {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
+
+  private setCookie!: ORPCHelpers['setCookie'];
+  private deleteCookie!: ORPCHelpers['deleteCookie'];
 
   constructor(
     @InjectRepository(User)
@@ -33,6 +38,13 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly userService: UsersService,
   ) {}
+
+  async onModuleInit() {
+    // Load the ESM module dynamically once at startup
+    const helpers = (await eval('import("@orpc/server/helpers")')) as ORPCHelpers;
+    this.setCookie = helpers.setCookie;
+    this.deleteCookie = helpers.deleteCookie;
+  }
 
   async register(registerDto: RegisterDto, correlationId: string): Promise<AuthResponseDto> {
     this.logger.log({
@@ -376,12 +388,12 @@ export class AuthService {
         });
         const resHeaders = new Headers();
 
-        setCookie(resHeaders, AUTH_COOKIE.ACCESS, accessToken, {
+        this.setCookie(resHeaders, AUTH_COOKIE.ACCESS, accessToken, {
             ...cookieBase,
             maxAge: this.configService.get("accessTokenMs"),
         });
 
-        setCookie(resHeaders, AUTH_COOKIE.REFRESH, refreshToken, {
+        this.setCookie(resHeaders, AUTH_COOKIE.REFRESH, refreshToken, {
             ...cookieBase,
             maxAge: this.configService.get("refreshTokenMs"),
         });
@@ -389,8 +401,8 @@ export class AuthService {
 
     private clearAuthCookies() {
         const headers = new Headers();
-        deleteCookie(headers, AUTH_COOKIE.ACCESS, { path: "/" });
-        deleteCookie(headers, AUTH_COOKIE.REFRESH, { path: "/" });
+        this.deleteCookie(headers, AUTH_COOKIE.ACCESS, { path: "/" });
+        this.deleteCookie(headers, AUTH_COOKIE.REFRESH, { path: "/" });
     }
 
   private toUserDto(user: User): UserDto {

@@ -3,7 +3,7 @@ import {
   Post,
   Body,
   Headers,
-  RawBodyRequest,
+  type RawBodyRequest,
   Req,
   HttpCode,
   HttpStatus,

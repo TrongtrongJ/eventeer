@@ -34,7 +34,7 @@ export class HealthController {
     try {
       await this.redis.ping();
       return { redis: { status: 'up' } };
-    } catch (error) {
+    } catch (error: any) {
       return { redis: { status: 'down' } };
     }
   }

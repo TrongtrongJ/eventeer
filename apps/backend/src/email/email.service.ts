@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import { type Queue } from 'bull';
 import * as nodemailer from 'nodemailer';
 import { CircuitBreakerService } from '../common/circuit-breaker/circuit-breaker.service';
 
@@ -137,7 +137,7 @@ export class EmailService {
           // or send to an alternative notification service
         },
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to send email',
         correlationId,

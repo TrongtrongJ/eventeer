@@ -1,9 +1,10 @@
 /// <reference types="jest" />
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { DataSource } from 'typeorm';
+import { Ticket } from '../../src/entities/ticket.entity';
 
 describe('Complete Booking Flow (E2E)', () => {
   let app: INestApplication;
@@ -252,7 +253,7 @@ describe('Complete Booking Flow (E2E)', () => {
       bookingId = response.body.data.id;
 
       // Verify each ticket has QR code
-      response.body.data.tickets.forEach((ticket) => {
+      response.body.data.tickets.forEach((ticket: Ticket) => {
         expect(ticket).toHaveProperty('ticketNumber');
         expect(ticket).toHaveProperty('qrCode');
         expect(ticket.isValidated).toBe(false);

@@ -4,11 +4,44 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from '@node-rs/bcrypt';
 import { AuthService } from './auth.service';
 import { User, UserRole, AuthProvider } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
 import { EmailService } from '../email/email.service';
+import { AUTH_COOKIE } from '@packages/shared-schemas';
+import { Request } from 'express';
+
+const createMockReq = (overrideRefreshToken?: string) => {
+  return {
+    ip: '127.0.0.1',
+    cookies: {},
+    headers: { 
+      'user-agent': 'jest-test', 
+      [AUTH_COOKIE.ACCESS]: 'test-access-token',
+      [AUTH_COOKIE.REFRESH]: overrideRefreshToken ?? 'valid-refresh-token',
+    }
+  } as unknown as Request
+}
+
+const createMockContext = (overrides: any = {}) => ({
+  req: {
+    ip: '127.0.0.1',
+    cookies: {},
+    headers: { 
+      'user-agent': 'jest-test', 
+      [AUTH_COOKIE.ACCESS]: 'test-access-token',
+      [AUTH_COOKIE.REFRESH]: 'valid-refresh-token',
+    },
+    ...overrides.req,
+  },
+  res: {
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
+    ...overrides.res,
+  },
+  ...overrides,
+});
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -20,7 +53,7 @@ describe('AuthService', () => {
   const mockUser: User = {
     id: 'user-123',
     email: 'test@example.com',
-    password: 'hashed_password',
+    passwordHash: 'hashed_password',
     firstName: 'John',
     lastName: 'Doe',
     role: UserRole.CUSTOMER,
@@ -49,15 +82,15 @@ describe('AuthService', () => {
     verify: jest.fn(),
   };
 
+  const testConfig = {
+    JWT_ACCESS_SECRET: 'test-secret',
+    JWT_REFRESH_SECRET: 'test-refresh-secret',
+    JWT_ACCESS_EXPIRES: '15m',
+    JWT_REFRESH_EXPIRES: '7d',
+  };
   const mockConfigService = {
-    get: jest.fn((key: string) => {
-      const config = {
-        JWT_ACCESS_SECRET: 'test-secret',
-        JWT_REFRESH_SECRET: 'test-refresh-secret',
-        JWT_ACCESS_EXPIRES: '15m',
-        JWT_REFRESH_EXPIRES: '7d',
-      };
-      return config[key];
+    get: jest.fn((key: keyof typeof testConfig) => {
+      return testConfig[key];
     }),
   };
 
@@ -282,7 +315,9 @@ describe('AuthService', () => {
       mockSessionRepository.save.mockResolvedValue(mockSession);
       mockJwtService.sign.mockReturnValue('new-mock-token');
 
-      const result = await service.refreshToken(refreshToken, 'correlation-123');
+      const mockReq = createMockReq()
+
+      const result = await service.refresh(mockReq);
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(refreshToken, {
         secret: 'test-refresh-secret',
@@ -298,7 +333,9 @@ describe('AuthService', () => {
         throw new Error('Invalid token');
       });
 
-      await expect(service.refreshToken(refreshToken, 'correlation-123')).rejects.toThrow(
+      const mockReq = createMockReq('invalid-auth-refresh-cookie');
+
+      await expect(service.refresh(mockReq)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -317,7 +354,9 @@ describe('AuthService', () => {
       mockJwtService.verify.mockReturnValue({ sub: mockUser.id, sessionId: 'session-123' });
       mockSessionRepository.findOne.mockResolvedValue(expiredSession);
 
-      await expect(service.refreshToken(refreshToken, 'correlation-123')).rejects.toThrow(
+      const mockReq = createMockReq();
+
+      await expect(service.refresh(mockReq)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -447,7 +486,9 @@ describe('AuthService', () => {
 
       mockSessionRepository.update.mockResolvedValue({});
 
-      await service.logout(sessionId, 'correlation-123');
+      const mockReq = createMockReq();
+
+      await service.logout(sessionId, mockReq, 'correlation-123');
 
       expect(mockSessionRepository.update).toHaveBeenCalledWith(
         { id: sessionId },

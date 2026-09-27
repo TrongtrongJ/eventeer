@@ -28,7 +28,7 @@ export class LoggingInterceptor implements NestInterceptor {
             bodySize: JSON.stringify(body).length,
           });
         },
-        error: (error) => {
+        error: (error: any) => {
           const duration = Date.now() - startTime;
           this.logger.error({
             message: 'Request failed',

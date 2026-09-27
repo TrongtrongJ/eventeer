@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from '@node-rs/bcrypt';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -92,7 +92,7 @@ class DatabaseSeeder {
 
       console.log('\n✅ Database seeding completed successfully!');
       this.printSummary();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error seeding database:', error);
       throw error;
     }
@@ -538,7 +538,7 @@ async function main() {
     await AppDataSource.destroy();
     console.log('👋 Database connection closed');
     process.exit(0);
-  } catch (error) {
+  } catch (error: any) {
     console.error('💥 Fatal error:', error);
     await AppDataSource.destroy();
     process.exit(1);

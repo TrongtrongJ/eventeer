@@ -1,4 +1,5 @@
 const nodeExternals = require('webpack-node-externals');
+const path = require('path');
 
 module.exports = function (options, webpack) {
   return {
@@ -10,5 +11,12 @@ module.exports = function (options, webpack) {
         ],
       }),
     ],
+    module: {
+      ...options.module,
+      rules: [
+        ...options.module.rules,
+        // Your custom rules for ESM packages
+      ],
+    },
   };
 };

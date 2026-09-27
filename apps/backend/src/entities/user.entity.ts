@@ -72,16 +72,16 @@ export class User {
   lastLoginAt?: Date;
 
   @OneToMany(() => Booking, booking => booking.user)
-  bookings: Booking[];
+  bookings?: Booking[];
 
   @OneToMany(() => Event, event => event.organizer)
-  organizedEvents: Event[];
+  organizedEvents?: Event[];
 
   @OneToMany(() => Session, session => session.user)
-  sessions: Session[];
+  sessions?: Session[];
 
   @OneToMany(() => RefreshToken, rt => rt.user, { cascade: true })
-  refreshTokens: RefreshToken[];
+  refreshTokens?: RefreshToken[];
 
   @Column({ type: 'simple-json', nullable: true })
   metadata?: Record<string, any>; // For storing OAuth profile data

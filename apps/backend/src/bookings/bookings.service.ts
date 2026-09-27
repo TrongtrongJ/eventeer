@@ -5,12 +5,12 @@ import {
   Logger,
   ForbiddenException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Booking, BookingStatus } from '../entities/booking.entity';
 import { Ticket } from '../entities/ticket.entity';
 import { Event } from '../entities/event.entity';
-import { CreateBookingDto, BookingDto } from '@event-mgmt/shared-schemas';
+import { CreateBookingDto, BookingDto } from '@packages/shared-schemas';
 import { EventsService } from '../events/events.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { PaymentService } from '../payment/payment.service';
@@ -31,6 +31,8 @@ export class BookingsService {
     private readonly couponsService: CouponsService,
     private readonly paymentService: PaymentService,
     private readonly emailService: EmailService,
+    
+    @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
 
@@ -163,7 +165,7 @@ export class BookingsService {
           ...this.toDto(bookingWithTickets!),
           clientSecret: paymentIntent.clientSecret,
         } as any;
-      } catch (error) {
+      } catch (error: any) {
         // Rollback seat reservation on payment intent failure
         await this.eventsService.updateAvailableSeats(
           createBookingDto.eventId,

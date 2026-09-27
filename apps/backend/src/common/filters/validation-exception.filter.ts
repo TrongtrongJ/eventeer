@@ -1,5 +1,6 @@
 import { ExceptionFilter, Catch, ArgumentsHost, BadRequestException } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware';
 
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
@@ -8,7 +9,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
     const status = exception.getStatus();
-    const correlationId = request['correlationId'] || 'unknown';
+    const correlationId = (request.headers[CORRELATION_ID_HEADER] || 'unknown') as string;
 
     const exceptionResponse = exception.getResponse() as any;
 

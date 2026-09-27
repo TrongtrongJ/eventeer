@@ -80,7 +80,7 @@ export class OAuthService {
       };
 
       return this.handleOAuthLogin(profile, correlationId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Google OAuth failed',
         correlationId,
@@ -149,7 +149,7 @@ export class OAuthService {
       };
 
       return this.handleOAuthLogin(profile, correlationId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'GitHub OAuth failed',
         correlationId,
@@ -207,7 +207,7 @@ export class OAuthService {
       };
 
       return this.handleOAuthLogin(profile, correlationId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Facebook OAuth failed',
         correlationId,

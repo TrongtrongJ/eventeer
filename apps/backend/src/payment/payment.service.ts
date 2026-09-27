@@ -97,7 +97,7 @@ export class PaymentService {
       });
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to create payment intent',
         correlationId,
@@ -157,7 +157,7 @@ export class PaymentService {
       });
 
       return isSucceeded;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to confirm payment',
         correlationId,
@@ -222,7 +222,7 @@ export class PaymentService {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to refund payment',
         correlationId,
@@ -268,7 +268,7 @@ export class PaymentService {
             type: event.type,
           });
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Webhook processing failed',
         error: error.message,

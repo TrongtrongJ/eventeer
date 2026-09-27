@@ -1,5 +1,5 @@
 {
-    "extends": "../../tsconfig.base.json",
+    //"extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "target": "ES2021",
         //"module": "CommonJS",
@@ -7,7 +7,7 @@
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "outDir": "./dist",
-        "rootDir": "./src",
+        //"rootDir": "src",
         "types": ["jest", "node"],
         "sourceMap": true,
         "declaration": true,
@@ -21,6 +21,6 @@
         "module": "CommonJS"
       }
     },
-    "include": ["src/**/*", "eslint.config.js"],
+    "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]
 }
