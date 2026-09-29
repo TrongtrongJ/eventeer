@@ -38,7 +38,7 @@ import { UsersModule } from '../users/user.module';
         return {
           secret: secret || 'fallback-secret-key-change-in-production',
           signOptions: {
-            expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES') || '60m',
+            expiresIn: configService.get('JWT_ACCESS_EXPIRES') || '60Minutes',
           },
         };
       },

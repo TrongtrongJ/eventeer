@@ -3,8 +3,8 @@ import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
 import { updateEventSeats } from '../store/slices/events/eventsSlice';
-import { SeatAvailabilityUpdate } from '@event-mgmt/shared-schemas';
-import { webSocketUrl } from '@constants/config'
+import { SeatAvailabilityUpdate } from '@packages/shared-schemas';
+import { webSocketUrl } from '@/constants/config'
 
 export const useWebSocket = (eventId?: string): Socket<any> | null => {
   const dispatch = useDispatch();

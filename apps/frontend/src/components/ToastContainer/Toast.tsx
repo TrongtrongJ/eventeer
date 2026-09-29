@@ -1,21 +1,29 @@
+'use client';
+
 import React, { useEffect, memo } from 'react';
-import { getToastColor } from './helpers'
-import type { ToastProps } from './types'
+import type { ToastState, ToastType } from '@/lib/toast/toast-context';
 
 const toastAutoCloseTime = 5000;
 
-const Toast: React.FC<ToastProps> = memo(({ id, message, type, onClose }) => {
+const toastColorMap: Record<ToastType, string> = {
+  success: 'bg-green-500',
+  error: 'bg-red-500',
+  info: 'bg-blue-500',
+};
 
+interface ToastProps extends ToastState {
+  onClose: (id: string) => void;
+}
+
+const Toast: React.FC<ToastProps> = memo(({ id, message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => onClose(id), toastAutoCloseTime);
     return () => clearTimeout(timer);
   }, [id, onClose]);
 
-  const bgColor = getToastColor(type)
-
   return (
     <div
-      className={`${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center justify-between min-w-[300px] animate-slide-in`}
+      className={`${toastColorMap[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center justify-between min-w-[300px] animate-slide-in`}
     >
       <span>{message}</span>
       <button onClick={() => onClose(id)} className="ml-4 text-white hover:text-gray-200">
@@ -31,5 +39,6 @@ const Toast: React.FC<ToastProps> = memo(({ id, message, type, onClose }) => {
     </div>
   );
 });
+Toast.displayName = 'Toast';
 
-export default Toast
+export default Toast;

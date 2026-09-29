@@ -1,30 +1,29 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@8
+RUN corepack enable
 
-# Copy root package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy root workspace files
+COPY package.json yarn.lock .yarnrc.yml turbo.json ./
+COPY .yarn ./.yarn
 
-# Copy all workspace package.json files
+# Copy workspace package.json files (for install caching)
 COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/backend/package.json ./apps/backend/
 COPY packages/shared-schemas/package.json ./packages/shared-schemas/
+COPY packages/contract/package.json ./packages/contract/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN yarn install --immutable
 
 # Copy source code
 COPY apps/frontend ./apps/frontend
 COPY packages/shared-schemas ./packages/shared-schemas
-COPY turbo.json ./
+COPY packages/contract ./packages/contract
 
-# Build shared schemas
-RUN cd packages/shared-schemas && pnpm build
+# Build workspace dependencies (@packages/contract ships compiled dist/)
+RUN yarn turbo run build --filter=@packages/contract
 
-# Expose Vite port
-EXPOSE 5173
+EXPOSE 3000
 
-# Start Vite dev server
-CMD ["pnpm", "--filter", "event-management-frontend", "dev", "--host", "0.0.0.0"]
+CMD ["yarn", "workspace", "@eventeer/web", "dev"]

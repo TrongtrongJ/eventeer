@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToMany, JoinTable, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
 import { Booking } from './booking.entity';
 import { Event } from './event.entity';
 import { Session } from './session.entity';
@@ -29,8 +29,8 @@ export class User {
   //@Column({ type: 'varchar', length: 255, nullable: true })
   // password?: string; // Nullable for OAuth users
 
-  @Column({ type: "varchar", name: "password_hash" })
-  passwordHash: string;
+  @Column({ type: "varchar", name: "password_hash", nullable: true })
+  passwordHash: string | null;
 
   @Column({ type: 'varchar', length: 100 })
   firstName: string;

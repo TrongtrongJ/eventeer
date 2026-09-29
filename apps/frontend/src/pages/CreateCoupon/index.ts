@@ -1,1 +1,0 @@
-export { CreateCoupon as default } from './CreateCoupon';

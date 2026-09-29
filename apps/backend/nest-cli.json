@@ -4,8 +4,6 @@
   "entryFile": "main",
   "sourceRoot": "src",
   "compilerOptions": {
-    "tsConfigPath": "./tsconfig.json",
-    "builder": "webpack",
-    "webpackConfigPath": "webpack.config.js"
+    "tsConfigPath": "./tsconfig.json"
   }
 }

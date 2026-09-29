@@ -11,8 +11,8 @@ import { BookingsModule } from '../bookings/bookings.module';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/graphql/schema.gql'),
       sortSchema: true,
-      playground: true, // Enable GraphQL Playground
-      context: ({ req }) => ({ req }), // Pass request to resolvers
+      graphiql: true, // Enable GraphQL Playground
+      context: ({ req }: any) => ({ req }), // Pass request to resolvers
       formatError: (error: any) => {
         return {
           message: error.message,

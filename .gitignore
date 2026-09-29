@@ -11,6 +11,13 @@ coverage/
 build/
 dist/
 .turbo/
+.next/
+next-env.d.ts
+
+# E2E
+apps/frontend/playwright-report/
+apps/frontend/test-results/
+apps/frontend/blob-report/
 
 # Misc
 .DS_Store

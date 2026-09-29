@@ -19,6 +19,9 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { UsersModule } from './users/user.module';
 import { registerTypeORMWithConfig } from './config/typeorm.config';
 import { registerBullMQWithConfig } from './config/bull.config';
+import { createObserveModule } from '@nestjs/observe';
+
+export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
@@ -49,8 +52,13 @@ import { registerBullMQWithConfig } from './config/bull.config';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      playground: true,
+      graphiql: true,
     }),
+    /*ObserveModule.forRoot({
+      appKey: process.env.OBSERVE_APP_KEY,
+      appSecret: process.env.OBSERVE_APP_SECRET,
+      serviceId: 'api',
+    }),*/
   ],
   providers: [
     {

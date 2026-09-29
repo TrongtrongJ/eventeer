@@ -26,7 +26,7 @@
 ## 🛠 Engineering Highlights
 
 ### 1. Contract-First Architecture (E2E Type Safety)
-To ensure 100% synchronization between the React frontend and NestJS backend, we utilize a shared workspace package (`@event-mgmt/contract`). 
+To ensure 100% synchronization between the React frontend and NestJS backend, we utilize a shared workspace package (`@packages/contract`). 
 * **Single Source of Truth:** Zod schemas define the API boundary.
 * **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
 * **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.

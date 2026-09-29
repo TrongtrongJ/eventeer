@@ -12,6 +12,7 @@ import { withCorrelationId } from '../common/middleware/correlation-id.middlewar
 import { withCurrentUser } from '../common/middleware/current-user.middleware';
 import { requireRoles } from '../common/middleware/require-roles.middleware';
 import { withBaseUrl } from '../common/middleware/base-url.middleware';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('events')
 @Controller('events')
@@ -55,6 +56,7 @@ export class EventsController {
     };
   } */
 
+  @Public()
   @Implement(eventContract.findAll)
   async findAll() {
     return implement(eventContract.findAll)

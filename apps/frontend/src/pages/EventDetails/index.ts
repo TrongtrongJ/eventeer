@@ -1,1 +1,0 @@
-export { EventDetails as default } from './EventDetails'

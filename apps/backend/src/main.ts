@@ -1,17 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { patchNestJsSwagger } from 'nestjs-zod';
-import { AppModule } from './app.module';
+//import { patchNestJsSwagger } from 'nestjs-zod';
+import { AppModule, ObserveInstrument } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 
-patchNestJsSwagger();
+//patchNestJsSwagger();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
-    bodyParser: false
+    bodyParser: false,
+    instrument: ObserveInstrument
   });
 
   // Log environment check
