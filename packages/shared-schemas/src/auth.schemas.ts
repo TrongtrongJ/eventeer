@@ -5,23 +5,18 @@ import { IsoStringDate } from "./base/fields";
 export const RegisterSchema = z.object({
   email: z.email(),
   password: z.string().min(8).max(100),
-  confirmPassword: z.string().min(8).optional(),
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-}).refine(data => !data.confirmPassword || data.password === data.confirmPassword, {
-        message: "Passwords do not match",
-        path: ["confirmPassword"],
-    })
-    .meta({
-        description: "New user registration payload",
-        examples: [
-            {
-                email: "user@example.com",
-                password: "Secret123",
-                confirmPassword: "Secret123",
-            },
-        ],
-    });;
+}).meta({
+  description: "New user registration payload",
+  examples: [
+      {
+          email: "user@example.com",
+          password: "Secret123",
+          confirmPassword: "Secret123",
+      },
+  ],
+});
 
 export const LoginSchema = z.object({
   email: z.email(),

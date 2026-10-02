@@ -5,12 +5,13 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
-console.log('Config read')
 const nextConfig: NextConfig = {
   // Enable react compiler to ease with hooks optimization
   reactCompiler: true,
 
   reactStrictMode: true,
+
+  crossOrigin: 'anonymous',
 
   transpilePackages: [
     '@orpc/client', 

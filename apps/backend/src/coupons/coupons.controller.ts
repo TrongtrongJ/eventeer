@@ -9,6 +9,7 @@ import { couponContract } from '@packages/contract';
 import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
 import { withCurrentUser } from '../common/middleware/current-user.middleware';
 import { requireRoles } from '../common/middleware/require-roles.middleware';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('coupons')
 export class CouponsController {
@@ -60,6 +61,7 @@ export class CouponsController {
       });
   }
 
+  @Public()
   @Implement(couponContract.getCoupon)
   async getCoupon() {
     return implement(couponContract.getCoupon)

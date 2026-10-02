@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { ZodValidationPipe, ZodSerializerInterceptor } from 'nestjs-zod';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventsModule } from './events/events.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -14,12 +13,12 @@ import { TicketsModule } from './tickets/tickets.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { UsersModule } from './users/user.module';
 import { registerTypeORMWithConfig } from './config/typeorm.config';
 import { registerBullMQWithConfig } from './config/bull.config';
 import { createObserveModule } from '@nestjs/observe';
+import { registerORPC } from './libs/orpc/orpc-setup';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -31,6 +30,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     registerTypeORMWithConfig(),
     registerBullMQWithConfig(),
+    registerORPC(),
     AuthModule,
     UsersModule,
     EventsModule,
@@ -63,19 +63,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   providers: [
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
       useClass: RolesGuard,
-    },
-    {
-      provide: APP_PIPE,
-      useClass: ZodValidationPipe,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: ZodSerializerInterceptor,
     },
   ],
 })

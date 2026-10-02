@@ -8,7 +8,8 @@ export class LoggingInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    const { method, url, body, correlationId } = request;
+    // Do NOT destructure correlationId here!
+    const { method, url, body } = request;
     const startTime = Date.now();
 
     return next.handle().pipe(
@@ -20,19 +21,21 @@ export class LoggingInterceptor implements NestInterceptor {
 
           this.logger.log({
             message: 'Request completed',
-            correlationId,
+            // Read it directly from the request object now that oRPC has mutated it
+            correlationId: request.correlationId, 
             method,
             url,
             statusCode,
             duration: `${duration}ms`,
-            bodySize: JSON.stringify(body).length,
+            bodySize: body ? JSON.stringify(body).length : 0,
           });
         },
-        error: (error: any) => {
+        error: (error) => {
           const duration = Date.now() - startTime;
           this.logger.error({
             message: 'Request failed',
-            correlationId,
+            // Read it directly here as well
+            correlationId: request.correlationId,
             method,
             url,
             duration: `${duration}ms`,

@@ -1,10 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-//import { patchNestJsSwagger } from 'nestjs-zod';
 import { AppModule, ObserveInstrument } from './app.module';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
-import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 //patchNestJsSwagger();
 
@@ -27,7 +25,6 @@ async function bootstrap() {
     console.log('JWT secrets configured');
   }
 
-  app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -37,11 +34,24 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalFilters(new ValidationExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true,
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true, 
+    
+    // 3. Allow standard headers plus your custom correlation ID header
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'x-correlation-id', // Required because of your oRPC middleware
+    ],
+    
+    // 4. Expose custom headers so the frontend can read them if needed
+    exposedHeaders: ['x-correlation-id'], 
+    
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   app.enableShutdownHooks();

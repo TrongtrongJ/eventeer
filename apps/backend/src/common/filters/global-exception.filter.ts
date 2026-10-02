@@ -1,102 +1,69 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
-import { CurrentUserData } from '@packages/shared-schemas';
-import { QueryFailedError } from 'typeorm';
-import type { Request, Response } from 'express';
-import { CORRELATION_ID_HEADER } from '../middleware/correlation-id.middleware';
-
-interface ErrorResponse {
-  statusCode: number;
-  message: string;
-  error?: string;
-  errors?: any[];
-  correlationId: string;
-  timestamp: string;
-  path: string;
-}
-
-interface RequestWithUserData extends Request {
-  user?: CurrentUserData;
-}
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ORPCError } from '@orpc/server';
+import { Response } from 'express';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
-
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<RequestWithUserData>();
-    const correlationId = (request.headers[CORRELATION_ID_HEADER] || 'unknown') as string;
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let error = 'InternalServerError';
-    let errors: any[] | undefined;
-
-    // Handle different exception types
-    if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
-
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
-        const responseObj = exceptionResponse as any;
-        message = responseObj.message || message;
-        error = responseObj.error || error;
-        errors = responseObj.errors;
-      }
-    } else if (exception instanceof QueryFailedError) {
-      // Database errors
-      status = HttpStatus.BAD_REQUEST;
-      message = 'Database operation failed';
-      error = 'DatabaseError';
-
-      // Log but don't expose internal DB errors
-      this.logger.error({
-        message: 'Database error',
-        correlationId,
-        error: exception.message,
-        query: exception.query,
-        parameters: exception.parameters,
+    // 1. Let native oRPC errors pass through with their expected structure
+    if (exception instanceof ORPCError) {
+      // In oRPC v2, status is typically derived from the code, but fallback to 500
+      const status = exception.code || 500;
+      return response.status(status).json({
+        code: exception.code,
+        message: exception.message,
+        data: exception.data,
       });
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      error = exception.name;
     }
 
-    const errorResponse: ErrorResponse = {
-      statusCode: status,
-      message,
-      error,
-      correlationId,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    };
+    // 2. Transform standard NestJS HttpExceptions into oRPC format
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const exceptionResponse = exception.getResponse() as any;
+      
+      // NestJS built-in pipes often return arrays of error messages
+      const message = typeof exceptionResponse === 'object' && Array.isArray(exceptionResponse.message)
+        ? exceptionResponse.message[0] 
+        : exceptionResponse.message || exception.message;
 
-    if (errors) {
-      errorResponse.errors = errors;
+      return response.status(status).json({
+        code: this.mapStatusToORPCCode(status),
+        message: message,
+        data: typeof exceptionResponse === 'object' ? exceptionResponse : { details: exceptionResponse },
+      });
     }
 
-    // Log error
-    this.logger.error({
-      message: 'Exception caught',
-      correlationId,
-      statusCode: status,
-      error: error,
-      path: request.url,
-      method: request.method,
-      userId: request.user?.userId,
-      stack: exception instanceof Error ? exception.stack : undefined,
+    // 3. Catch-all for unhandled internal server errors
+    const internalMessage = exception instanceof Error ? exception.message : 'Internal server error';
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: internalMessage,
     });
+  }
 
-    response.status(status).json(errorResponse);
+  // Helper to map NestJS HTTP status codes to strictly typed oRPC error codes
+  private mapStatusToORPCCode(status: number): string {
+    const oRpcCodes: Record<number, string> = {
+      400: 'BAD_REQUEST',
+      401: 'UNAUTHORIZED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      405: 'METHOD_NOT_SUPPORTED',
+      406: 'NOT_ACCEPTABLE',
+      408: 'TIMEOUT',
+      409: 'CONFLICT',
+      412: 'PRECONDITION_FAILED',
+      413: 'PAYLOAD_TOO_LARGE',
+      429: 'TOO_MANY_REQUESTS',
+      500: 'INTERNAL_SERVER_ERROR',
+      501: 'NOT_IMPLEMENTED',
+      502: 'BAD_GATEWAY',
+      503: 'SERVICE_UNAVAILABLE',
+    };
+    
+    return oRpcCodes[status] || 'INTERNAL_SERVER_ERROR';
   }
 }

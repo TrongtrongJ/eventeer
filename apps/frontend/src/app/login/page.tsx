@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { getIssueMessage, parseFormData } from '@orpc/openapi/helpers';
 import type { LoginDto } from '@packages/shared-schemas';
 import { orpc } from '@/lib/orpc/query';
 import { apiUrl } from '@/lib/orpc/config';
@@ -26,7 +27,7 @@ export default function LoginPage() {
         await loginMutation.mutateAsync(formData);
         // The backend set the httpOnly cookies on this response; refresh our
         // cached session so Navigation etc. pick up the logged-in state.
-        await queryClient.invalidateQueries({ queryKey: orpc.auth.key() });
+        // await queryClient.invalidateQueries({ queryKey: orpc.auth.key() });
         addToast({ message: 'Login successful!', type: 'success' });
         router.push('/');
       } catch (error: any) {

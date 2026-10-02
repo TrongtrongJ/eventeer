@@ -23,6 +23,7 @@ export class AuthController {
     private readonly oauthService: OAuthService,
   ) {}
 
+  @Public()
   @Implement(authContract.register)
   async register() {
     return implement(authContract.register)
@@ -39,6 +40,7 @@ export class AuthController {
       });
   }
 
+  @Public()
   @Implement(authContract.login)
   async login() {
     return implement(authContract.login)
@@ -93,6 +95,7 @@ export class AuthController {
       });
   }
 
+  @Public()
   @Implement(authContract.verifyEmail)
   async verifyEmail() {
     return implement(authContract.verifyEmail)
@@ -109,6 +112,7 @@ export class AuthController {
       });
   }
 
+  @Public()
   @Implement(authContract.forgotPassword)
   async forgotPassword() {
     return implement(authContract.forgotPassword)
@@ -125,6 +129,7 @@ export class AuthController {
       });
   }
 
+  @Public()
   @Implement(authContract.resetPassword)
   async resetPassword() {
     return implement(authContract.resetPassword)
@@ -167,6 +172,7 @@ export class AuthController {
     res.redirect(url);
   }
 
+  @Public()
   @Get('oauth/google/callback')
   async googleCallback(
     @Query('code') code: string,
@@ -191,6 +197,7 @@ export class AuthController {
     res.redirect(url);
   }
 
+  @Public()
   @Get('oauth/github/callback')
   async githubCallback(
     @Query('code') code: string,
@@ -214,6 +221,7 @@ export class AuthController {
     res.redirect(url);
   }
 
+  @Public()
   @Get('oauth/facebook/callback')
   async facebookCallback(
     @Query('code') code: string,

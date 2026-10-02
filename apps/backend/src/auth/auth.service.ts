@@ -302,6 +302,8 @@ export class AuthService {
       expiresAt,
     });
 
+    console.log("session created")
+
     const savedSession = await this.sessionRepository.save(session);
 
     // Generate tokens
@@ -324,6 +326,8 @@ export class AuthService {
         expiresIn: this.configService.get('JWT_REFRESH_EXPIRES', '7d'),
       },
     );
+
+    console.log("JWTs sighned")
 
     // Update session with refresh token
     savedSession.refreshToken = refreshToken;
@@ -350,11 +354,12 @@ export class AuthService {
 
     private async issueTokensAndSetCookies(user: User) {
         const payload: JwtUserData = { sub: user.id, email: user.email };
+        console.log({ payload })
 
-        const accessTokenSecret = this.configService.get("ACCESS_TOKEN_SECRET");
-        const refreshTokenSecret = this.configService.get("REFRESH_TOKEN_SECRET");
-        const accessTokenExpiry = this.configService.get("ACCESS_TOKEN_EXPIRY");
-        const refreshTokenExpiry = this.configService.get("REFRESH_TOKEN_EXPIRY");
+        const accessTokenSecret = this.configService.get("JWT_ACCESS_SECRET");
+        const refreshTokenSecret = this.configService.get("JWT_REFRESH_SECRET");
+        const accessTokenExpiry = this.configService.get("JWT_ACCESS_EXPIRES");
+        const refreshTokenExpiry = this.configService.get("JWT_REFRESH_EXPIRES");
         const accessToken = this.jwtService.sign(payload, {
             secret: accessTokenSecret,
             expiresIn: accessTokenExpiry,

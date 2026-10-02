@@ -52,7 +52,13 @@ export class UsersService {
 
     async validatePassword(user: User, password: string): Promise<boolean> {
         if (user.passwordHash == null) return false;
-        return bcrypt.compare(password, user.passwordHash);
+        const result = await bcrypt.compare(password, user.passwordHash)
+        console.log({
+          password,
+          passwordHash: user.passwordHash,
+          result
+        })
+        return result;
     }
 
     // ── Refresh token management ──────────────────────────────────────────────

@@ -4,6 +4,7 @@ import { Implement } from '@orpc/nest';
 import { implement } from '@orpc/server';
 import { ticketContract } from '@packages/contract';
 import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('tickets')
 export class TicketsController {
@@ -26,6 +27,7 @@ export class TicketsController {
       });
   }
 
+  @Public()
   @Implement(ticketContract.lookup)
   async lookup() {
     return implement(ticketContract.lookup)
