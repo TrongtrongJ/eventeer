@@ -1,23 +1,13 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "esnext",
-    "moduleResolution": "Bundler",
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declarationMap": true,   // Helps VS Code jump to the .ts source, not the .d.ts
-    "sourceMap": true,        // Generates the .js.map files (inside /dist)
-    "resolveJsonModule": true,
-  },
-  "path": {
-    "@/*": ["./src/*"]
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "CommonJS",
+        "declaration": true,
+        "sourceMap": true,
+        "outDir": "./dist",
+        "rootDir": "./src"
+    },
+    "include": ["src/**/*", "eslint.config.js"],
+    "exclude": ["node_modules", "dist"]
 }

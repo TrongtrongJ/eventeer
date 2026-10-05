@@ -38,7 +38,7 @@ This platform is built as a **Type-Safe Monorepo**, utilizing a "Contract-First"
 The project is structured to enforce a "One-Way Dependency Flow."
 
 * **Apps Layer:** Contains the React (Vite) frontend and NestJS API.
-* **Packages Layer:** Contains the `@event-mgmt/contract` (Zod schemas), `@event-mgmt/ui` (Shared components), and shared configurations.
+* **Packages Layer:** Contains the `@packages/contract` (Zod schemas), `@packages/ui` (Shared components), and shared configurations.
 * **Boundary Enforcement:** We use workspace linting rules to ensure the UI or API never imports directly from each other, only from shared packages.
 
 ### System Overview
@@ -454,7 +454,7 @@ The API is **Stateless**. No local file storage or in-memory sessions are used.
 
 ### CI/CD Pipeline
 * Github Actions with utilized **Turborepo Remote Caching**:
-If the `@event-mgmt/contract` package is unchanged, the CI skips the build/test phases for dependent apps, reducing pipeline duration.
+If the `@packages/contract` package is unchanged, the CI skips the build/test phases for dependent apps, reducing pipeline duration.
 
 ---
 

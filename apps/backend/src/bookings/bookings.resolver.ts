@@ -1,63 +1,40 @@
-import { Resolver, Query, Mutation, Args, ID, Context } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
+import { BadRequestException } from '@nestjs/common';
+import { CreateBookingSchema, type CurrentUserData } from '@packages/shared-schemas';
 import { BookingsService } from './bookings.service';
 import { BookingType } from '../graphql/types/booking.type';
-import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
-import { CreateBookingDto } from '@event-mgmt/shared-schemas';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { randomUUID } from 'crypto';
 
+/** Auth is enforced by the global guards (default-deny); ownership by BookingsService. */
 @Resolver(() => BookingType)
 export class BookingsResolver {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  @UseGuards(GqlAuthGuard)
   @Query(() => BookingType, { name: 'booking' })
-  async getBooking(
-    @Args('id', { type: () => ID }) id: string,
-    @Context() context: any,
-  ): Promise<BookingType> {
-    const userId = context.req.user.userId;
-    const booking = await this.bookingsService.findOne(id);
-
-    // Check ownership
-    if (booking.userId !== userId && context.req.user.role !== 'ADMIN') {
-      throw new Error('You can only view your own bookings');
-    }
-
-    return booking as any;
+  async getBooking(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: CurrentUserData) {
+    return (await this.bookingsService.findOneFor(id, user)) as unknown as BookingType;
   }
 
-  @UseGuards(GqlAuthGuard)
   @Query(() => [BookingType], { name: 'myBookings' })
-  async getMyBookings(@Context() context: any): Promise<BookingType[]> {
-    const userId = context.req.user.userId;
-    const bookings = await this.bookingsService.findByUser(userId);
-    return bookings as any;
+  async getMyBookings(@CurrentUser() user: CurrentUserData) {
+    return (await this.bookingsService.findByUser(user.userId)) as unknown as BookingType[];
   }
 
-  @UseGuards(GqlAuthGuard)
   @Mutation(() => BookingType)
   async createBooking(
     @Args('eventId', { type: () => ID }) eventId: string,
-    @Args('quantity') quantity: number,
+    @Args('quantity', { type: () => Int }) quantity: number,
     @Args('firstName') firstName: string,
     @Args('lastName') lastName: string,
     @Args('email') email: string,
-    @Args('couponCode', { nullable: true }) couponCode: string,
-    @Context() context: any,
-  ): Promise<BookingType> {
-    const userId = context.req.user.userId;
-    const correlationId = context.req.correlationId || 'graphql-mutation';
+    @Args('couponCode', { type: () => String, nullable: true }) couponCode: string | undefined,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    // Same validation rules as REST: one shared Zod schema.
+    const parsed = CreateBookingSchema.safeParse({ eventId, quantity, firstName, lastName, email, couponCode: couponCode || undefined });
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Invalid booking');
 
-    const bookingDto: CreateBookingDto = {
-      eventId,
-      quantity,
-      firstName,
-      lastName,
-      email,
-      couponCode: couponCode || undefined,
-    };
-
-    const booking = await this.bookingsService.create(bookingDto, userId, correlationId);
-    return booking as any;
+    return (await this.bookingsService.create(parsed.data, user.userId, randomUUID())) as unknown as BookingType;
   }
 }

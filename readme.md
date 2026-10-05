@@ -4,8 +4,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-10.0-red.svg)](https://nestjs.com/)
-[![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![NextJS](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://nextjs.org/)
 
 ## 📋 Table of Contents
 
@@ -80,8 +79,9 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 ## 🗺️ Roadmap
 - [X] Complete application architecture & Design documentation
 - [X] Complete application cloud architecture (AWS) & documentation 
-- [X] Complete initial (alpha) k8s & terraform template
-- [X] Ensure code quality and readability
+- [X] Zod 4 and oRPC contract pattern integration
+- [X] Fullstack support CJS and ESM
+- [X] Complete initial k8s & terraform template
 - [X] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
 - [ ] [Partial] Edge cases handling
   - [X] Request thundering herd problems
@@ -89,14 +89,16 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
   - [X] Token corruption 
   - [ ] ...
 - [ ] [Partial] Ensure secondary workflows functionality
-- [ ] [Partial] Flesh out API documentation 
+- [ ] Flesh out API documentation with Scalar
 - [X] finalize dependency-cruiser
-- [ ] Complete dockerization support
-- [ ] [Partial] Better test coverage & Github Actions CI/CD
+- [ ] [Partial] Complete dockerization support
+- [ ] [Partial] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
   - [X] Major flow frontend tests
   - [X] Major flow backend tests
   - [ ] Circuit-breaker and email-queuing tests
-  - [ ] Full suite integration test.
+  - [X] Full suite integration test (auth and booking)
+  - [ ] Github Actions CI/CD
+  - [ ] Bitbucket pipeline
 
 ---
 

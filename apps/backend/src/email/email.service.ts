@@ -1,9 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import { type Queue } from 'bull';
 import * as nodemailer from 'nodemailer';
 import { CircuitBreakerService } from '../common/circuit-breaker/circuit-breaker.service';
+import type { EnvConfig } from '../env.validation';
+
+const esc = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 export interface EmailJob {
   to: string;
@@ -21,6 +30,7 @@ export interface BookingConfirmationData {
   eventLocation: string;
   quantity: number;
   totalAmount: number;
+  currency: string;
   bookingId: string;
   qrCodes: Array<{ ticketNumber: string; qrCode: string }>;
 }
@@ -42,23 +52,27 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly transporter: nodemailer.Transporter;
   private readonly featureEnabled: boolean;
+  private readonly frontendUrl: string;
+  private readonly isProd: boolean;
 
   constructor(
     @InjectQueue('email') private readonly emailQueue: Queue,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService<EnvConfig, true>,
     private readonly circuitBreaker: CircuitBreakerService,
   ) {
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get('SMTP_HOST'),
-      port: this.configService.get('SMTP_PORT'),
-      secure: false,
+      host: this.configService.get('SMTP_HOST', { infer: true }),
+      port: this.configService.get('SMTP_PORT', { infer: true }),
+      secure: this.configService.get('SMTP_PORT', { infer: true }) === 465,
       auth: {
-        user: this.configService.get('SMTP_USER'),
-        pass: this.configService.get('SMTP_PASS'),
+        user: this.configService.get('SMTP_USER', { infer: true }),
+        pass: this.configService.get('SMTP_PASS', { infer: true }),
       },
     });
 
-    this.featureEnabled = this.configService.get('FEATURE_EMAIL_ENABLED') === 'true';
+    this.featureEnabled = this.configService.get('FEATURE_EMAIL_ENABLED', { infer: true });
+    this.frontendUrl = this.configService.get('FRONTEND_URL', { infer: true }).replace(/\/$/, '');
+    this.isProd = this.configService.get('isProd', { infer: true });
   }
 
   async queueBookingConfirmation(
@@ -80,7 +94,7 @@ export class EmailService {
       'booking-confirmation',
       {
         to: data.email,
-        subject: `Booking Confirmation - ${data.eventTitle}`,
+        subject: `Booking Confirmation - ${esc(data.eventTitle)}`,
         html,
         correlationId,
       },
@@ -111,7 +125,7 @@ export class EmailService {
         'email-service',
         async () => {
           const info = await this.transporter.sendMail({
-            from: this.configService.get('EMAIL_FROM'),
+            from: this.configService.get('EMAIL_FROM', { infer: true }),
             to,
             subject,
             html,
@@ -124,20 +138,8 @@ export class EmailService {
             messageId: info.messageId,
           });
         },
-        async () => {
-          // Fallback: Log email content for manual sending
-          this.logger.warn({
-            message: 'Email circuit breaker open - email not sent',
-            correlationId,
-            to,
-            subject,
-          });
-
-          // In production, you might want to store this in a dead letter queue
-          // or send to an alternative notification service
-        },
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error({
         message: 'Failed to send email',
         correlationId,
@@ -154,8 +156,8 @@ export class EmailService {
       .map(
         (ticket) => `
         <div style="margin: 10px 0; padding: 15px; background: #f5f5f5; border-radius: 5px;">
-          <p style="margin: 5px 0;"><strong>Ticket #${ticket.ticketNumber}</strong></p>
-          <p style="margin: 5px 0; font-size: 12px; word-break: break-all;">QR Code: ${ticket.qrCode}</p>
+          <p style="margin: 5px 0;"><strong>Ticket #${esc(ticket.ticketNumber)}</strong></p>
+          <p style="margin: 5px 0; font-size: 12px; word-break: break-all;">QR Code: ${esc(ticket.qrCode)}</p>
         </div>
       `,
       )
@@ -181,19 +183,17 @@ export class EmailService {
             <h1>Booking Confirmed!</h1>
           </div>
           <div class="content">
-            <p>Dear ${data.firstName} ${data.lastName},</p>
+            <p>Dear ${esc(data.firstName)} ${esc(data.lastName)},</p>
             
-            <p>Thank you for your booking! Your tickets for <strong>${
-              data.eventTitle
-            }</strong> have been confirmed.</p>
+            <p>Thank you for your booking! Your tickets for <strong>${esc(data.eventTitle)}</strong> have been confirmed.</p>
             
             <h3>Event Details:</h3>
             <ul>
-              <li><strong>Event:</strong> ${data.eventTitle}</li>
+              <li><strong>Event:</strong> ${esc(data.eventTitle)}</li>
               <li><strong>Date:</strong> ${new Date(data.eventDate).toLocaleString()}</li>
-              <li><strong>Location:</strong> ${data.eventLocation}</li>
+              <li><strong>Location:</strong> ${esc(data.eventLocation)}</li>
               <li><strong>Quantity:</strong> ${data.quantity} ticket(s)</li>
-              <li><strong>Total Amount:</strong> $${data.totalAmount.toFixed(2)}</li>
+              <li><strong>Total Amount:</strong> ${esc(new Intl.NumberFormat('en-US', { style: 'currency', currency: data.currency }).format(data.totalAmount))}</li>
             </ul>
 
             <h3>Your Tickets:</h3>
@@ -201,7 +201,7 @@ export class EmailService {
 
             <p style="margin-top: 20px;">Please present your QR code at the event entrance. Save this email or take a screenshot of your tickets.</p>
 
-            <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+            <p><strong>Booking ID:</strong> ${esc(data.bookingId)}</p>
 
             <p>If you have any questions, please don't hesitate to contact us.</p>
 
@@ -209,7 +209,7 @@ export class EmailService {
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply.</p>
-            <p>&copy; 2025 Event Management System</p>
+            <p>&copy; ${new Date().getFullYear()} Eventeer</p>
           </div>
         </div>
       </body>
@@ -223,11 +223,12 @@ export class EmailService {
         message: 'Email feature is disabled, skipping verification email',
         correlationId,
         email: data.email,
+        ...(this.isProd ? {} : { devLink: `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}` }),
       });
       return;
     }
 
-    const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${data.token}`;
+    const verificationUrl = `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}`;
     const html = this.generateEmailVerificationHtml(data, verificationUrl);
 
     await this.emailQueue.add(
@@ -262,11 +263,12 @@ export class EmailService {
         message: 'Email feature is disabled, skipping password reset email',
         correlationId,
         email: data.email,
+        ...(this.isProd ? {} : { devLink: `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}` }),
       });
       return;
     }
 
-    const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${data.token}`;
+    const resetUrl = `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}`;
     const html = this.generatePasswordResetHtml(data, resetUrl);
 
     await this.emailQueue.add(
@@ -319,7 +321,7 @@ export class EmailService {
             <h1>Verify Your Email</h1>
           </div>
           <div class="content">
-            <p>Hi ${data.firstName},</p>
+            <p>Hi ${esc(data.firstName)},</p>
             
             <p>Thank you for registering with Event Management! To complete your registration and activate your account, please verify your email address.</p>
             
@@ -340,7 +342,7 @@ export class EmailService {
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply.</p>
-            <p>&copy; 2025 Event Management System</p>
+            <p>&copy; ${new Date().getFullYear()} Eventeer</p>
           </div>
         </div>
       </body>
@@ -370,7 +372,7 @@ export class EmailService {
             <h1>Reset Your Password</h1>
           </div>
           <div class="content">
-            <p>Hi ${data.firstName},</p>
+            <p>Hi ${esc(data.firstName)},</p>
             
             <p>We received a request to reset your password for your Event Management account.</p>
             
@@ -398,7 +400,7 @@ export class EmailService {
           </div>
           <div class="footer">
             <p>This is an automated email. Please do not reply.</p>
-            <p>&copy; 2025 Event Management System</p>
+            <p>&copy; ${new Date().getFullYear()} Eventeer</p>
           </div>
         </div>
       </body>

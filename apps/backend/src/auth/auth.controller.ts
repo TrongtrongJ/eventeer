@@ -1,228 +1,156 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  Req,
-  Query,
-  HttpCode,
-  HttpStatus,
-  Res,
-} from '@nestjs/common';
-import { Response } from 'express';
+import { Controller } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { Implement } from '@orpc/nest';
+import { implement } from '@orpc/server';
+import { ConfigService } from '@nestjs/config';
+import { authContract } from '@packages/contract';
+import { AUTH_COOKIE } from '@packages/shared-schemas';
+import { getCookie } from '@orpc/server/helpers';
+import type { Request } from 'express';
+import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
+import { withCurrentUser } from '../common/middleware/current-user.middleware';
+import type { EnvConfig } from '../env.validation';
+import { Public } from './decorators/public.decorator';
 import { AuthService } from './auth.service';
-import { OAuthService } from './oauth.service';
-import {
-  RegisterDto,
-  LoginDto,
-  RefreshTokenDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  VerifyEmailDto,
-  RegisterSchema,
-  LoginSchema,
-  RefreshTokenSchema,
-  ForgotPasswordSchema,
-  ResetPasswordSchema,
-  VerifyEmailSchema,
-} from '@event-mgmt/shared-schemas';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { CurrentUser, CurrentUserData } from './decorators/current-user.decorator';
-import * as crypto from 'crypto';
-import { Public } from 'src/auth/decorators/public.decorator';
+import { clearAuthCookies, setAuthCookies } from './auth-cookies';
+import type { SessionMeta } from './session.service';
+
+const STRICT = { default: { limit: 10, ttl: 60_000 } };
+
+const ok = <T>(data: T, correlationId: string) => ({
+  success: true as const,
+  data,
+  correlationId,
+  timestamp: new Date().toISOString(),
+});
+
+const metaOf = (req: Request): SessionMeta => ({
+  ipAddress: req.ip ?? null,
+  userAgent: req.headers['user-agent'] ?? null,
+});
 
 @Controller('auth')
 export class AuthController {
+  private readonly secure: boolean;
+
   constructor(
     private readonly authService: AuthService,
-    private readonly oauthService: OAuthService,
-  ) {}
-
-  @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(
-    @Body(new ZodValidationPipe(RegisterSchema)) registerDto: RegisterDto,
-    @Req() req: any,
+    config: ConfigService<EnvConfig, true>,
   ) {
-    const result = await this.authService.register(registerDto, req.correlationId);
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+    this.secure = config.get('isProd', { infer: true });
   }
 
   @Public()
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body(new ZodValidationPipe(LoginSchema)) loginDto: LoginDto, @Req() req: any) {
-    const result = await this.authService.login(
-      loginDto,
-      req.ip,
-      req.headers['user-agent'],
-      req.correlationId,
-    );
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Throttle(STRICT)
+  @Implement(authContract.register)
+  async register() {
+    return implement(authContract.register)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { user, tokens } = await this.authService.register(input, metaOf(context.request), context.correlationId);
+        setAuthCookies(context.resHeaders, tokens, this.secure);
+        return ok({ user }, context.correlationId);
+      });
   }
 
   @Public()
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body(new ZodValidationPipe(RefreshTokenSchema)) refreshTokenDto: RefreshTokenDto,
-    @Req() req: any,
-  ) {
-    const result = await this.authService.refreshToken(
-      refreshTokenDto.refreshToken,
-      req.correlationId,
-    );
-    return {
-      success: true,
-      data: result,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Throttle(STRICT)
+  @Implement(authContract.login)
+  async login() {
+    return implement(authContract.login)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        const { user, tokens } = await this.authService.login(input, metaOf(context.request));
+        setAuthCookies(context.resHeaders, tokens, this.secure);
+        return ok({ user }, context.correlationId);
+      });
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@CurrentUser() user: CurrentUserData, @Req() req: any) {
-    await this.authService.logout(user.sessionId, req.correlationId);
+  /**
+   * @Public because by the time a refresh is needed the access cookie has
+   * expired; the refresh cookie *is* the credential here.
+   */
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Implement(authContract.refresh)
+  async refresh() {
+    return implement(authContract.refresh)
+      .use(withCorrelationId)
+      .handler(async ({ context }) => {
+        const refreshToken = getCookie(context.reqHeaders, AUTH_COOKIE.REFRESH);
+        try {
+          const { user, tokens } = await this.authService.refresh(refreshToken);
+          // tokens === null: a concurrent request already rotated; its cookies are in flight.
+          if (tokens) setAuthCookies(context.resHeaders, tokens, this.secure);
+          return ok(user, context.correlationId);
+        } catch (err) {
+          // Don't leave dead cookies behind: the client is logged out from here.
+          clearAuthCookies(context.resHeaders, this.secure);
+          throw err;
+        }
+      });
+  }
+
+  /** Idempotent and @Public: must work even when the access cookie has already expired. */
+  @Public()
+  @Implement(authContract.logout)
+  async logout() {
+    return implement(authContract.logout)
+      .use(withCorrelationId)
+      .handler(async ({ context }) => {
+        await this.authService.logout(
+          getCookie(context.reqHeaders, AUTH_COOKIE.ACCESS),
+          getCookie(context.reqHeaders, AUTH_COOKIE.REFRESH),
+        );
+        clearAuthCookies(context.resHeaders, this.secure);
+        return ok(null, context.correlationId);
+      });
+  }
+
+  @Implement(authContract.me)
+  async me() {
+    return implement(authContract.me)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ context }) => {
+        const user = await this.authService.getMe(context.user.userId);
+        return ok(user, context.correlationId);
+      });
   }
 
   @Public()
-  @Post('verify-email')
-  @HttpCode(HttpStatus.OK)
-  async verifyEmail(
-    @Body(new ZodValidationPipe(VerifyEmailSchema)) verifyDto: VerifyEmailDto,
-    @Req() req: any,
-  ) {
-    await this.authService.verifyEmail(verifyDto.token, req.correlationId);
-    return {
-      success: true,
-      message: 'Email verified successfully',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Throttle(STRICT)
+  @Implement(authContract.verifyEmail)
+  async verifyEmail() {
+    return implement(authContract.verifyEmail)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        await this.authService.verifyEmail(input);
+        return ok({ message: 'Email verified successfully' }, context.correlationId);
+      });
   }
 
   @Public()
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  async forgotPassword(
-    @Body(new ZodValidationPipe(ForgotPasswordSchema)) forgotDto: ForgotPasswordDto,
-    @Req() req: any,
-  ) {
-    await this.authService.forgotPassword(forgotDto.email, req.correlationId);
-    return {
-      success: true,
-      message: 'Password reset email sent',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Implement(authContract.forgotPassword)
+  async forgotPassword() {
+    return implement(authContract.forgotPassword)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        await this.authService.forgotPassword(input.email, context.correlationId);
+        return ok({ message: 'If that email is registered, a reset link has been sent' }, context.correlationId);
+      });
   }
 
   @Public()
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  async resetPassword(
-    @Body(new ZodValidationPipe(ResetPasswordSchema)) resetDto: ResetPasswordDto,
-    @Req() req: any,
-  ) {
-    await this.authService.resetPassword(resetDto.token, resetDto.newPassword, req.correlationId);
-    return {
-      success: true,
-      message: 'Password reset successfully',
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  @Get('me')
-  async getCurrentUser(@CurrentUser() user: CurrentUserData, @Req() req: any) {
-    const fullUser = await this.authService.validateUser(user.userId);
-    return {
-      success: true,
-      data: fullUser,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  @Public()
-  @Get('oauth/google')
-  googleAuth(@Res() res: Response) {
-    const state = crypto.randomBytes(16).toString('hex');
-    const url = this.oauthService.getGoogleAuthUrl(state);
-    res.redirect(url);
-  }
-
-  @Get('oauth/google/callback')
-  async googleCallback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
-    const result = await this.oauthService.handleGoogleCallback(code, req.correlationId);
-
-    // Redirect to frontend with tokens
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
-    );
-  }
-
-  @Public()
-  @Get('oauth/github')
-  githubAuth(@Res() res: Response) {
-    const state = crypto.randomBytes(16).toString('hex');
-    const url = this.oauthService.getGitHubAuthUrl(state);
-    res.redirect(url);
-  }
-
-  @Get('oauth/github/callback')
-  async githubCallback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
-    const result = await this.oauthService.handleGitHubCallback(code, req.correlationId);
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
-    );
-  }
-
-  @Public()
-  @Get('oauth/facebook')
-  facebookAuth(@Res() res: Response) {
-    const state = crypto.randomBytes(16).toString('hex');
-    const url = this.oauthService.getFacebookAuthUrl(state);
-    res.redirect(url);
-  }
-
-  @Get('oauth/facebook/callback')
-  async facebookCallback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
-    const result = await this.oauthService.handleFacebookCallback(code, req.correlationId);
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
-    );
+  @Throttle(STRICT)
+  @Implement(authContract.resetPassword)
+  async resetPassword() {
+    return implement(authContract.resetPassword)
+      .use(withCorrelationId)
+      .handler(async ({ input, context }) => {
+        await this.authService.resetPassword(input);
+        return ok({ message: 'Password has been reset. Please sign in.' }, context.correlationId);
+      });
   }
 }

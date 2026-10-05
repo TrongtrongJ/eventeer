@@ -1,10 +1,6 @@
+import { type SortOrder, sortOrder } from '@packages/shared-schemas';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsEnum, Min, Max, IsString } from 'class-validator';
-
-export enum SortOrder {
-  ASC = 'ASC',
-  DESC = 'DESC',
-}
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -25,8 +21,8 @@ export class PaginationQueryDto {
   sortBy?: string;
 
   @IsOptional()
-  @IsEnum(SortOrder)
-  sortOrder?: SortOrder = SortOrder.ASC;
+  @IsEnum(sortOrder)
+  sortOrder?: SortOrder = 'DESC';
 
   @IsOptional()
   @IsString()
@@ -49,6 +45,27 @@ export interface PaginationLinks {
   last: string;
 }
 
+export function buildPaginatedResponse<T>(data: T[], total: number, page: number, limit: number, baseUrl: string) {
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+    links: {
+      first: `${baseUrl}?page=1&limit=${limit}`,
+      previous: page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null,
+      next: page < totalPages ? `${baseUrl}?page=${page + 1}&limit=${limit}` : null,
+      last: `${baseUrl}?page=${totalPages}&limit=${limit}`,
+    },
+  }
+}
 export class PaginatedResponseDto<T> {
   data: T[];
   meta: PaginationMeta;

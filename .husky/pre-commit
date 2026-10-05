@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname "$0")/common.sh"
+
+# 1. Format and Lint ONLY changed files
+npx lint-staged --concurrent false
+
+# 2. Typecheck the monorepo
+yarn typecheck

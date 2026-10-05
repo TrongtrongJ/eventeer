@@ -1,54 +1,27 @@
+// Must be first: populates process.env before any decorator (e.g. the websocket
+// gateway's CORS origin) is evaluated at import time.
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { patchNestJsSwagger } from 'nestjs-zod';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
-import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
-
-patchNestJsSwagger();
+import { configureApp } from './app.setup';
+import { RedisIoAdapter } from './websocket/redis-io.adapter';
+import type { EnvConfig } from './env.validation';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
-  });
+  // bodyParser is off: oRPC consumes the raw request stream itself.
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  configureApp(app);
 
-  // Log environment check
-  const jwtSecret = process.env.JWT_ACCESS_SECRET;
-  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
-  
-  if (!jwtSecret || !jwtRefreshSecret) {
-    console.error('❌ CRITICAL: JWT secrets not configured!');
-    console.error('Please set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET in your .env file');
-    console.warn('Using fallback secrets for development (NOT SECURE)');
-  } else {
-    console.log('✅ JWT secrets configured');
-  }
+  const config = app.get<ConfigService<EnvConfig, true>>(ConfigService);
 
-  app.use(CorrelationIdMiddleware);
-  app.useGlobalInterceptors(new LoggingInterceptor());
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+  const ioAdapter = new RedisIoAdapter(app);
+  ioAdapter.connectToRedis(config.get('REDIS_HOST', { infer: true }), config.get('REDIS_PORT', { infer: true }));
+  app.useWebSocketAdapter(ioAdapter);
 
-  app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalFilters(new ValidationExceptionFilter());
-
-  app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true,
-  });
-
-  app.enableShutdownHooks();
-
-  const port = process.env.PORT || 4000;
+  const port = config.get('PORT', { infer: true });
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`API listening on http://localhost:${port}`);
 }
 
 bootstrap();

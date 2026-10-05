@@ -1,38 +1,38 @@
 import { z } from "zod";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { emailField, IsoStringDate, passwordField } from "./base/fields";
 
-extendZodWithOpenApi(z);
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+export const RegisterSchema = z
+  .object({
+    email: emailField,
+    password: passwordField,
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().min(1).max(100),
+    /** Defaults to CUSTOMER. ADMIN sign-up is gated server-side (ALLOW_ADMIN_SIGNUP). */
+    role: z.enum(["CUSTOMER", "ORGANIZER", "ADMIN"]).optional(),
+  })
+  .meta({ description: "New user registration payload" });
 
-// User Schemas
-export const RegisterSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-});
+export const LoginSchema = z
+  .object({
+    email: emailField,
+    // No strength rules on login: never reject an existing password client-side.
+    password: z.string().min(1).max(72),
+  })
+  .meta({ description: "User login credentials" });
 
-export const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-export const ChangePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(100),
-});
-
-export const ForgotPasswordSchema = z.object({
-  email: z.string().email(),
-});
+export const ForgotPasswordSchema = z.object({ email: emailField });
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1),
-  newPassword: z.string().min(8).max(100),
+  newPassword: passwordField,
 });
 
 export const ResetPasswordFormSchema = z
   .object({
-    password: z.string().min(8, "Password too short").max(100, 'Password too long'),
+    password: passwordField,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -40,15 +40,14 @@ export const ResetPasswordFormSchema = z
     path: ["confirmPassword"],
   });
 
-export const UpdateProfileSchema = z.object({
-  firstName: z.string().min(1).max(100).optional(),
-  lastName: z.string().min(1).max(100).optional(),
-  avatarUrl: z.string().url().optional(),
-});
+export const VerifyEmailSchema = z.object({ token: z.string().min(1) });
 
+// ---------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------
 export const UserSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
+  id: z.uuid(),
+  email: z.email(),
   firstName: z.string(),
   lastName: z.string(),
   avatarUrl: z.string().optional(),
@@ -56,42 +55,37 @@ export const UserSchema = z.object({
   provider: z.enum(["LOCAL", "GOOGLE", "GITHUB", "FACEBOOK"]).optional(),
   isEmailVerified: z.boolean(),
   isActive: z.boolean(),
-  lastLoginAt: z.string().datetime().nullable(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  lastLoginAt: IsoStringDate.nullable().optional(),
+  createdAt: IsoStringDate,
+  updatedAt: IsoStringDate.nullable().optional(),
 });
 
-export const AuthResponseSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  user: UserSchema,
-  expiresIn: z.number(),
-});
+/**
+ * Auth responses never carry tokens: the access and refresh tokens are opaque,
+ * httpOnly cookies that JavaScript (and therefore XSS) can never read.
+ */
+export const AuthResponseSchema = z
+  .object({ user: UserSchema })
+  .meta({ id: "AuthResponse", description: "Authenticated user; tokens are set as httpOnly cookies" });
 
-export const RefreshTokenSchema = z.object({
-  refreshToken: z.string().min(1),
-});
+export const MessageResponseSchema = z.object({ message: z.string() }).meta({ id: "MessageResponse" });
 
-export const OAuth2CallbackSchema = z.object({
-  code: z.string().min(1),
-  state: z.string().optional(),
-});
-
-export const VerifyEmailSchema = z.object({
-  token: z.string().min(1),
-});
+export const ErrorResponseSchema = z
+  .object({
+    statusCode: z.number().int(),
+    message: z.union([z.string(), z.array(z.string())]),
+    error: z.string().optional(),
+  })
+  .meta({ id: "ErrorResponse" });
 
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type LoginDto = z.infer<typeof LoginSchema>;
-export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 export type ForgotPasswordDto = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type ResetPasswordFormDto = z.infer<typeof ResetPasswordFormSchema>;
-export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
-export type UserDto = z.infer<typeof UserSchema>;
-export type UserRole = UserDto['role'];
-export type OAuthProvider = UserDto['provider'];
-export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
-export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
-export type OAuth2CallbackDto = z.infer<typeof OAuth2CallbackSchema>;
 export type VerifyEmailDto = z.infer<typeof VerifyEmailSchema>;
+export type UserDto = z.infer<typeof UserSchema>;
+export type OAuthProvider = UserDto["provider"];
+export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
+export type MessageResponse = z.infer<typeof MessageResponseSchema>;
+export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;

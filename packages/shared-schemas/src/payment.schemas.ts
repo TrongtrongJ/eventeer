@@ -1,11 +1,8 @@
 import { z } from "zod";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-
-extendZodWithOpenApi(z);
 
 // Payment Schema
 export const CreatePaymentIntentSchema = z.object({
-  bookingId: z.string().uuid(),
+  bookingId: z.uuid(),
   amount: z.number().positive(),
   currency: z.enum(["USD", "EUR", "GBP"]).default("USD"),
 });

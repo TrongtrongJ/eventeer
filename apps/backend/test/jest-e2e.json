@@ -7,6 +7,6 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
-    "^@event-mgmt/shared-schemas$": "<rootDir>/../packages/shared-schemas/src"
+    "^@packages/shared-schemas$": "<rootDir>/../packages/shared-schemas/src"
   }
 }

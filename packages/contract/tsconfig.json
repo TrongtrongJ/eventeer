@@ -1,0 +1,16 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "declaration": true,
+        "sourceMap": true,
+        "declarationMap": true,
+        "emitDeclarationOnly": false,
+        "outDir": "./dist",
+        "rootDir": "./src"
+    },
+    "include": ["src/**/*", "eslint.config.js"],
+    "exclude": ["node_modules", "dist"]
+}

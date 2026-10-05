@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { EventTicketDataDto, ValidateTicketDto, ValidateTicketResDto } from '@packages/shared-schemas';
 import { Ticket } from '../entities/ticket.entity';
-import { ValidateTicketDto } from '@event-mgmt/shared-schemas';
+import { BookingStatus } from '../entities/booking.entity';
+import { UserRole } from '../entities/user.entity';
+import { safeEqual } from '../auth/utils/token.util';
+
+export interface Scanner {
+  userId: string;
+  role: string;
+}
 
 @Injectable()
 export class TicketsService {
@@ -13,94 +21,63 @@ export class TicketsService {
     private readonly ticketRepository: Repository<Ticket>,
   ) {}
 
-  async validateTicket(
-    validateDto: ValidateTicketDto,
-    correlationId: string,
-  ): Promise<{
-    isValid: boolean;
-    ticket?: any;
-    message: string;
-  }> {
-    this.logger.log({
-      message: 'Validating ticket',
-      correlationId,
-      ticketId: validateDto.ticketId,
-    });
-
+  async validateTicket(dto: ValidateTicketDto, scanner: Scanner, correlationId: string): Promise<ValidateTicketResDto> {
     const ticket = await this.ticketRepository.findOne({
-      where: { id: validateDto.ticketId },
-      relations: ['booking', 'booking.event'],
+      where: { id: dto.ticketId },
+      relations: { booking: { event: true } },
     });
 
-    if (!ticket) {
-      return {
-        isValid: false,
-        message: 'Ticket not found',
-      };
+    // One generic answer for "unknown ticket" and "wrong QR": don't help someone probe ids.
+    if (!ticket || !safeEqual(ticket.qrCode, dto.qrCode)) {
+      this.logger.warn({ message: 'Ticket rejected: not found or QR mismatch', correlationId, ticketId: dto.ticketId });
+      return { isValid: false, message: 'Invalid ticket' };
     }
 
-    if (ticket.qrCode !== validateDto.qrCode) {
-      this.logger.warn({
-        message: 'Invalid QR code',
-        correlationId,
-        ticketId: validateDto.ticketId,
-      });
-      return {
-        isValid: false,
-        message: 'Invalid QR code',
-      };
+    const { booking } = ticket;
+    if (scanner.role !== UserRole.ADMIN && booking.event.organizerId !== scanner.userId) {
+      throw new ForbiddenException('You can only validate tickets for your own events');
     }
 
-    if (ticket.isValidated) {
-      this.logger.warn({
-        message: 'Ticket already validated',
-        correlationId,
-        ticketId: validateDto.ticketId,
-        validatedAt: ticket.validatedAt,
-      });
+    // Unpaid, expired, or refunded bookings must never get anyone through the door.
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      return { isValid: false, message: `Booking is ${booking.status.toLowerCase()}` };
+    }
+
+    // Atomic claim: of two simultaneous scans, exactly one updates a row.
+    const claimedAt = new Date();
+    const claim = await this.ticketRepository.update({ id: ticket.id, isValidated: false }, { isValidated: true, validatedAt: claimedAt });
+
+    if (claim.affected !== 1) {
+      const current = await this.ticketRepository.findOneByOrFail({ id: ticket.id });
       return {
         isValid: false,
         ticket: {
           ticketNumber: ticket.ticketNumber,
-          validatedAt: ticket.validatedAt,
+          validatedAt: current.validatedAt ? current.validatedAt.toISOString() : undefined,
         },
         message: 'Ticket already used',
       };
     }
 
-    // Mark as validated
-    ticket.isValidated = true;
-    ticket.validatedAt = new Date();
-    await this.ticketRepository.save(ticket);
-
-    this.logger.log({
-      message: 'Ticket validated successfully',
-      correlationId,
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticketNumber,
-    });
-
+    this.logger.log({ message: 'Ticket validated', correlationId, ticketId: ticket.id, ticketNumber: ticket.ticketNumber });
     return {
       isValid: true,
       ticket: {
         ticketNumber: ticket.ticketNumber,
-        eventTitle: ticket.booking.event.title,
-        holderName: `${ticket.booking.firstName} ${ticket.booking.lastName}`,
-        validatedAt: ticket.validatedAt,
+        eventTitle: booking.event.title,
+        holderName: `${booking.firstName} ${booking.lastName}`,
+        validatedAt: claimedAt.toISOString(),
       },
       message: 'Ticket validated successfully',
     };
   }
 
-  async getTicketByQRCode(qrCode: string): Promise<any> {
+  async getTicketByQRCode(qrCode: string): Promise<EventTicketDataDto> {
     const ticket = await this.ticketRepository.findOne({
       where: { qrCode },
-      relations: ['booking', 'booking.event'],
+      relations: { booking: { event: true } },
     });
-
-    if (!ticket) {
-      throw new NotFoundException('Ticket not found');
-    }
+    if (!ticket || ticket.booking.status !== BookingStatus.CONFIRMED) throw new NotFoundException('Ticket not found');
 
     return {
       id: ticket.id,

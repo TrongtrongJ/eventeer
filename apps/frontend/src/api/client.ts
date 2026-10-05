@@ -1,7 +1,7 @@
 /* import axios from 'axios';
 import { store } from '../store';
 import { refreshAccessToken, clearCredentials } from '../store/slices/authSlice';
-import { apiUrl } from '@constants/config'
+import { apiUrl } from '@/constants/config'
 
 export const apiClient = axios.create({
   baseURL: apiUrl,
@@ -24,8 +24,8 @@ apiClient.interceptors.request.use((config) => {
   }
   
   return config;
-}, (error) => {
-  return Promise.reject(error);
+}, (error: any) => {
+  return Promise.reject(error: any);
 });
 
 // Handle token refresh on 401
@@ -37,8 +37,8 @@ let failedQueue: {
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
+    if (error: any) {
+      prom.reject(error: any);
     } else {
       prom.resolve(token);
     }
@@ -49,7 +49,7 @@ const processQueue = (error: any, token: string | null = null) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  async (error: any) => {
     const originalRequest = error.config;
     
     // Don't retry on these endpoints to avoid infinite loops
@@ -81,7 +81,7 @@ apiClient.interceptors.response.use(
         isRefreshing = false;
         store.dispatch(clearCredentials());
         window.location.href = '/login';
-        return Promise.reject(error);
+        return Promise.reject(error: any);
       }
       
       try {
@@ -113,7 +113,7 @@ apiClient.interceptors.response.use(
       store.dispatch(clearCredentials());
     }
     
-    return Promise.reject(error);
+    return Promise.reject(error: any);
   }
 );
 */

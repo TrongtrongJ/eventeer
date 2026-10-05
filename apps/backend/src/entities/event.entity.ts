@@ -7,44 +7,53 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
-} from "typeorm";
-import { Booking } from "./booking.entity";
-import { Coupon } from "./coupon.entity";
+  Index,
+  Check,
+} from 'typeorm';
+import { Booking } from './booking.entity';
+import { Coupon } from './coupon.entity';
 import { User } from './user.entity';
 
-@Entity("events")
+@Entity('events')
+@Check('"availableSeats" >= 0 AND "availableSeats" <= "capacity"')
 export class Event {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: "varchar", length: 200 })
+  @Column({ type: 'varchar', length: 200 })
   title: string;
 
-  @Column({ type: "text" })
+  @Column({ type: 'text' })
   description: string;
 
-  @Column({ type: "varchar", length: 500 })
+  @Column({ type: 'varchar', length: 500 })
   location: string;
 
-  @Column({ type: "timestamp" })
+  @Index()
+  @Column({ type: 'timestamptz' })
   startDate: Date;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: 'timestamptz' })
   endDate: Date;
 
-  @Column({ type: "int" })
+  @Column({ type: 'int' })
   capacity: number;
 
-  @Column({ type: "int" })
+  /**
+   * Mutated only via single-statement atomic UPDATEs (see EventsService), and
+   * backstopped by the CHECK constraint above so overselling is impossible
+   * even if application logic regresses.
+   */
+  @Column({ type: 'int' })
   availableSeats: number;
 
-  @Column({ type: "decimal", precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   ticketPrice: number;
 
-  @Column({ type: "varchar", length: 3, default: "USD" })
+  @Column({ type: 'varchar', length: 3, default: 'THB' })
   currency: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', length: 2048, nullable: true })
   imageUrl?: string;
 
   @OneToMany(() => Booking, (booking) => booking.event)
@@ -53,19 +62,17 @@ export class Event {
   @OneToMany(() => Coupon, (coupon) => coupon.event)
   coupons: Coupon[];
 
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   organizerId?: string;
 
-  @ManyToOne(() => User, user => user.organizedEvents)
+  @ManyToOne(() => User, (user) => user.organizedEvents, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'organizerId' })
   organizer?: User;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
-
-  @Column({ type: "int", default: 0 })
-  version: number;
 }

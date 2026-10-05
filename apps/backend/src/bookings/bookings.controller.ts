@@ -1,134 +1,110 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Body,
-  Param,
-  Req,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
-  ForbiddenException,
-} from '@nestjs/common';
-import { BookingsService } from './bookings.service';
-import { CreateBookingDto, BookingSchema, CreateBookingSchema } from '@event-mgmt/shared-schemas';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.decorator';
+import { Controller } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { Implement } from '@orpc/nest';
+import { implement } from '@orpc/server';
+import { bookingContract } from '@packages/contract';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
+import { withCurrentUser } from '../common/middleware/current-user.middleware';
+import { requireRoles } from '../common/middleware/require-roles.middleware';
+import { BookingsService } from './bookings.service';
 
+const ok = <T>(data: T, correlationId: string) => ({
+  success: true as const,
+  data,
+  correlationId,
+  timestamp: new Date().toISOString(),
+});
+
+/**
+ * Thin transport layer. Ownership / role rules live in BookingsService so the
+ * REST and GraphQL surfaces cannot drift apart.
+ */
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  @Post('/create')
-  @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body(new ZodValidationPipe(CreateBookingSchema)) createBookingDto: CreateBookingDto,
-    @CurrentUser() user: CurrentUserData,
-    @Req() req: any,
-  ) {
-    const booking = await this.bookingsService.create(
-      createBookingDto,
-      user.userId,
-      req.correlationId,
-    );
-    return {
-      success: true,
-      data: booking,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  // Creating a booking takes inventory; keep scripted hoarding in check.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Implement(bookingContract.createBooking)
+  async createBooking() {
+    return implement(bookingContract.createBooking)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ input, context }) => {
+        const { user, correlationId } = context;
+        const booking = await this.bookingsService.create(input, user.userId, correlationId);
+        return ok(booking, correlationId);
+      });
   }
 
-  @Post(':id/confirm')
-  async confirm(@Param('id') id: string, @CurrentUser() user: CurrentUserData, @Req() req: any) {
-    // Verify booking belongs to user
-    const existingBooking = await this.bookingsService.findOne(id);
-    if (existingBooking.userId !== user.userId) {
-      throw new ForbiddenException('You can only confirm your own bookings');
-    }
-
-    const booking = await this.bookingsService.confirmBooking(id, req.correlationId);
-    return {
-      success: true,
-      data: booking,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(bookingContract.confirmBooking)
+  async confirmBooking() {
+    return implement(bookingContract.confirmBooking)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ input, context }) => {
+        const { user, correlationId } = context;
+        const booking = await this.bookingsService.confirmBooking(input.id, user, correlationId);
+        return ok(booking, correlationId);
+      });
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserData, @Req() req: any) {
-    const booking = await this.bookingsService.findOne(id);
-
-    // Check if user owns this booking or is admin
-    if (booking.userId !== user.userId && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only view your own bookings');
-    }
-
-    return {
-      success: true,
-      data: booking,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(bookingContract.findOne)
+  async findOne() {
+    return implement(bookingContract.findOne)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ input, context }) => {
+        const booking = await this.bookingsService.findOneFor(input.id, context.user);
+        return ok(booking, context.correlationId);
+      });
   }
 
-  @Get('bookings/me')
-  async getMyBookings(@CurrentUser() user: CurrentUserData, @Req() req: any) {
-    const bookings = await this.bookingsService.findByUser(user.userId);
-    return {
-      success: true,
-      data: bookings,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(bookingContract.getMyBookings)
+  async getMyBookings() {
+    return implement(bookingContract.getMyBookings)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ context }) => {
+        const bookings = await this.bookingsService.findByUser(context.user.userId);
+        return ok(bookings, context.correlationId);
+      });
   }
 
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async cancel(@Param('id') id: string, @CurrentUser() user: CurrentUserData, @Req() req: any) {
-    // Verify booking belongs to user
-    const booking = await this.bookingsService.findOne(id);
-    if (booking.userId !== user.userId && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only cancel your own bookings');
-    }
-
-    await this.bookingsService.cancelBooking(id, req.correlationId);
+  @Implement(bookingContract.cancelBooking)
+  async cancelBooking() {
+    return implement(bookingContract.cancelBooking)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .handler(async ({ input, context }) => {
+        const { user, correlationId } = context;
+        await this.bookingsService.cancelBooking(input.id, user, correlationId);
+        return ok(null, correlationId);
+      });
   }
 
-  // Admin endpoint to view all bookings
-  @Get('admin/all')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  async getAllBookings(@Req() req: any) {
-    const bookings = await this.bookingsService.findAll();
-    return {
-      success: true,
-      data: bookings,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(bookingContract.adminListBookings)
+  async adminListBookings() {
+    return implement(bookingContract.adminListBookings)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ADMIN]))
+      .handler(async ({ context }) => ok(await this.bookingsService.findAll(), context.correlationId));
   }
 
-  // Organizer endpoint to view bookings for their events
-  @Get('event/:eventId/bookings')
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  async getEventBookings(
-    @Param('eventId') eventId: string,
-    @CurrentUser() user: CurrentUserData,
-    @Req() req: any,
-  ) {
-    const bookings = await this.bookingsService.findByEvent(eventId, user.userId, user.role);
-    return {
-      success: true,
-      data: bookings,
-      correlationId: req.correlationId,
-      timestamp: new Date().toISOString(),
-    };
+  @Implement(bookingContract.getEventBookings)
+  async getEventBookings() {
+    return implement(bookingContract.getEventBookings)
+      .use(withCorrelationId)
+      .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+      .handler(async ({ input, context }) => {
+        const bookings = await this.bookingsService.findByEvent(input.eventId, context.user);
+        return ok(bookings, context.correlationId);
+      });
   }
 }

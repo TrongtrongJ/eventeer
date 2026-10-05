@@ -223,7 +223,7 @@ describe('BookingsService', () => {
 
     it('should generate tickets with QR codes', async () => {
       mockEventsService.findOne.mockResolvedValue(mockEvent);
-      const tickets = [];
+      const tickets: Ticket[] = [];
       mockDataSource.transaction.mockImplementation(async (callback) => {
         const manager = {
           create: jest.fn((Entity, data) => {

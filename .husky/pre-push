@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname "$0")/common.sh"
+
+# Build the monorepo before allowing the push
+yarn build

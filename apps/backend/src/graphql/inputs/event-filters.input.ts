@@ -1,7 +1,10 @@
 import { InputType, Field, Int, registerEnumType } from '@nestjs/graphql';
-import { SortOrder } from 'src/common/dto/pagination.dto';
 
-registerEnumType(SortOrder, {
+enum SortOrderEnum {
+  ASC = "ASC",
+  DESC = "DESC"
+}
+registerEnumType(SortOrderEnum, {
   name: 'SortOrder',
   description: 'Sort order direction',
 });
@@ -23,6 +26,6 @@ export class EventFiltersInput {
   @Field({ nullable: true })
   sortBy?: string;
 
-  @Field(() => SortOrder, { nullable: true, defaultValue: SortOrder.ASC })
-  sortOrder?: SortOrder;
+  @Field(() => SortOrderEnum, { nullable: true, defaultValue: SortOrderEnum.ASC })
+  sortOrder?: SortOrderEnum;
 }

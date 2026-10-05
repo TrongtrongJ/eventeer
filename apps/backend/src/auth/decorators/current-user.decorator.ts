@@ -1,17 +1,8 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { CurrentUserData } from '@packages/shared-schemas';
+import { getRequest } from '../utils/request.util';
 
-export interface CurrentUserData {
-  userId: string;
-  email: string;
-  role: string;
-  sessionId: string;
-}
-
-export const CurrentUser = createParamDecorator(
-  (data: keyof CurrentUserData | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    const user = request.user;
-
-    return data ? user?.[data] : user;
-  },
-);
+/** Injects the authenticated principal into REST and GraphQL handlers. */
+export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): CurrentUserData => {
+  return (getRequest(ctx) as unknown as { user: CurrentUserData }).user;
+});

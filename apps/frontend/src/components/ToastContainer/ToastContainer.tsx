@@ -1,16 +1,13 @@
-import React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../../store';
-import { removeToast } from '../../store/slices/ui';
-import Toast from './Toast'
+'use client';
 
-const ToastContainer: React.FC = () => {
-  const toasts = useSelector((state: RootState) => state.ui.toasts);
-  const dispatch = useDispatch();
+import React, { useCallback } from 'react';
+import { useToast } from '@/lib/toast/toast-context';
+import Toast from './Toast';
 
-  const handleClose = useCallback((id: string) => {
-    dispatch(removeToast(id));
-  }, [dispatch]);
+export default function ToastContainer() {
+  const { toasts, removeToast } = useToast();
+
+  const handleClose = useCallback((id: string) => removeToast(id), [removeToast]);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2">
@@ -19,6 +16,4 @@ const ToastContainer: React.FC = () => {
       ))}
     </div>
   );
-};
-
-export { ToastContainer };
+}

@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+
+npx --no -- commitlint --edit $1 || {
+  echo "
+Valid commit message format:
+  <type>(<scope>): <description>
+
+Types:
+   feat      - New feature
+   fix       - Bug fix
+   hotfix    - Bug fix on production
+   docs      - Documentation changes
+   style     - Code style changes (formatting, missing semicolons, etc)
+   refactor  - Code refactoring
+   test      - Adding or updating tests
+   chore     - Maintenance tasks, dependencies, etc
+   ci        - CI/CD changes
+   revert    - Revert previous commit
+   prototype - Prototype features
+   perf      - Performance
+
+Examples:
+   feat: add AI Search feature
+   fix(auth): resolve login validation issue
+   hotfix(auth): resolve login validation issue
+   docs: update API documentation
+   style: format code with prettier
+   refactor(user): restructure user service
+   test: add unit tests for auth module
+   chore: update dependencies
+   ci: add Bitbucket Pipelines workflow
+   revert: revert previous commit
+   prototype: add AI Search feature
+   perf: change search algorithms
+---------------------------------------------------------------------------
+"
+  exit 1
+}

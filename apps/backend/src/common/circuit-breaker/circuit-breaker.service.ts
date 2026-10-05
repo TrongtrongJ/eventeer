@@ -59,7 +59,7 @@ export class CircuitBreakerService {
       const result = await fn();
       this.onSuccess(circuitName);
       return result;
-    } catch (error) {
+    } catch (error: any) {
       this.onFailure(circuitName);
 
       // if (fallback && circuit.state === CircuitState.OPEN) {

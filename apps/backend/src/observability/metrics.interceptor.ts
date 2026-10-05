@@ -19,7 +19,7 @@ export class MetricsInterceptor implements NestInterceptor {
           const duration = Date.now() - startTime;
           this.metricsService.recordRequest(method, url, response.statusCode, duration);
         },
-        error: (error) => {
+        error: (error: any) => {
           const duration = Date.now() - startTime;
           this.metricsService.recordRequest(method, url, error.status || 500, duration);
         },

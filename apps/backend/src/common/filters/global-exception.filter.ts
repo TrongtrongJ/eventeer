@@ -1,101 +1,74 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
-import { CurrentUserData } from '@event-mgmt/shared-schemas';
-import { QueryFailedError } from 'typeorm';
-import type { Request, Response } from 'express';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Response } from 'express';
 
-interface ErrorResponse {
-  statusCode: number;
-  message: string;
-  error?: string;
-  errors?: any[];
-  correlationId: string;
-  timestamp: string;
-  path: string;
-}
+const STATUS_TO_CODE: Record<number, string> = {
+  400: 'BAD_REQUEST',
+  401: 'UNAUTHORIZED',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  405: 'METHOD_NOT_SUPPORTED',
+  406: 'NOT_ACCEPTABLE',
+  408: 'TIMEOUT',
+  409: 'CONFLICT',
+  412: 'PRECONDITION_FAILED',
+  413: 'PAYLOAD_TOO_LARGE',
+  429: 'TOO_MANY_REQUESTS',
+  500: 'INTERNAL_SERVER_ERROR',
+  501: 'NOT_IMPLEMENTED',
+  502: 'BAD_GATEWAY',
+  503: 'SERVICE_UNAVAILABLE',
+};
 
-interface RequestWithUserData extends Request {
-  user?: CurrentUserData;
-}
-
+/**
+ * Normalises every error that escapes Nest (guards, pipes, plain controllers)
+ * into the oRPC error wire format `{ defined, code, message, data? }` the frontend client expects.
+ */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
+  private readonly logger = new Logger('Exceptions');
+
+  constructor(private readonly isProd: boolean) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<RequestWithUserData>();
-    const correlationId = request['correlationId'] || 'unknown';
+    // GraphQL has its own error pipeline (Apollo); hand the error back untouched.
+    if (host.getType<string>() === 'graphql') return exception;
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let error = 'InternalServerError';
-    let errors: any[] | undefined;
+    const response = host.switchToHttp().getResponse<Response>();
 
-    // Handle different exception types
     if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+      const status = exception.getStatus();
+      const body = exception.getResponse() as any;
 
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
-        const responseObj = exceptionResponse as any;
-        message = responseObj.message || message;
-        error = responseObj.error || error;
-        errors = responseObj.errors;
+      // The oRPC OpenAPI client only accepts `{ defined, code, message, data? }` (no other keys);
+      // anything else reaches the UI as MALFORMED_ORPC_RESPONSE and hides the real reason
+      // (wrong password, sold out, bad coupon...). Errors that already come from oRPC are
+      // valid as-is, so pass them through instead of wrapping them a second time.
+      if (
+        body &&
+        typeof body === 'object' &&
+        typeof body.defined === 'boolean' &&
+        typeof body.code === 'string' &&
+        typeof body.message === 'string'
+      ) {
+        const { defined, code, message, data } = body;
+        return response.status(status).json({ defined, code, message, ...(data !== undefined ? { data } : {}) });
       }
-    } else if (exception instanceof QueryFailedError) {
-      // Database errors
-      status = HttpStatus.BAD_REQUEST;
-      message = 'Database operation failed';
-      error = 'DatabaseError';
 
-      // Log but don't expose internal DB errors
-      this.logger.error({
-        message: 'Database error',
-        correlationId,
-        error: exception.message,
-        query: exception.query,
-        parameters: exception.parameters,
+      const message =
+        typeof body === 'object' && Array.isArray(body?.message) ? body.message[0] : (body?.message ?? exception.message);
+      return response.status(status).json({
+        defined: false,
+        code: STATUS_TO_CODE[status] ?? 'INTERNAL_SERVER_ERROR',
+        message,
       });
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      error = exception.name;
     }
 
-    const errorResponse: ErrorResponse = {
-      statusCode: status,
-      message,
-      error,
-      correlationId,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    };
-
-    if (errors) {
-      errorResponse.errors = errors;
-    }
-
-    // Log error
-    this.logger.error({
-      message: 'Exception caught',
-      correlationId,
-      statusCode: status,
-      error: error,
-      path: request.url,
-      method: request.method,
-      userId: request.user?.userId,
-      stack: exception instanceof Error ? exception.stack : undefined,
+    this.logger.error(exception instanceof Error ? (exception.stack ?? exception.message) : String(exception));
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      defined: false,
+      code: 'INTERNAL_SERVER_ERROR',
+      // Never leak internals (SQL, stack hints) to clients in production.
+      message: this.isProd || !(exception instanceof Error) ? 'Internal server error' : exception.message,
     });
-
-    response.status(status).json(errorResponse);
   }
 }

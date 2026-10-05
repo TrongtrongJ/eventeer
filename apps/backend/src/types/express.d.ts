@@ -1,15 +1,13 @@
-import { CurrentUserData } from '@event-mgmt/shared-schemas';
-import { Request } from 'express'
+import type { CurrentUserData } from '@packages/shared-schemas';
 
-/* declare global {
+declare global {
   namespace Express {
     interface Request {
+      /** Set by AuthenticationGuard. */
       user?: CurrentUserData;
+      /** Set by the oRPC correlation-id middleware. */
+      correlationId?: string;
     }
   }
-} */
-
-declare interface ReqWithCorrId extends Request {
-  user?: CurrentUserData
-  correlationId: string
 }
+export {};

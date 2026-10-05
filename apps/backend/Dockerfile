@@ -1,101 +1,45 @@
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
+# syntax=docker/dockerfile:1
+# Build context: the repository root (see docker-compose.yml / k8s). Yarn 4 workspaces.
+
+FROM node:22-alpine AS build
 WORKDIR /app
+RUN corepack enable
 
-# Install pnpm
-RUN npm install -g pnpm
+# Manifests first so the dependency layer is cached until package.json/yarn.lock change.
+COPY package.json yarn.lock .yarnrc.yml turbo.json ./
+COPY .yarn ./.yarn
+COPY apps/backend/package.json apps/backend/
+COPY apps/frontend/package.json apps/frontend/
+COPY packages/contract/package.json packages/contract/
+COPY packages/shared-schemas/package.json packages/shared-schemas/
+COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/prettier-config/package.json packages/prettier-config/
+RUN yarn install --immutable
 
-# Copy package files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY apps/backend/package.json ./apps/backend/
-COPY packages/shared-schemas/package.json ./packages/shared-schemas/
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Stage 2: Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Install pnpm
-RUN npm install -g pnpm
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=deps /app/packages/shared-schemas/node_modules ./packages/shared-schemas/node_modules
-
-# Copy source code
-COPY package.json pnpm-workspace.yaml ./
+COPY packages ./packages
 COPY apps/backend ./apps/backend
-COPY packages/shared-schemas ./packages/shared-schemas
-COPY turbo.json ./
+RUN yarn workspace @packages/shared-schemas build \
+ && yarn workspace @packages/contract build \
+ && yarn workspace @eventeer/api build
+# Drop devDependencies from node_modules for the runtime image.
+RUN yarn workspaces focus @eventeer/api --production
 
-# Build shared schemas first
-WORKDIR /app/packages/shared-schemas
-RUN pnpm build
-
-# Build backend
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production
 WORKDIR /app/apps/backend
-RUN pnpm build
+RUN apk add --no-cache curl && addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-# Stage 3: Development
-FROM node:20-alpine AS development
-WORKDIR /app
+COPY --from=build --chown=nodejs:nodejs /app/node_modules /app/node_modules
+COPY --from=build --chown=nodejs:nodejs /app/packages/shared-schemas/package.json /app/packages/shared-schemas/package.json
+COPY --from=build --chown=nodejs:nodejs /app/packages/shared-schemas/dist /app/packages/shared-schemas/dist
+COPY --from=build --chown=nodejs:nodejs /app/packages/contract/package.json /app/packages/contract/package.json
+COPY --from=build --chown=nodejs:nodejs /app/packages/contract/dist /app/packages/contract/dist
+COPY --from=build --chown=nodejs:nodejs /app/apps/backend/package.json ./package.json
+COPY --from=build --chown=nodejs:nodejs /app/apps/backend/dist ./dist
 
-# Install pnpm and development tools
-RUN npm install -g pnpm && \
-    apk add --no-cache curl
-
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=deps /app/packages/shared-schemas/node_modules ./packages/shared-schemas/node_modules
-
-# Copy source and built shared schemas
-COPY --from=builder /app/packages/shared-schemas/dist ./packages/shared-schemas/dist
-COPY package.json pnpm-workspace.yaml ./
-COPY apps/backend ./apps/backend
-COPY packages/shared-schemas ./packages/shared-schemas
-
-WORKDIR /app/apps/backend
-
-# Expose port
-EXPOSE 4000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
-
-# Start in development mode
-CMD ["pnpm", "dev"]
-
-# Stage 4: Production
-FROM node:20-alpine AS production
-WORKDIR /app
-
-# Install curl for healthcheck
-RUN apk add --no-cache curl
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Copy built application
-COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/packages/shared-schemas/dist ./packages/shared-schemas/dist
-COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=deps --chown=nodejs:nodejs /app/apps/backend/package.json ./package.json
-
-# Switch to non-root user
 USER nodejs
-
-# Expose port
 EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -fs http://localhost:4000/health || exit 1
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
-
-# Start application
 CMD ["node", "dist/main.js"]

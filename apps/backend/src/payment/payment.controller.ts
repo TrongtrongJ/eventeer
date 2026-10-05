@@ -3,7 +3,7 @@ import {
   Post,
   Body,
   Headers,
-  RawBodyRequest,
+  type RawBodyRequest,
   Req,
   HttpCode,
   HttpStatus,
@@ -17,11 +17,11 @@ export class PaymentController {
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  async handleWebhook(
+  handleWebhook(
     @Headers('stripe-signature') signature: string,
     @Req() request: RawBodyRequest<Request>,
   ) {
-    await this.paymentService.handleWebhook(signature, request.rawBody!);
+    this.paymentService.parseWebhook(signature, request.rawBody!);
     return { received: true };
   }
 }

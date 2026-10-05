@@ -7,7 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
-import { SeatAvailabilityUpdate } from '@event-mgmt/shared-schemas';
+import { SeatAvailabilityUpdate } from '@packages/shared-schemas';
 
 @WebSocketGateway({
   cors: {
