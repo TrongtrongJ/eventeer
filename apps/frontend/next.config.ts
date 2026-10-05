@@ -1,11 +1,20 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
 import bundleAnalyzer from "@next/bundle-analyzer";
+import path from "node:path";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
+//const withNextIntl = createNextIntlPlugin();
+
 const nextConfig: NextConfig = {
+  // Self-contained server for Docker/k8s. The tracing root is the monorepo root so the
+  // workspace packages (@packages/*) are included in the standalone output.
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../../"),
+
   // Enable react compiler to ease with hooks optimization
   reactCompiler: true,
 
@@ -19,7 +28,6 @@ const nextConfig: NextConfig = {
     '@orpc/openapi',
     "@orpc/contract",
     "@orpc/server",
-    "@orpc/react-query",
     "@packages/shared-schemas", 
     "@packages/contract",
   ],
@@ -50,4 +58,5 @@ const nextConfig: NextConfig = {
   },
 };
 
+//export default withBundleAnalyzer(withNextIntl(nextConfig));
 export default withBundleAnalyzer(nextConfig);

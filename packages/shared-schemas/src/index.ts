@@ -3,7 +3,6 @@ export * from "./event.schemas";
 export * from "./booking.schemas";
 export * from "./coupon.schemas";
 export * from "./auth.schemas";
-export * from "./payment.schemas";
 export * from "./ticket-validation.schemas";
 export * from "./pagination.schemas";
 export * from "./user.schemas";

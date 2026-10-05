@@ -11,17 +11,13 @@
             "outputs": ["coverage/**"],
             "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
         },
-        "test:integration": {
+        "test:e2e": {
             "cache": false,
             "dependsOn": ["build"],
-            "env": ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "COOKIE_SECRET", "TESTCONTAINERS_RYUK_DISABLED"]
+            "env": ["DB_HOST", "DB_PORT", "DB_USERNAME", "DB_PASSWORD", "REDIS_HOST", "REDIS_PORT"]
         },
         "typecheck": {
             "outputs": []
-        },
-        "//#knip": {
-            "inputs": ["**/*.ts", "**/*.tsx", "package.json", "knip.json"],
-            "cache": true
         },
         "format": {
             "dependsOn": [],

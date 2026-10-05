@@ -1,6 +1,6 @@
 {
   "name": "event-management-monorepo",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -10,15 +10,16 @@
     "dev": "turbo run dev --ui=tui",
     "dev:backend": "turbo run dev --ui=tui --filter=@eventeer/api",
     "dev:frontend": "turbo run dev --ui=tui --filter=@eventeer/web",
-    "seed:demo": "turbo run seed:demo",
+    "seed:demo": "yarn workspace @eventeer/api seed:demo",
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:integration": "turbo run test:integration",
     "lint": "turbo run lint",
     "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
     "visualize:deps": "depcruise --config .dependency-cruiser.js apps --output-type dot | dot -T svg > dependency-graph.svg",
     "clean": "turbo run clean && rm -rf node_modules",
-    "prepare": "husky"
+    "typecheck": "turbo run typecheck",
+    "test:e2e": "turbo run test:e2e --filter=@eventeer/api",
+    "test:e2e:web": "turbo run test:e2e --filter=@eventeer/web"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^21.2.2",

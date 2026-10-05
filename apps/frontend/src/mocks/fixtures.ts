@@ -96,6 +96,7 @@ export const mockEvent: EventDto = {
 export const mockBooking: BookingDto = {
   id: 'e2e-booking-1',
   eventId: mockEvent.id,
+  currency: mockEvent.currency,
   quantity: 2,
   email: mockUsers.CUSTOMER.email,
   firstName: mockUsers.CUSTOMER.firstName,

@@ -35,7 +35,7 @@ export async function mockAuthMe(page: Page) {
     const token = extractCookieValue(cookieHeader, 'access_token');
     const user = userForToken(token);
     if (!user) {
-      await route.fulfill({ status: 401, json: { message: 'Unauthorized' } });
+      await route.fulfill({ status: 401, json: { defined: false, code: 'UNAUTHORIZED', message: 'Unauthorized' } });
       return;
     }
     await route.fulfill({ status: 200, json: wrapResponse(user) });
@@ -48,7 +48,7 @@ export function mockLogin(page: Page, context: BrowserContext) {
     const body = route.request().postDataJSON() as { email: string; password: string };
 
     if (body.email !== validLoginEmail || body.password !== validLoginPassword) {
-      await route.fulfill({ status: 401, json: { message: 'Invalid credentials' } });
+      await route.fulfill({ status: 401, json: { defined: false, code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
       return;
     }
 
@@ -59,12 +59,8 @@ export function mockLogin(page: Page, context: BrowserContext) {
 
     await route.fulfill({
       status: 200,
-      json: wrapResponse({
-        accessToken: E2E_TOKENS.CUSTOMER,
-        refreshToken: 'e2e-refresh-token',
-        user: { id: mockUsers.CUSTOMER.id, email: mockUsers.CUSTOMER.email },
-        expiresIn: 3600,
-      }),
+      // Tokens travel only in the httpOnly cookies set above, never in the body.
+      json: wrapResponse({ user: mockUsers.CUSTOMER }),
     });
   });
 }
@@ -106,36 +102,4 @@ export function mockBookingDetail(page: Page) {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({ status: 200, json: wrapResponse(mockBooking) });
   });
-}
-
-/** GET /observability/health and /observability/metrics - plain (non-oRPC) fetches used by the metrics page. */
-export function mockObservability(page: Page) {
-  return Promise.all([
-    page.route(`${API_URL}/observability/health`, (route) =>
-      route.fulfill({
-        status: 200,
-        json: wrapResponse({
-          status: 'healthy',
-          uptime: 3600,
-          memory: { used: 128, total: 512, percentage: 25 },
-          cpu: { usage: 12, loadAverage: [0.1, 0.2, 0.3] },
-        }),
-      }),
-    ),
-    page.route(`${API_URL}/observability/metrics`, (route) =>
-      route.fulfill({
-        status: 200,
-        json: wrapResponse({
-          requests: { total: 100, success: 95, errors: 5, byEndpoint: {} },
-          response: { averageTime: 50, p95: 120, p99: 200 },
-          database: { queries: { total: 200, slow: 2, errors: 0, averageTime: 10 } },
-          business: {
-            events: { total: 1, active: 1, soldOut: 0, topEvents: [] },
-            bookings: { total: 0, confirmed: 0, revenue: { total: 0, thisMonth: 0, growth: 0 } },
-            users: { total: 3, active: 3, newToday: 0, newThisWeek: 0 },
-          },
-        }),
-      }),
-    ),
-  ]);
 }

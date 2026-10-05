@@ -1,5 +1,5 @@
 export async function register() {
-  // Only intercept in the Node.js runtime (not edge, where middleware.ts
+  // Only intercept in the Node.js runtime (not edge, where proxy.ts
   // runs) and only when explicitly opted into via the e2e test runner -
   // this must never activate in real dev or production.
   if (process.env.NEXT_RUNTIME === 'nodejs' && process.env.MOCK_API === '1') {

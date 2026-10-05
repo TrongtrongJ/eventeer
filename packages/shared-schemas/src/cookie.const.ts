@@ -1,29 +1,28 @@
 export const AUTH_COOKIE = {
-    ACCESS: "access_token",
-    REFRESH: "refresh_token",
+  ACCESS: "access_token",
+  REFRESH: "refresh_token",
+  /** Short-lived CSRF `state` cookie used only during the OAuth round-trip. */
+  OAUTH_STATE: "oauth_state",
 } as const;
 
 interface SharedCookieOptions {
-    domain?: string;
-    expires?: Date;
-    httpOnly?: boolean;
-    maxAge?: number;
-    path?: string;
-    priority?: "low" | "medium" | "high";
-    sameSite?: true | false | "lax" | "strict" | "none";
-    secure?: boolean;
+  domain?: string;
+  expires?: Date;
+  httpOnly?: boolean;
+  maxAge?: number;
+  path?: string;
+  priority?: "low" | "medium" | "high";
+  sameSite?: true | false | "lax" | "strict" | "none";
+  secure?: boolean;
 }
 
 const secureCookieOptions: SharedCookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax" as const,
-    path: "/",
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax" as const,
+  path: "/",
 };
 
 export function getCookieOptions(override?: Partial<SharedCookieOptions>) {
-    return {
-        ...secureCookieOptions,
-        ...override,
-    };
+  return { ...secureCookieOptions, ...override };
 }

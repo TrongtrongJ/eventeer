@@ -2,8 +2,8 @@ import {
   Controller,
   ForbiddenException,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
 import { EventsService, EventFilters } from './events.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { Implement } from '@orpc/nest';
 import { eventContract } from '@packages/contract';
@@ -11,14 +11,13 @@ import { implement } from '@orpc/server';
 import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
 import { withCurrentUser } from '../common/middleware/current-user.middleware';
 import { requireRoles } from '../common/middleware/require-roles.middleware';
-import { withBaseUrl } from '../common/middleware/base-url.middleware';
 import { Public } from '../auth/decorators/public.decorator';
 
-@ApiTags('events')
 @Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(eventContract.create)
   async create() {
     return implement(eventContract.create)
@@ -42,10 +41,9 @@ export class EventsController {
   async findAll() {
     return implement(eventContract.findAll)
       .use(withCorrelationId)
-      .use(withBaseUrl)
       .handler(async ({ input, context }) => {
         const { pagination, location, minPrice, maxPrice, startDate, endDate, availableOnly } = input;
-        const { correlationId, baseUrl } = context;
+        const { correlationId } = context;
         const filters: EventFilters = {
           location: location,
           minPrice: minPrice ? Number(minPrice) : undefined,
@@ -55,7 +53,7 @@ export class EventsController {
           availableOnly: availableOnly === true,
         };
 
-        const result = await this.eventsService.findAllPaginated(pagination, filters, baseUrl);
+        const result = await this.eventsService.findAllPaginated(pagination, filters);
 
         return {
           success: true,
@@ -83,6 +81,7 @@ export class EventsController {
       });
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(eventContract.getMyEvents)
   async getMyEvents() {
     return implement(eventContract.getMyEvents)
@@ -101,6 +100,7 @@ export class EventsController {
       });
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(eventContract.updateEvent)
   async updateEvent() {
     return implement(eventContract.updateEvent)
@@ -127,6 +127,7 @@ export class EventsController {
       });
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(eventContract.deleteEvent)
   async deleteEvent() {
     return implement(eventContract.deleteEvent)

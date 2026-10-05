@@ -2,6 +2,7 @@ import {
   Controller, 
 } from '@nestjs/common';
 import { CouponsService } from './coupons.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { Implement } from '@orpc/nest';
 import { implement } from '@orpc/server';
@@ -15,6 +16,7 @@ import { Public } from '../auth/decorators/public.decorator';
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(couponContract.createCoupon)
   async create() {
     return implement(couponContract.createCoupon)
@@ -38,6 +40,7 @@ export class CouponsController {
       });
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(couponContract.getEventCoupons)
   async getEventCoupons() {
     return implement(couponContract.getEventCoupons)
@@ -79,11 +82,13 @@ export class CouponsController {
       });
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(couponContract.updateCoupon)
   async updateCoupon() {
     return implement(couponContract.updateCoupon)
       .use(withCorrelationId)
       .use(withCurrentUser)
+      .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
       .handler(async ({ input, context }) => {
         const { params: { id }, body } = input;
         const { user, correlationId } = context;

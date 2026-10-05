@@ -26,9 +26,8 @@ test.describe('login and logout', () => {
     await page.getByPlaceholder('Enter your password').fill('wrong-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    // Not asserting exact error copy - oRPC's error deserialization of a
-    // plain (non-oRPC-shaped) error body isn't something to pin a test to.
-    // What matters: an error toast appears and the user stays on /login.
+    // The mocked 401 uses the API's real error shape ({ defined, code, message }), so the UI shows
+    // an error toast. We pin the behaviour (toast + stay on /login), not the exact copy.
     await expect(page.locator('.bg-red-500')).toBeVisible();
     await expect(page).toHaveURL('/login');
   });

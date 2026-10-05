@@ -41,3 +41,10 @@ export function wrapPaginated<T>(items: T[], overrides: Partial<{ page: number; 
     timestamp: new Date().toISOString(),
   };
 }
+
+/**
+ * Error body exactly as the real API sends it. The oRPC client only recognises
+ * `{ defined, code, message, data? }`; hand-written `{ message }` bodies parse as
+ * MALFORMED_ORPC_RESPONSE, which is how this once hid a real bug.
+ */
+export const apiError = (code: string, message: string) => ({ defined: false, code, message });

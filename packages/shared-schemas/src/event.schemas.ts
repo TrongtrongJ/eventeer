@@ -31,7 +31,8 @@ export const EventSchema = CreateEventSchema.extend({
 });
 
 export const EventQuerySchema = z.object({
-  pagination: basePaginationSchema,
+  // prefault: absent query string -> parse {} through the schema so its defaults apply.
+  pagination: basePaginationSchema.prefault({}),
   
   location: z.string().optional(),
   

@@ -70,8 +70,6 @@ export const eventsApiMock = {
         const newEvent: EventDto = {
           ...buildMockNewEvent(),
           ...body,
-          startDate: typeof body.startDate === 'string' ? body.startDate : body.startDate.toISOString(),
-          endDate: typeof body.endDate === 'string' ? body.endDate : body.endDate.toISOString(),
         };
         mockEventDb.push(newEvent);
         return HttpResponse.json(wrapResponse(newEvent), { status: 201 });

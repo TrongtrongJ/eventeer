@@ -1,5 +1,6 @@
 'use client';
 
+import { formatMoney } from '@/lib/format';
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -63,7 +64,7 @@ export function MyEventsClient() {
                 </div>
                 <div className="flex justify-between">
                   <span>Price:</span>
-                  <span className="font-semibold">${event.ticketPrice}</span>
+                  <span className="font-semibold">{formatMoney(event.ticketPrice, event.currency)}</span>
                 </div>
               </div>
 

@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
  * up by Next.js (it silently does nothing if misplaced relative to src/).
  */
 test.describe('middleware route protection', () => {
-  const protectedPaths = ['/bookings', '/profile', '/create', '/metrics', '/my-events'];
+  const protectedPaths = ['/bookings', '/profile', '/create', '/my-events'];
 
   for (const path of protectedPaths) {
     test(`redirects ${path} to /login when logged out`, async ({ page }) => {

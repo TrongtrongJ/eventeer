@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mockAuthMe, mockEventDetail, mockCreateBooking, mockBookingDetail, loginAsRole } from './support/mock-routes';
 import { mockEvent, mockBooking } from '../src/mocks/fixtures';
+import { formatMoney } from '../src/lib/format';
 
 /**
  * This covers the flow through to the checkout page rendering the correct
@@ -13,10 +14,8 @@ test.describe('booking flow', () => {
     page,
     context,
   }) => {
-    // Keep this suite fully hermetic - Stripe.js itself isn't something to
-    // mock meaningfully, so block it outright rather than let a real
-    // external request to js.stripe.com slow down or flake the test. The
-    // order summary block doesn't depend on Stripe having loaded.
+    // Keep this suite fully hermetic. No publishable key is set for e2e, so checkout renders its
+    // demo-payment form and never loads Stripe.js; blocking js.stripe.com is belt and braces.
     await page.route('https://js.stripe.com/**', (route) => route.abort());
 
     await mockAuthMe(page);
@@ -36,7 +35,8 @@ test.describe('booking flow', () => {
 
     await expect(page).toHaveURL(`/checkout/${mockBooking.id}`);
     await expect(page.getByText(`${mockBooking.quantity} ticket(s)`)).toBeVisible();
-    await expect(page.getByText(`$${mockBooking.finalAmount.toFixed(2)}`).first()).toBeVisible();
+    // The UI formats with the booking's currency (THB in the fixtures), not a hard-coded "$".
+    await expect(page.getByText(formatMoney(mockBooking.finalAmount, mockBooking.currency)).first()).toBeVisible();
   });
 
   test('redirects to login when trying to book while logged out', async ({ page }) => {

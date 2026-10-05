@@ -6,9 +6,8 @@
         "moduleResolution": "nodenext",
         "outDir": "./dist",
         "rootDir": ".",
-        "incremental": true,
         "skipLibCheck": true,
-        "types": ["vitest/globals", "jest", "node"],
+        "types": ["vitest/globals", "node"],
         "sourceMap": true,
         "declaration": true,
         "emitDecoratorMetadata": true,
@@ -16,6 +15,6 @@
         "resolveJsonModule": true,
         "strictPropertyInitialization": false
     },
-    "include": ["src/**/*"],
+    "include": ["src/**/*", "test/**/*", "scripts/**/*"],
     "exclude": ["node_modules", "dist"]
 }

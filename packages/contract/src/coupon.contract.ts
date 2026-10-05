@@ -15,7 +15,7 @@ export const couponContract = oc.router({
     })),
   getEventCoupons: oc
     .input(z.object({
-      eventId: z.string()
+      eventId: z.uuid()
     }))
     .output(createBaseResponse(z.array(CouponSchema)))
     .meta(openapi({
@@ -29,7 +29,7 @@ export const couponContract = oc.router({
         code: z.string()
       }),
       query: z.object({
-        eventId: z.string()
+        eventId: z.uuid()
       })
     }))
     .output(createBaseResponse(CouponSchema))
@@ -42,7 +42,7 @@ export const couponContract = oc.router({
   updateCoupon: oc
     .input(z.object({
       params: z.object({
-        id: z.string()
+        id: z.uuid()
       }),
       body: UpdateCouponSchema
     }))

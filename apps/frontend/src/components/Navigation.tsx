@@ -27,6 +27,7 @@ export default function Navigation() {
       queryClient.removeQueries({ queryKey: orpc.auth.key() });
       addToast({ message: 'Logged out successfully', type: 'success' });
       router.push('/login');
+      router.refresh();
     }
   }, [logoutMutation, queryClient, addToast, router]);
 

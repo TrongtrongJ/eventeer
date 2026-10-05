@@ -1,8 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  Index,
+} from 'typeorm';
 import { Booking } from './booking.entity';
 import { Event } from './event.entity';
-import { Session } from './session.entity';
 import { RefreshToken } from '../users/refresh-token.entity';
+import { Session } from './session.entity';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -18,18 +26,18 @@ export enum AuthProvider {
 }
 
 @Entity('users')
+@Index(['provider', 'providerId'], { unique: true, where: '"providerId" IS NOT NULL' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
-  @Index()
+  /** Always stored lower-cased (normalised at the schema boundary). */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email: string;
 
-  //@Column({ type: 'varchar', length: 255, nullable: true })
-  // password?: string; // Nullable for OAuth users
-
-  @Column({ type: "varchar", name: "password_hash", nullable: true })
+  /** bcrypt hash; null for OAuth-only accounts. */
+  @Column({ type: 'varchar', name: 'password_hash', nullable: true })
   passwordHash: string | null;
 
   @Column({ type: 'varchar', length: 100 })
@@ -38,7 +46,7 @@ export class User {
   @Column({ type: 'varchar', length: 100 })
   lastName: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 512, nullable: true })
   avatarUrl?: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
@@ -48,47 +56,48 @@ export class User {
   provider: AuthProvider;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  providerId?: string; // OAuth provider user ID
+  providerId?: string;
 
   @Column({ type: 'boolean', default: false })
   isEmailVerified: boolean;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  /** SHA-256 of the emailed token. The raw token is never persisted. */
+  @Index()
+  @Column({ type: 'char', length: 64, nullable: true })
   emailVerificationToken?: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   emailVerificationExpires?: Date | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  /** SHA-256 of the emailed token. The raw token is never persisted. */
+  @Index()
+  @Column({ type: 'char', length: 64, nullable: true })
   passwordResetToken?: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   passwordResetExpires?: Date | null;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastLoginAt?: Date;
 
-  @OneToMany(() => Booking, booking => booking.user)
+  @OneToMany(() => Booking, (booking) => booking.user)
   bookings?: Booking[];
 
-  @OneToMany(() => Event, event => event.organizer)
+  @OneToMany(() => Event, (event) => event.organizer)
   organizedEvents?: Event[];
 
-  @OneToMany(() => Session, session => session.user)
-  sessions?: Session[];
-
-  @OneToMany(() => RefreshToken, rt => rt.user, { cascade: true })
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens?: RefreshToken[];
 
-  @Column({ type: 'simple-json', nullable: true })
-  metadata?: Record<string, any>; // For storing OAuth profile data
+  @OneToMany(() => Session, (session) => session.user)
+  sessions?: Session[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

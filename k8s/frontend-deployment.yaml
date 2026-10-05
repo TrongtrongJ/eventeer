@@ -15,20 +15,15 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: event-management-frontend:latest
+        image: eventeer-web:0.1.0 # pin an immutable tag (never :latest)
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         env:
-        - name: REACT_APP_API_URL
+        # Server-side calls (middleware, server components) use the in-cluster address.
+        # NEXT_PUBLIC_* are baked into the image at build time (see apps/frontend/Dockerfile).
+        - name: API_INTERNAL_URL
           value: http://backend:4000
-        - name: REACT_APP_WS_URL
-          value: ws://backend:4000
-        - name: REACT_APP_STRIPE_PUBLISHABLE_KEY
-          valueFrom:
-            configMapKeyRef:
-              name: frontend-config
-              key: stripe-publishable-key
         resources:
           requests:
             memory: "128Mi"

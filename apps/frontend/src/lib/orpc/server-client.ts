@@ -12,14 +12,14 @@ import {
   eventContract,
   ticketContract,
 } from '@packages/contract';
-import { domainBaseUrl } from './config';
+import { serverDomainBaseUrl as domainBaseUrl } from './config';
 
 /**
  * Server Components / Route Handlers talk to the backend directly (no browser
  * cookie jar involved), so we manually forward the incoming request's
- * `access_token` / `refresh_token` cookies as a `Cookie` header. The backend's
- * passport strategies read tokens exclusively from cookies, so this is all
- * that's required to make an authenticated server-side call.
+ * `access_token` cookie as a `Cookie` header. The backend resolves the opaque
+ * token from that cookie exactly as it does for the browser. Renewal of an expired
+ * access token happens earlier, in middleware.ts, before any page renders.
  */
 async function serverFetch(request: Request | string, init?: RequestInit) {
   const cookieStore = await cookies();

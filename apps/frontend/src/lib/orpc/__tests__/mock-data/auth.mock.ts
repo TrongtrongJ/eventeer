@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import type { UserDto } from '@packages/shared-schemas';
 import { server } from '@/test-utils/server';
-import { wrapResponse } from '@/test-utils/response-envelope';
+import { wrapResponse, apiError } from '@/test-utils/response-envelope';
 import { apiUrl } from '../../config';
 
 export const validEmail = 'jane@eventeer.com';
@@ -22,12 +22,8 @@ export const mockUser: UserDto = {
   updatedAt: null,
 };
 
-export const mockAuthResponse = {
-  accessToken: 'mock-access-token',
-  refreshToken: 'mock-refresh-token',
-  user: { id: mockUser.id, email: mockUser.email },
-  expiresIn: 3600,
-};
+// Auth responses carry the user only; tokens live in httpOnly cookies.
+export const mockAuthResponse = { user: mockUser };
 
 export const authApiMock = {
   useMockLogin: () =>
@@ -35,7 +31,7 @@ export const authApiMock = {
       http.post(`${apiUrl}/auth/login`, async ({ request }) => {
         const body = (await request.json()) as { email: string; password: string };
         if (body.email !== validEmail || body.password !== validPassword) {
-          return HttpResponse.json({ message: 'Invalid credentials' }, { status: 401 });
+          return HttpResponse.json(apiError('UNAUTHORIZED', 'Invalid credentials'), { status: 401 });
         }
         return HttpResponse.json(wrapResponse(mockAuthResponse), { status: 200 });
       }),
@@ -46,7 +42,7 @@ export const authApiMock = {
       http.post(`${apiUrl}/auth/register`, async ({ request }) => {
         const body = (await request.json()) as { email: string };
         if (body.email === 'taken@eventeer.com') {
-          return HttpResponse.json({ message: 'Email already registered' }, { status: 409 });
+          return HttpResponse.json(apiError('CONFLICT', 'Email already registered'), { status: 409 });
         }
         return HttpResponse.json(wrapResponse(mockAuthResponse), { status: 201 });
       }),
@@ -55,7 +51,7 @@ export const authApiMock = {
   useMockMe: (user: UserDto | null = mockUser) =>
     server.use(
       http.get(`${apiUrl}/auth/me`, () => {
-        if (!user) return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+        if (!user) return HttpResponse.json(apiError('UNAUTHORIZED', 'Unauthorized'), { status: 401 });
         return HttpResponse.json(wrapResponse(user), { status: 200 });
       }),
     ),

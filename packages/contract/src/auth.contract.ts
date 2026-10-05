@@ -17,6 +17,14 @@ export const authContract = oc.router({
   login: oc
       .input(LoginSchema)
       .output(responseWithAuthSchema)
+      .errors({
+        UNAUTHORIZED: {
+          message: 'Invalid email or password'
+        },
+        FORBIDDEN: {
+          message: 'This account has been disabled'
+        }
+      })
       .meta(openapi({ 
         method: 'POST', 
         path: '/login',

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatMoney } from '@/lib/format';
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -53,7 +54,7 @@ export function MyBookingsClient() {
                     <span className="font-medium">Quantity:</span> {booking.quantity} ticket(s)
                   </div>
                   <div>
-                    <span className="font-medium">Total:</span> ${booking.finalAmount.toFixed(2)}
+                    <span className="font-medium">Total:</span> {formatMoney(booking.finalAmount, booking.currency)}
                   </div>
                   <div>
                     <span className="font-medium">Status:</span>{' '}

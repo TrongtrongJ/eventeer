@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIE, type UserDto } from '@packages/shared-schemas';
 import { createServerOrpc } from '../orpc/server-client';
@@ -34,3 +35,19 @@ export async function getSession(): Promise<Session> {
     return { isAuthenticated: false, user: null };
   }
 }
+
+/**
+ * What the server knows about the session, for seeding the client:
+ *  - UserDto   : logged in
+ *  - null      : definitely logged out (no auth cookies at all), so the client never probes
+ *  - undefined : unknown (e.g. access cookie expired but a refresh cookie remains), so the client
+ *                probes /auth/me, which silently refreshes. Public pages have no middleware
+ *                to renew the session, so "unknown" must not be collapsed into "logged out".
+ * `cache` dedupes it within a single request.
+ */
+export const getSessionSeed = cache(async (): Promise<UserDto | null | undefined> => {
+  const jar = await cookies();
+  if (!jar.has(AUTH_COOKIE.ACCESS) && !jar.has(AUTH_COOKIE.REFRESH)) return null;
+  const { user } = await getSession();
+  return user ?? undefined;
+});

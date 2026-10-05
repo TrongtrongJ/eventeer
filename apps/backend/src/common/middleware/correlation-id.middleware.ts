@@ -1,29 +1,21 @@
 import { Request } from 'express';
 import { os } from '@orpc/server';
 import { v7 as uuidv7 } from 'uuid';
-// Import the plugin context type to access resHeaders safely
 import type { ResponseHeadersHandlerPluginContext } from '@orpc/server/plugins';
 
 export const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 export const withCorrelationId = os
-  // 1. Extend the expected context to include the resHeaders injected by the plugin
   .$context<{ request: Request } & ResponseHeadersHandlerPluginContext>()
   .middleware(async ({ context, next }) => {
-    const headerId = context.request.headers[CORRELATION_ID_HEADER] as string;
-    console.log('got into the middleware')
-    const correlationId = headerId || uuidv7();
-    console.log({correlationId})
-    // 2. Set the header on the outgoing response so the client receives it
-    // The plugin merges these into the final response
+    const incoming = context.request.headers[CORRELATION_ID_HEADER];
+    // Accept a caller-supplied id only if it's a sane, bounded token.
+    const correlationId =
+      typeof incoming === 'string' && /^[\w-]{8,100}$/.test(incoming) ? incoming : uuidv7();
+
     context.resHeaders?.set(CORRELATION_ID_HEADER, correlationId);
+    // Expose to the LoggingInterceptor, which runs outside the oRPC chain.
+    (context.request as Request & { correlationId?: string }).correlationId = correlationId;
 
-    // 3. Manually mutate the Express request so your LoggingInterceptor can read it
-    // after the middleware chain executes
-    (context.request as any).correlationId = correlationId;
-
-    // Inject the correlationId into the downstream context flow for your procedures
-    return next({
-      context: { correlationId }
-    });
+    return next({ context: { correlationId } });
   });

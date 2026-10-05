@@ -1,30 +1,32 @@
-import {
-  Controller,
-  Get,
-  Delete,
-  Param,
-  Req,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
-  ForbiddenException,
-} from '@nestjs/common';
-import { BookingsService } from './bookings.service';
-import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../entities/user.entity';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { Controller } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Implement } from '@orpc/nest';
 import { implement } from '@orpc/server';
 import { bookingContract } from '@packages/contract';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../entities/user.entity';
 import { withCorrelationId } from '../common/middleware/correlation-id.middleware';
 import { withCurrentUser } from '../common/middleware/current-user.middleware';
 import { requireRoles } from '../common/middleware/require-roles.middleware';
+import { BookingsService } from './bookings.service';
 
+const ok = <T>(data: T, correlationId: string) => ({
+  success: true as const,
+  data,
+  correlationId,
+  timestamp: new Date().toISOString(),
+});
+
+/**
+ * Thin transport layer. Ownership / role rules live in BookingsService so the
+ * REST and GraphQL surfaces cannot drift apart.
+ */
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
+  // Creating a booking takes inventory; keep scripted hoarding in check.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Implement(bookingContract.createBooking)
   async createBooking() {
     return implement(bookingContract.createBooking)
@@ -32,17 +34,8 @@ export class BookingsController {
       .use(withCurrentUser)
       .handler(async ({ input, context }) => {
         const { user, correlationId } = context;
-        const booking = await this.bookingsService.create(
-          input,
-          user.userId,
-          correlationId,
-        );
-        return {
-          success: true,
-          data: booking,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        const booking = await this.bookingsService.create(input, user.userId, correlationId);
+        return ok(booking, correlationId);
       });
   }
 
@@ -52,21 +45,9 @@ export class BookingsController {
       .use(withCorrelationId)
       .use(withCurrentUser)
       .handler(async ({ input, context }) => {
-        const { id } = input;
         const { user, correlationId } = context;
-        // Verify booking belongs to user
-        const existingBooking = await this.bookingsService.findOne(id);
-        if (existingBooking.userId !== user.userId) {
-          throw new ForbiddenException('You can only confirm your own bookings');
-        }
-
-        const booking = await this.bookingsService.confirmBooking(id, correlationId);
-        return {
-          success: true,
-          data: booking,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        const booking = await this.bookingsService.confirmBooking(input.id, user, correlationId);
+        return ok(booking, correlationId);
       });
   }
 
@@ -76,21 +57,8 @@ export class BookingsController {
       .use(withCorrelationId)
       .use(withCurrentUser)
       .handler(async ({ input, context }) => {
-        const { id } = input;
-        const { user, correlationId } = context;
-        const booking = await this.bookingsService.findOne(id);
-
-        // Check if user owns this booking or is admin
-        if (booking.userId !== user.userId && user.role !== UserRole.ADMIN) {
-          throw new ForbiddenException('You can only view your own bookings');
-        }
-
-        return {
-          success: true,
-          data: booking,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        const booking = await this.bookingsService.findOneFor(input.id, context.user);
+        return ok(booking, context.correlationId);
       });
   }
 
@@ -100,14 +68,8 @@ export class BookingsController {
       .use(withCorrelationId)
       .use(withCurrentUser)
       .handler(async ({ context }) => {
-        const { user, correlationId } = context;
-        const bookings = await this.bookingsService.findByUser(user.userId);
-        return {
-          success: true,
-          data: bookings,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        const bookings = await this.bookingsService.findByUser(context.user.userId);
+        return ok(bookings, context.correlationId);
       });
   }
 
@@ -117,41 +79,23 @@ export class BookingsController {
       .use(withCorrelationId)
       .use(withCurrentUser)
       .handler(async ({ input, context }) => {
-        const { id } = input;
         const { user, correlationId } = context;
-        const booking = await this.bookingsService.findOne(id);
-        if (booking.userId !== user.userId && user.role !== UserRole.ADMIN) {
-          throw new ForbiddenException('You can only cancel your own bookings');
-        }
-
-        await this.bookingsService.cancelBooking(id, correlationId);
-        return {
-          success: true,
-          data: null,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        await this.bookingsService.cancelBooking(input.id, user, correlationId);
+        return ok(null, correlationId);
       });
   }
 
+  @Roles(UserRole.ADMIN)
   @Implement(bookingContract.adminListBookings)
   async adminListBookings() {
     return implement(bookingContract.adminListBookings)
       .use(withCorrelationId)
       .use(withCurrentUser)
       .use(requireRoles([UserRole.ADMIN]))
-      .handler(async ({ context }) => {
-        const { correlationId } = context;
-        const bookings = await this.bookingsService.findAll();
-        return {
-          success: true,
-          data: bookings,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
-      });
+      .handler(async ({ context }) => ok(await this.bookingsService.findAll(), context.correlationId));
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Implement(bookingContract.getEventBookings)
   async getEventBookings() {
     return implement(bookingContract.getEventBookings)
@@ -159,15 +103,8 @@ export class BookingsController {
       .use(withCurrentUser)
       .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
       .handler(async ({ input, context }) => {
-        const { eventId } = input;
-        const { user, correlationId } = context;
-        const bookings = await this.bookingsService.findByEvent(eventId, user.userId, user.role);
-        return {
-          success: true,
-          data: bookings,
-          correlationId: correlationId,
-          timestamp: new Date().toISOString(),
-        };
+        const bookings = await this.bookingsService.findByEvent(input.eventId, context.user);
+        return ok(bookings, context.correlationId);
       });
   }
 }

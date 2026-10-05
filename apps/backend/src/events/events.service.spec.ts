@@ -1,177 +1,184 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { BadRequestException, ConflictException, HttpException } from '@nestjs/common';
 import { EventsService } from './events.service';
-import { Event } from '../entities/event.entity';
-import { WebsocketGateway } from '../websocket/websocket.gateway';
-import { NotFoundException } from '@nestjs/common';
-import { EntityManager, DataSource } from 'typeorm';
+import type { Event } from '../entities/event.entity';
 
+const iso = (days: number) => new Date(Date.now() + days * 86_400_000);
+
+const makeEvent = (over: Partial<Event> = {}): Event =>
+  ({
+    id: 'evt-1',
+    title: 'Rock Night',
+    description: 'd',
+    location: 'Bangkok',
+    startDate: iso(10),
+    endDate: iso(11),
+    capacity: 100,
+    availableSeats: 60, // 40 sold
+    ticketPrice: 500,
+    currency: 'THB',
+    organizerId: 'org-1',
+    organizer: undefined,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...over,
+  }) as Event;
+
+/** Fluent TypeORM query-builder stand-in that records the clauses it was given. */
+function fakeQueryBuilder(raw: unknown[] = []) {
+  const calls: { set?: Record<string, () => string>; where?: string; params?: Record<string, unknown> } = {};
+  const qb: any = {
+    update: () => qb,
+    set: (v: Record<string, () => string>) => ((calls.set = v), qb),
+    where: (clause: string, params: Record<string, unknown>) => ((calls.where = clause), (calls.params = params), qb),
+    returning: () => qb,
+    execute: async () => ({ raw }),
+  };
+  return { qb, calls };
+}
 
 describe('EventsService', () => {
+  let repo: { save: any; create: any; findOne: any; delete: any; createQueryBuilder?: any };
+  let gateway: { emitSeatUpdate: any };
   let service: EventsService;
-  let repository: Repository<Event>;
-  let module: TestingModule;
 
-  const mockRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    delete: jest.fn(),
-    manager: {
-      transaction: jest.fn(),
-      findOne: jest.fn(),
-      save: jest.fn(),
-    } as unknown as jest.Mocked<EntityManager>,
-  };
-
-  const mockWebsocketGateway = {
-    emitSeatUpdate: jest.fn(),
-  };
-
-  beforeEach(async () => {
-    module = await Test.createTestingModule({
-      providers: [
-        EventsService,
-        {
-          provide: getRepositoryToken(Event),
-          useValue: mockRepository,
-        },
-        {
-          provide: WebsocketGateway,
-          useValue: mockWebsocketGateway,
-        },
-        {
-          provide: DataSource,
-          useValue: {
-            createQueryRunner: jest.fn(),
-            transaction: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<EventsService>(EventsService);
-    repository = module.get<Repository<Event>>(getRepositoryToken(Event));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+  beforeEach(() => {
+    repo = {
+      // like a real save: assigns an id and the audit timestamps
+      save: vi.fn(async (e) => ({ id: 'evt-new', createdAt: new Date(), updatedAt: new Date(), ...e })),
+      create: vi.fn((e) => e),
+      findOne: vi.fn(),
+      delete: vi.fn(),
+    };
+    gateway = { emitSeatUpdate: vi.fn() };
+    service = new EventsService(repo as any, gateway as any);
   });
 
   describe('create', () => {
-    it('should create a new event', async () => {
-      const createEventDto = {
-        title: 'Test Event',
-        description: 'Test Description',
-        location: 'Test Location',
-        startDate: '2025-12-31T00:00:00Z',
-        endDate: '2025-12-31T23:59:59Z',
-        capacity: 100,
-        ticketPrice: 50,
-        currency: 'USD' as const,
-      };
+    const dto = {
+      title: 'T', description: 'D', location: 'L', capacity: 50, ticketPrice: 10, currency: 'THB',
+      startDate: iso(5).toISOString(), endDate: iso(6).toISOString(),
+    } as any;
 
-      const mockEvent = {
-        id: '123',
-        ...createEventDto,
-        availableSeats: 100,
-        startDate: new Date(createEventDto.startDate),
-        endDate: new Date(createEventDto.endDate),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    it('starts with every seat available and records the organizer', async () => {
+      const created = await service.create(dto, 'org-9', 'cid');
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ organizerId: 'org-9', availableSeats: 50, capacity: 50 }));
+      expect(created.availableSeats).toBe(50);
+    });
 
-      mockRepository.create.mockReturnValue(mockEvent);
-      mockRepository.save.mockResolvedValue(mockEvent);
-
-      const result = await service.create(createEventDto, 'test_org123', 'test-correlation-id');
-
-      expect(mockRepository.create).toHaveBeenCalledWith({
-        ...createEventDto,
-        availableSeats: createEventDto.capacity,
-        organizerId: "test_org123",
-        startDate: expect.any(Date),
-        endDate: expect.any(Date),
-      });
-      expect(mockRepository.save).toHaveBeenCalledWith(mockEvent);
-      expect(result.title).toBe(createEventDto.title);
+    it('rejects an end date that is not after the start date', async () => {
+      await expect(service.create({ ...dto, endDate: dto.startDate }, 'org-9', 'cid')).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.save).not.toHaveBeenCalled();
     });
   });
 
-  describe('findOne', () => {
-    it('should return an event by id', async () => {
-      const mockEvent = {
-        id: '123',
-        title: 'Test Event',
-        availableSeats: 50,
-        startDate: new Date('2025-12-31T00:00:00Z'),
-        endDate: new Date('2025-12-31T23:59:59Z'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Event;
+  describe('update', () => {
+    it('changing capacity preserves the seats already sold (100 -> 150 with 40 sold = 110 free)', async () => {
+      const event = makeEvent();
+      repo.findOne.mockResolvedValue(event);
 
-      mockRepository.findOne.mockResolvedValue(mockEvent);
+      const updated = await service.update('evt-1', { capacity: 150 } as any, 'cid');
 
-      const result = await service.findOne('123', 'test-correlation-id');
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: '123' } }));
-      expect(result.id).toBe('123');
+      expect(updated.capacity).toBe(150);
+      expect(updated.availableSeats).toBe(110);
+      expect(gateway.emitSeatUpdate).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'evt-1', availableSeats: 110, capacity: 150 }));
     });
 
-    it('should throw ResourceNotFoundException when event not found', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+    it('refuses to lower capacity below the seats already sold', async () => {
+      repo.findOne.mockResolvedValue(makeEvent()); // 40 sold
+      await expect(service.update('evt-1', { capacity: 39 } as any, 'cid')).rejects.toThrow(/40 seats already booked/);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
 
-      await expect(service.findOne('999', 'test-correlation-id')).rejects.toThrow(
-        NotFoundException,
-      );
+    it('allows lowering capacity exactly to the sold count', async () => {
+      repo.findOne.mockResolvedValue(makeEvent());
+      const updated = await service.update('evt-1', { capacity: 40 } as any, 'cid');
+      expect(updated.availableSeats).toBe(0);
+    });
+
+    it('validates the resulting date window against the stored dates too', async () => {
+      repo.findOne.mockResolvedValue(makeEvent());
+      // only endDate supplied, earlier than the stored startDate
+      await expect(service.update('evt-1', { endDate: iso(1).toISOString() } as any, 'cid')).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('404s for an unknown event', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await expect(service.update('nope', {} as any, 'cid')).rejects.toMatchObject({ status: 404 });
     });
   });
 
-  describe('updateAvailableSeats', () => {
-    it('should update available seats and emit websocket event', async () => {
-      const mockEvent = {
-        id: '123',
-        availableSeats: 50,
-        capacity: 100,
-        version: 0,
-      } as Event;
-
-      mockRepository.manager.transaction.mockImplementation(async (callback) => {
-        mockRepository.manager.findOne.mockResolvedValue(mockEvent);
-        mockRepository.manager.save.mockResolvedValue({
-          ...mockEvent,
-          availableSeats: 45,
-          version: 1,
-        });
-        return mockRepository.manager;
-      });
-
-      await service.updateAvailableSeats('123', -5, 'test-correlation-id', mockRepository.manager);
-
-      expect(mockRepository.manager.findOne).toHaveBeenCalledWith(Event, {
-        where: { id: '123' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      expect(mockWebsocketGateway.emitSeatUpdate).toHaveBeenCalled();
+  describe('delete', () => {
+    it('turns the FK violation from existing bookings into a 409 instead of a 500', async () => {
+      repo.delete.mockRejectedValue({ driverError: { code: '23503' } });
+      await expect(service.delete('evt-1', 'cid')).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('should throw error when insufficient seats', async () => {
-      const mockEvent = {
-        id: '123',
-        availableSeats: 5,
-        capacity: 100,
-      } as Event;
+    it('404s when nothing was deleted', async () => {
+      repo.delete.mockResolvedValue({ affected: 0 });
+      await expect(service.delete('evt-1', 'cid')).rejects.toMatchObject({ status: 404 });
+    });
 
-      mockRepository.manager.transaction.mockImplementation(async (callback) => {
-        mockRepository.manager.findOne.mockResolvedValue(mockEvent);
-        return mockRepository.manager;
-      });
+    it('rethrows unexpected database errors untouched', async () => {
+      const boom = new Error('connection lost');
+      repo.delete.mockRejectedValue(boom);
+      await expect(service.delete('evt-1', 'cid')).rejects.toBe(boom);
+    });
+  });
 
-      await expect(service.updateAvailableSeats('123', -10, 'test-correlation-id', mockRepository.manager)).rejects.toThrow(
-        'Insufficient available seats',
-      );
+  describe('reserveSeats (the anti-oversell primitive)', () => {
+    const reserved = { id: 'evt-1', title: 'T', ticketPrice: '500.00', currency: 'THB', capacity: 100, availableSeats: 57 };
+
+    it('is ONE conditional UPDATE guarded on availability and on the event not having ended', async () => {
+      const { qb, calls } = fakeQueryBuilder([reserved]);
+      const manager = { createQueryBuilder: () => qb } as any;
+
+      const row = await service.reserveSeats(manager, 'evt-1', 3);
+
+      expect(row).toEqual(reserved);
+      expect(calls.where).toContain('"availableSeats" >= :quantity');
+      expect(calls.where).toContain('"endDate" > now()');
+      expect(calls.params).toEqual({ eventId: 'evt-1', quantity: 3 });
+      expect(calls.set!.availableSeats()).toBe('"availableSeats" - :quantity');
+    });
+
+    it.each([
+      ['unknown event', null, 404, /not found/i],
+      ['ended event', makeEvent({ endDate: iso(-1) }), 400, /ended/i],
+      ['sold-out event', makeEvent({ availableSeats: 0 }), 400, /sold out/i],
+      ['too few seats left', makeEvent({ availableSeats: 2 }), 400, /Only 2 seat/],
+    ])('explains why a reservation failed: %s', async (_label, event, status, message) => {
+      const { qb } = fakeQueryBuilder([]); // UPDATE matched no row
+      const manager = { createQueryBuilder: () => qb, findOne: vi.fn().mockResolvedValue(event) } as any;
+
+      const err = await service.reserveSeats(manager, 'evt-1', 5).catch((e) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect(err.getStatus()).toBe(status);
+      expect(err.message).toMatch(message);
+    });
+  });
+
+  describe('releaseSeats', () => {
+    it('caps availability at capacity so a double release can never mint seats', async () => {
+      const { qb, calls } = fakeQueryBuilder();
+      await service.releaseSeats({ createQueryBuilder: () => qb } as any, 'evt-1', 2);
+      expect(calls.set!.availableSeats()).toBe('LEAST("capacity", "availableSeats" + :quantity)');
+      expect(calls.params).toEqual({ eventId: 'evt-1', quantity: 2 });
+    });
+  });
+
+  describe('findAllPaginated', () => {
+    it('falls back to a safe sort column instead of interpolating user input', async () => {
+      const qb: any = {
+        leftJoinAndSelect: () => qb, andWhere: () => qb, skip: () => qb, take: () => qb,
+        orderBy: vi.fn(() => qb),
+        getManyAndCount: async () => [[], 0],
+      };
+      repo.createQueryBuilder = () => qb;
+
+      await service.findAllPaginated({ sortBy: 'title; DROP TABLE events;--' }, {});
+
+      expect(qb.orderBy).toHaveBeenCalledWith('event.startDate', 'DESC');
     });
   });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import type { ORPCError } from '@orpc/client';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { isDefinedError, ORPCError } from '@orpc/client';
 import { orpc } from '../query';
 import { createQueryWrapper } from '@/test-utils/query-test-utils';
 import { authApiMock, mockAuthResponse, mockUser, validEmail, validPassword } from './mock-data/auth.mock';
@@ -34,14 +34,12 @@ describe('orpc.auth', () => {
 
       const error = result.current.error as ORPCError<any, any>;
 
-      if (isDefinedError(error: any)) {
-        expect(error.data?.status).toBe(401);
-      }
+      expect(error.code).toBe('UNAUTHORIZED');
     });
   });
 
   describe('register', () => {
-    it('should create a new user and return credentials', async () => {
+    it('should create a new user and return the user (tokens are cookies, not body)', async () => {
       authApiMock.useMockRegister();
 
       const { result } = renderHook(() => useMutation(orpc.auth.register.mutationOptions()), {
@@ -77,9 +75,7 @@ describe('orpc.auth', () => {
 
       const error = result.current.error as ORPCError<any, any>;
 
-      if (isDefinedError(error: any)) {
-        expect(error.data?.status).toBe(409);
-      }
+      expect(error.code).toBe('CONFLICT');
     });
   });
 
@@ -106,9 +102,7 @@ describe('orpc.auth', () => {
 
       const error = result.current.error as ORPCError<any, any>;
 
-      if (isDefinedError(error: any)) {
-        expect(error.data?.status).toBe(409);
-      }
+      expect(error.code).toBe('UNAUTHORIZED');
     });
   });
 });

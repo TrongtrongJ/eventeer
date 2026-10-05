@@ -16,6 +16,7 @@ const initialFormData: RegisterDto = {
   password: '',
   firstName: '',
   lastName: '',
+  role: 'CUSTOMER',
 };
 
 export default function RegisterPage() {
@@ -46,6 +47,7 @@ export default function RegisterPage() {
         await queryClient.invalidateQueries({ queryKey: orpc.auth.key() });
         addToast({ message: 'Account created successfully!', type: 'success' });
         router.push('/');
+        router.refresh();
       } catch (err: any) {
         addToast({ message: err?.message || 'Failed to register', type: 'error' });
       }
@@ -104,6 +106,21 @@ export default function RegisterPage() {
                   <p className="mt-1 text-xs text-red-600">{errors.lastName.message}</p>
                 )}
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                Account type
+              </label>
+              <select
+                id="role"
+                {...register('role')}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="CUSTOMER">Customer (buy tickets)</option>
+                <option value="ORGANIZER">Organizer (create events)</option>
+                <option value="ADMIN">Admin</option>
+              </select>
             </div>
 
             <div>

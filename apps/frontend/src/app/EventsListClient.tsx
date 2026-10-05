@@ -1,5 +1,6 @@
 'use client';
 
+import { formatMoney } from '@/lib/format';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -94,7 +95,7 @@ export function EventsListClient({ initialData, pageSize }: EventsListClientProp
               </div>
 
               <div className="mt-4 flex justify-between items-center">
-                <span className="text-2xl font-bold text-indigo-600">${event.ticketPrice}</span>
+                <span className="text-2xl font-bold text-indigo-600">{formatMoney(event.ticketPrice, event.currency)}</span>
                 <span className={`text-sm ${event.availableSeats > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {event.availableSeats > 0 ? `${event.availableSeats} seats left` : 'Sold Out'}
                 </span>

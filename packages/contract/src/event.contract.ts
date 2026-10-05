@@ -24,7 +24,7 @@ export const eventContract = oc.router({
     })),
   findOne: oc
     .input(z.object({
-      id: z.string()
+      id: z.uuid()
     }))
     .output(createBaseResponse(EventSchema))
     .meta(openapi({ 
@@ -41,7 +41,7 @@ export const eventContract = oc.router({
     })),
   updateEvent: oc
     .input(z.object({
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.uuid() }),
       body: UpdateEventSchema
     }))
     .output(createBaseResponse(EventSchema))
@@ -53,7 +53,7 @@ export const eventContract = oc.router({
     })),
   deleteEvent: oc
     .input(z.object({
-      id: z.string()
+      id: z.uuid()
     }))
     .output(createBaseResponse(z.null()))
     .meta(openapi({ 

@@ -15,7 +15,7 @@ export const bookingContract = oc.router({
     })),
   confirmBooking: oc
     .input(z.object({
-      id: z.string()  
+      id: z.uuid()  
     }))
     .output(createBaseResponse(BookingSchema))
     .meta(openapi({ 
@@ -25,7 +25,7 @@ export const bookingContract = oc.router({
     })),
   findOne: oc
     .input(z.object({
-      id: z.string()
+      id: z.uuid()
     }))
     .output(createBaseResponse(BookingSchema))
     .meta(openapi({ 
@@ -42,7 +42,7 @@ export const bookingContract = oc.router({
     })),
   cancelBooking: oc
     .input(z.object({
-      id: z.string()  
+      id: z.uuid()  
     }))
     .output(createBaseResponse(z.null()))
     .meta(openapi({ 
@@ -60,7 +60,7 @@ export const bookingContract = oc.router({
   getEventBookings: oc
     .output(createBaseResponse(z.array(BookingSchema)))
     .input(z.object({
-      eventId: z.string()
+      eventId: z.uuid()
     }))
     .meta(openapi({
       method: 'GET', 

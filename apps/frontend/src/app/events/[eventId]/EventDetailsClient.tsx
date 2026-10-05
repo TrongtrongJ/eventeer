@@ -8,7 +8,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type CreateBookingDto, CreateBookingSchema, type UserDto, type EventDto } from '@packages/shared-schemas';
 import { orpc } from '@/lib/orpc/query';
-import { formatEventDate, formatPrice } from './helpers';
+import { formatEventDate } from './helpers';
+import { formatMoney } from '@/lib/format';
+import { useToast } from '@/lib/toast/toast-context';
+import { useSeatUpdates } from '@/hooks/useSeatUpdates';
 
 interface EventDetailsClientProps {
   event: EventDto;
@@ -19,6 +22,9 @@ interface EventDetailsClientProps {
 export function EventDetailsClient({ event, isAuthenticated, user }: EventDetailsClientProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const { addToast } = useToast();
+  const availableSeats = useSeatUpdates(event.id, event.availableSeats);
 
   const createBookingMutation = useMutation(orpc.bookings.createBooking.mutationOptions());
 
@@ -47,19 +53,20 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
         // a back-navigation to the event/list doesn't show a stale count.
         await queryClient.invalidateQueries({ queryKey: orpc.events.key() });
         router.replace(`/checkout/${response.data.id}`);
-      } catch (err) {
-        console.error('Failed to create booking:', err);
+      } catch (err: any) {
+        // e.g. invalid / expired / sold-out coupon, sold-out event: the API's message is user-facing.
+        addToast({ message: err?.message || 'Failed to create booking', type: 'error' });
       }
     },
-    [createBookingMutation, router],
+    [createBookingMutation, queryClient, router, addToast],
   );
 
   const quantity = watch('quantity');
-  const maxTicketQuantity = Math.min(20, event.availableSeats);
+  const maxTicketQuantity = Math.min(20, availableSeats);
   const totalPrice = event.ticketPrice * quantity;
-  const formattedTotalPrice = formatPrice(totalPrice);
+  const formattedTotalPrice = formatMoney(totalPrice, event.currency);
   const selectedEventData = formatEventDate(event.startDate);
-  const canPurchase = event.availableSeats > 0 && isAuthenticated;
+  const canPurchase = availableSeats > 0 && isAuthenticated;
   const isSubmitButtonDisabled = createBookingMutation.isPending || !isValid;
 
   return (
@@ -118,8 +125,8 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
           <div className="bg-indigo-50 rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-gray-700">Available Seats:</span>
-              <span className={`text-2xl font-bold ${event.availableSeats > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {event.availableSeats} / {event.capacity}
+              <span className={`text-2xl font-bold ${availableSeats > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {availableSeats} / {event.capacity}
               </span>
             </div>
           </div>
@@ -210,7 +217,7 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-700">Total:</span>
-                  <span className="text-3xl font-bold text-indigo-600">${formattedTotalPrice}</span>
+                  <span className="text-3xl font-bold text-indigo-600">{formattedTotalPrice}</span>
                 </div>
               </div>
 

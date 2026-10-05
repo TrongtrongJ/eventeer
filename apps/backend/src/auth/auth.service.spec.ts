@@ -1,524 +1,220 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
-import * as bcrypt from '@node-rs/bcrypt';
+import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import bcrypt from '@node-rs/bcrypt';
 import { AuthService } from './auth.service';
-import { User, UserRole, AuthProvider } from '../entities/user.entity';
-import { Session } from '../entities/session.entity';
-import { EmailService } from '../email/email.service';
-import { AUTH_COOKIE } from '@packages/shared-schemas';
-import { Request } from 'express';
+import { hashToken } from './utils/token.util';
+import { AuthProvider, UserRole, type User } from '../entities/user.entity';
 
-const createMockReq = (overrideRefreshToken?: string) => {
-  return {
-    ip: '127.0.0.1',
-    cookies: {},
-    headers: { 
-      'user-agent': 'jest-test', 
-      [AUTH_COOKIE.ACCESS]: 'test-access-token',
-      [AUTH_COOKIE.REFRESH]: overrideRefreshToken ?? 'valid-refresh-token',
-    }
-  } as unknown as Request
-}
+const meta = { ipAddress: '1.2.3.4', userAgent: 'vitest' };
+const tokens = { accessToken: 'a', refreshToken: 'r', accessExpiresAt: new Date(), refreshExpiresAt: new Date() };
 
-const createMockContext = (overrides: any = {}) => ({
-  req: {
-    ip: '127.0.0.1',
-    cookies: {},
-    headers: { 
-      'user-agent': 'jest-test', 
-      [AUTH_COOKIE.ACCESS]: 'test-access-token',
-      [AUTH_COOKIE.REFRESH]: 'valid-refresh-token',
-    },
-    ...overrides.req,
-  },
-  res: {
-    cookie: jest.fn(),
-    clearCookie: jest.fn(),
-    ...overrides.res,
-  },
-  ...overrides,
-});
-
-describe('AuthService', () => {
-  let service: AuthService;
-  let userRepository: Repository<User>;
-  let sessionRepository: Repository<Session>;
-  let jwtService: JwtService;
-  let emailService: EmailService;
-
-  const mockUser: User = {
-    id: 'user-123',
-    email: 'test@example.com',
-    passwordHash: 'hashed_password',
-    firstName: 'John',
+const makeUser = (over: Partial<User> = {}): User =>
+  ({
+    id: 'u-1',
+    email: 'jane@test.com',
+    passwordHash: null,
+    firstName: 'Jane',
     lastName: 'Doe',
     role: UserRole.CUSTOMER,
     provider: AuthProvider.LOCAL,
-    isEmailVerified: false,
+    isEmailVerified: true,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as User;
+    ...over,
+  }) as User;
 
-  const mockUserRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-  };
+describe('AuthService', () => {
+  let users: { findOne: any; create: any; save: any; update: any };
+  let sessions: { create: any; rotate: any; revokeByTokens: any; revokeAllForUser: any };
+  let email: { queueEmailVerification: any; queuePasswordReset: any };
+  let allowAdminSignup: boolean;
+  let service: AuthService;
+  let passwordHash: string;
 
-  const mockSessionRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
-  };
-
-  const mockJwtService = {
-    sign: jest.fn(),
-    verify: jest.fn(),
-  };
-
-  const testConfig = {
-    JWT_ACCESS_SECRET: 'test-secret',
-    JWT_REFRESH_SECRET: 'test-refresh-secret',
-    JWT_ACCESS_EXPIRES: '15m',
-    JWT_REFRESH_EXPIRES: '7d',
-  };
-  const mockConfigService = {
-    get: jest.fn((key: keyof typeof testConfig) => {
-      return testConfig[key];
-    }),
-  };
-
-  const mockEmailService = {
-    queueEmailVerification: jest.fn(),
-    queuePasswordReset: jest.fn(),
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuthService,
-        {
-          provide: getRepositoryToken(User),
-          useValue: mockUserRepository,
-        },
-        {
-          provide: getRepositoryToken(Session),
-          useValue: mockSessionRepository,
-        },
-        {
-          provide: JwtService,
-          useValue: mockJwtService,
-        },
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
-        },
-        {
-          provide: EmailService,
-          useValue: mockEmailService,
-        },
-      ],
-    }).compile();
-
-    service = module.get<AuthService>(AuthService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    sessionRepository = module.get<Repository<Session>>(getRepositoryToken(Session));
-    jwtService = module.get<JwtService>(JwtService);
-    emailService = module.get<EmailService>(EmailService);
+  beforeAll(async () => {
+    passwordHash = await bcrypt.hash('Secret123', 4); // low cost: this is a unit test
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  beforeEach(() => {
+    allowAdminSignup = true;
+    users = {
+      findOne: vi.fn(),
+      create: vi.fn((u) => u),
+      save: vi.fn(async (u) => ({ id: 'u-new', createdAt: new Date(), updatedAt: new Date(), ...u })),
+      update: vi.fn(),
+    };
+    sessions = {
+      create: vi.fn().mockResolvedValue(tokens),
+      rotate: vi.fn(),
+      revokeByTokens: vi.fn(),
+      revokeAllForUser: vi.fn(),
+    };
+    email = { queueEmailVerification: vi.fn(), queuePasswordReset: vi.fn() };
+    const config = { get: vi.fn((key: string) => (key === 'allowAdminSignup' ? allowAdminSignup : undefined)) };
+    service = new AuthService(users as any, sessions as any, email as any, config as any);
   });
 
   describe('register', () => {
-    it('should register a new user successfully', async () => {
-      const registerDto = {
-        email: 'newuser@example.com',
-        password: 'Password123!',
-        firstName: 'Jane',
-        lastName: 'Smith',
-      };
+    const dto = { email: 'new@test.com', password: 'Secret123', firstName: 'N', lastName: 'U' } as any;
 
-      mockUserRepository.findOne.mockResolvedValue(null);
-      mockUserRepository.create.mockReturnValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(mockUser);
-      mockSessionRepository.create.mockReturnValue({});
-      mockSessionRepository.save.mockResolvedValue({ id: 'session-123' });
-      mockJwtService.sign.mockReturnValue('mock-token');
+    it('hashes the password, signs the user in, and never returns the hash', async () => {
+      const { user, tokens: issued } = await service.register(dto, meta, 'cid');
 
-      const result = await service.register(registerDto, 'correlation-123');
-
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { email: registerDto.email },
-      });
-      expect(mockUserRepository.create).toHaveBeenCalled();
-      expect(mockUserRepository.save).toHaveBeenCalled();
-      expect(mockEmailService.queueEmailVerification).toHaveBeenCalled();
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result).toHaveProperty('user');
+      const saved = users.create.mock.calls[0][0];
+      expect(saved.passwordHash).not.toBe('Secret123');
+      expect(await bcrypt.compare('Secret123', saved.passwordHash)).toBe(true);
+      expect(user).not.toHaveProperty('passwordHash');
+      expect(issued).toBe(tokens);
+      expect(sessions.create).toHaveBeenCalledWith(expect.objectContaining({ id: 'u-new' }), meta);
     });
 
-    it('should throw ConflictException if user already exists', async () => {
-      const registerDto = {
-        email: 'existing@example.com',
-        password: 'Password123!',
-        firstName: 'Jane',
-        lastName: 'Smith',
-      };
+    it('defaults to CUSTOMER, and honours ORGANIZER', async () => {
+      await service.register(dto, meta, 'cid');
+      expect(users.create.mock.calls[0][0].role).toBe(UserRole.CUSTOMER);
 
-      mockUserRepository.findOne.mockResolvedValue(mockUser);
-
-      await expect(
-        service.register(registerDto, 'correlation-123'),
-      ).rejects.toThrow(ConflictException);
+      await service.register({ ...dto, role: 'ORGANIZER' }, meta, 'cid');
+      expect(users.create.mock.calls[1][0].role).toBe(UserRole.ORGANIZER);
     });
 
-    it('should hash password before saving', async () => {
-      const registerDto = {
-        email: 'newuser@example.com',
-        password: 'Password123!',
-        firstName: 'Jane',
-        lastName: 'Smith',
-      };
+    it('gates ADMIN sign-up behind the flag, and creates nothing when refused', async () => {
+      allowAdminSignup = false;
+      await expect(service.register({ ...dto, role: 'ADMIN' }, meta, 'cid')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(users.save).not.toHaveBeenCalled();
 
-      mockUserRepository.findOne.mockResolvedValue(null);
-      mockUserRepository.create.mockReturnValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(mockUser);
-      mockSessionRepository.create.mockReturnValue({});
-      mockSessionRepository.save.mockResolvedValue({ id: 'session-123' });
-      mockJwtService.sign.mockReturnValue('mock-token');
+      allowAdminSignup = true;
+      await service.register({ ...dto, role: 'ADMIN' }, meta, 'cid');
+      expect(users.create.mock.calls[0][0].role).toBe(UserRole.ADMIN);
+    });
 
-      const bcryptHashSpy = jest.spyOn(bcrypt, 'hash');
+    it('emails the RAW verification token but stores only its hash', async () => {
+      await service.register(dto, meta, 'cid');
 
-      await service.register(registerDto, 'correlation-123');
+      const stored = users.create.mock.calls[0][0].emailVerificationToken;
+      const emailed = email.queueEmailVerification.mock.calls[0][0].token;
+      expect(emailed).not.toBe(stored);
+      expect(hashToken(emailed)).toBe(stored);
+    });
 
-      expect(bcryptHashSpy).toHaveBeenCalledWith(registerDto.password, 12);
+    it('maps a unique-violation (concurrent/duplicate signup) to 409', async () => {
+      users.save.mockRejectedValue({ driverError: { code: '23505' } });
+      await expect(service.register(dto, meta, 'cid')).rejects.toBeInstanceOf(ConflictException);
+      expect(sessions.create).not.toHaveBeenCalled();
+    });
+
+    it('does not fail the signup when the verification email cannot be queued', async () => {
+      email.queueEmailVerification.mockRejectedValue(new Error('redis down'));
+      await expect(service.register(dto, meta, 'cid')).resolves.toBeDefined();
     });
   });
 
   describe('login', () => {
-    it('should login user successfully with valid credentials', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
+    const login = { email: 'jane@test.com', password: 'Secret123' };
 
-      const hashedPassword = await bcrypt.hash('Password123!', 12);
-      const userWithPassword = { ...mockUser, password: hashedPassword };
+    it('signs in with the right password and records the login', async () => {
+      users.findOne.mockResolvedValue(makeUser({ passwordHash }));
+      const { user, tokens: issued } = await service.login(login, meta);
 
-      mockUserRepository.findOne.mockResolvedValue(userWithPassword);
-      mockUserRepository.save.mockResolvedValue(userWithPassword);
-      mockSessionRepository.create.mockReturnValue({});
-      mockSessionRepository.save.mockResolvedValue({ id: 'session-123' });
-      mockJwtService.sign.mockReturnValue('mock-token');
-
-      const result = await service.login(loginDto, '127.0.0.1', 'test-agent', 'correlation-123');
-
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { email: loginDto.email },
-      });
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result.user.email).toBe(loginDto.email);
+      expect(user.email).toBe('jane@test.com');
+      expect(user).not.toHaveProperty('passwordHash');
+      expect(issued).toBe(tokens);
+      expect(users.update).toHaveBeenCalledWith('u-1', { lastLoginAt: expect.any(Date) });
     });
 
-    it('should throw UnauthorizedException for non-existent user', async () => {
-      const loginDto = {
-        email: 'nonexistent@example.com',
-        password: 'Password123!',
-      };
+    // Row factories: the hash is only created in beforeAll, after this table is built.
+    it.each([
+      ['wrong password', () => makeUser({ passwordHash }), 'Wrong123'],
+      ['unknown email', () => null, 'Secret123'],
+      ['OAuth-only account (no password)', () => makeUser({ passwordHash: null }), 'Secret123'],
+    ])('gives ONE generic error for %s (no account enumeration)', async (_label, makeRow, password) => {
+      users.findOne.mockResolvedValue(makeRow());
+      const err = await service.login({ ...login, password }, meta).catch((e) => e);
 
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.login(loginDto, '127.0.0.1', 'test-agent', 'correlation-123'),
-      ).rejects.toThrow(UnauthorizedException);
+      expect(err).toBeInstanceOf(UnauthorizedException);
+      expect(err.message).toBe('Invalid email or password');
+      expect(sessions.create).not.toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException for invalid password', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'WrongPassword!',
-      };
-
-      const hashedPassword = await bcrypt.hash('CorrectPassword!', 12);
-      const userWithPassword = { ...mockUser, password: hashedPassword };
-
-      mockUserRepository.findOne.mockResolvedValue(userWithPassword);
-
-      await expect(
-        service.login(loginDto, '127.0.0.1', 'test-agent', 'correlation-123'),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException for inactive user', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
-
-      const inactiveUser = { ...mockUser, isActive: false };
-      mockUserRepository.findOne.mockResolvedValue(inactiveUser);
-
-      await expect(
-        service.login(loginDto, '127.0.0.1', 'test-agent', 'correlation-123'),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should update lastLoginAt on successful login', async () => {
-      const loginDto = {
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
-
-      const hashedPassword = await bcrypt.hash('Password123!', 12);
-      const userWithPassword = { ...mockUser, password: hashedPassword };
-
-      mockUserRepository.findOne.mockResolvedValue(userWithPassword);
-      mockUserRepository.save.mockResolvedValue(userWithPassword);
-      mockSessionRepository.create.mockReturnValue({});
-      mockSessionRepository.save.mockResolvedValue({ id: 'session-123' });
-      mockJwtService.sign.mockReturnValue('mock-token');
-
-      await service.login(loginDto, '127.0.0.1', 'test-agent', 'correlation-123');
-
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          lastLoginAt: expect.any(Date),
-        }),
-      );
+    it('refuses a disabled account even with the right password', async () => {
+      users.findOne.mockResolvedValue(makeUser({ passwordHash, isActive: false }));
+      await expect(service.login(login, meta)).rejects.toThrow(/disabled/);
+      expect(sessions.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('refreshToken', () => {
-    it('should refresh tokens successfully', async () => {
-      const refreshToken = 'valid-refresh-token';
-      const mockSession = {
-        id: 'session-123',
-        userId: mockUser.id,
-        refreshToken,
-        expiresAt: new Date(Date.now() + 86400000),
-        isValid: true,
-        user: mockUser,
-      };
-
-      mockJwtService.verify.mockReturnValue({ sub: mockUser.id, sessionId: 'session-123' });
-      mockSessionRepository.findOne.mockResolvedValue(mockSession);
-      mockSessionRepository.save.mockResolvedValue(mockSession);
-      mockJwtService.sign.mockReturnValue('new-mock-token');
-
-      const mockReq = createMockReq()
-
-      const result = await service.refresh(mockReq);
-
-      expect(mockJwtService.verify).toHaveBeenCalledWith(refreshToken, {
-        secret: 'test-refresh-secret',
-      });
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
+  describe('refresh / logout', () => {
+    it('rejects a missing refresh token before touching the session store', async () => {
+      await expect(service.refresh(undefined)).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(sessions.rotate).not.toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException for invalid refresh token', async () => {
-      const refreshToken = 'invalid-refresh-token';
-
-      mockJwtService.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
-      });
-
-      const mockReq = createMockReq('invalid-auth-refresh-cookie');
-
-      await expect(service.refresh(mockReq)).rejects.toThrow(
-        UnauthorizedException,
-      );
+    it('returns the user and (possibly null, in the grace window) tokens from rotation', async () => {
+      sessions.rotate.mockResolvedValue({ user: makeUser(), sessionId: 's-1', tokens: null });
+      const result = await service.refresh('raw-refresh');
+      expect(result.tokens).toBeNull();
+      expect(result.user.id).toBe('u-1');
     });
 
-    it('should throw UnauthorizedException for expired session', async () => {
-      const refreshToken = 'valid-refresh-token';
-      const expiredSession = {
-        id: 'session-123',
-        userId: mockUser.id,
-        refreshToken,
-        expiresAt: new Date(Date.now() - 86400000), // Expired
-        isValid: true,
-        user: mockUser,
-      };
-
-      mockJwtService.verify.mockReturnValue({ sub: mockUser.id, sessionId: 'session-123' });
-      mockSessionRepository.findOne.mockResolvedValue(expiredSession);
-
-      const mockReq = createMockReq();
-
-      await expect(service.refresh(mockReq)).rejects.toThrow(
-        UnauthorizedException,
-      );
+    it('logout revokes by whichever tokens were presented', async () => {
+      await service.logout('acc', 'ref');
+      expect(sessions.revokeByTokens).toHaveBeenCalledWith('acc', 'ref');
     });
   });
 
   describe('verifyEmail', () => {
-    it('should verify email successfully', async () => {
-      const token = 'valid-verification-token';
-      const userToVerify = {
-        ...mockUser,
-        emailVerificationToken: token,
-        emailVerificationExpires: new Date(Date.now() + 86400000),
-        isEmailVerified: false,
-      };
+    it('looks the token up by its hash and marks the email verified (single use)', async () => {
+      users.findOne.mockResolvedValue(makeUser({ isEmailVerified: false }));
+      await service.verifyEmail({ token: 'raw-token' });
 
-      mockUserRepository.findOne.mockResolvedValue(userToVerify);
-      mockUserRepository.save.mockResolvedValue({ ...userToVerify, isEmailVerified: true });
-
-      await service.verifyEmail(token, 'correlation-123');
-
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          isEmailVerified: true,
-          emailVerificationToken: null,
-          emailVerificationExpires: null,
-        }),
-      );
+      expect(users.findOne.mock.calls[0][0].where.emailVerificationToken).toBe(hashToken('raw-token'));
+      expect(users.update).toHaveBeenCalledWith('u-1', { isEmailVerified: true, emailVerificationToken: null, emailVerificationExpires: null });
     });
 
-    it('should throw BadRequestException for invalid token', async () => {
-      const token = 'invalid-token';
-
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.verifyEmail(token, 'correlation-123')).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for expired token', async () => {
-      const token = 'expired-token';
-      const userWithExpiredToken = {
-        ...mockUser,
-        emailVerificationToken: token,
-        emailVerificationExpires: new Date(Date.now() - 86400000), // Expired
-      };
-
-      mockUserRepository.findOne.mockResolvedValue(userWithExpiredToken);
-
-      await expect(service.verifyEmail(token, 'correlation-123')).rejects.toThrow(
-        BadRequestException,
-      );
+    it('rejects an unknown or expired token', async () => {
+      users.findOne.mockResolvedValue(null);
+      await expect(service.verifyEmail({ token: 'nope' })).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
   describe('forgotPassword', () => {
-    it('should send password reset email for existing user', async () => {
-      const email = 'test@example.com';
+    it('stores only a hash and emails the raw token', async () => {
+      users.findOne.mockResolvedValue(makeUser({ passwordHash }));
+      await service.forgotPassword('jane@test.com', 'cid');
 
-      mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(mockUser);
-
-      await service.forgotPassword(email, 'correlation-123');
-
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          passwordResetToken: expect.any(String),
-          passwordResetExpires: expect.any(Date),
-        }),
-      );
-      expect(mockEmailService.queuePasswordReset).toHaveBeenCalled();
+      const stored = users.update.mock.calls[0][1].passwordResetToken;
+      const emailed = email.queuePasswordReset.mock.calls[0][0].token;
+      expect(hashToken(emailed)).toBe(stored);
+      expect(users.update.mock.calls[0][1].passwordResetExpires.getTime()).toBeGreaterThan(Date.now());
     });
 
-    it('should not throw error for non-existent user (security)', async () => {
-      const email = 'nonexistent@example.com';
-
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.forgotPassword(email, 'correlation-123')).resolves.not.toThrow();
-      expect(mockEmailService.queuePasswordReset).not.toHaveBeenCalled();
+    it.each([
+      ['unknown email', () => null],
+      ['OAuth-only account', () => makeUser({ passwordHash: null })],
+      ['disabled account', () => makeUser({ passwordHash, isActive: false })],
+    ])('silently does nothing for %s, so the endpoint cannot enumerate accounts', async (_label, makeRow) => {
+      users.findOne.mockResolvedValue(makeRow());
+      await expect(service.forgotPassword('x@test.com', 'cid')).resolves.toBeUndefined();
+      expect(email.queuePasswordReset).not.toHaveBeenCalled();
+      expect(users.update).not.toHaveBeenCalled();
     });
   });
 
   describe('resetPassword', () => {
-    it('should reset password successfully', async () => {
-      const token = 'valid-reset-token';
-      const newPassword = 'NewPassword123!';
-      const userWithResetToken = {
-        ...mockUser,
-        passwordResetToken: token,
-        passwordResetExpires: new Date(Date.now() + 86400000),
-      };
+    it('sets the new password, burns the token, and revokes EVERY session', async () => {
+      users.findOne.mockResolvedValue(makeUser({ passwordHash }));
+      await service.resetPassword({ token: 'raw-reset', newPassword: 'Brandnew123' });
 
-      mockUserRepository.findOne.mockResolvedValue(userWithResetToken);
-      mockUserRepository.save.mockResolvedValue(userWithResetToken);
-      mockSessionRepository.update.mockResolvedValue({});
-
-      await service.resetPassword(token, newPassword, 'correlation-123');
-
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          passwordResetToken: null,
-          passwordResetExpires: null,
-        }),
-      );
-      expect(mockSessionRepository.update).toHaveBeenCalledWith(
-        { userId: mockUser.id },
-        { isValid: false },
-      );
+      expect(users.findOne.mock.calls[0][0].where.passwordResetToken).toBe(hashToken('raw-reset'));
+      const patch = users.update.mock.calls[0][1];
+      expect(await bcrypt.compare('Brandnew123', patch.passwordHash)).toBe(true);
+      expect(patch).toMatchObject({ passwordResetToken: null, passwordResetExpires: null, isEmailVerified: true });
+      expect(sessions.revokeAllForUser).toHaveBeenCalledWith('u-1');
     });
 
-    it('should throw BadRequestException for invalid reset token', async () => {
-      const token = 'invalid-token';
-      const newPassword = 'NewPassword123!';
-
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.resetPassword(token, newPassword, 'correlation-123')).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-  });
-
-  describe('logout', () => {
-    it('should invalidate session on logout', async () => {
-      const sessionId = 'session-123';
-
-      mockSessionRepository.update.mockResolvedValue({});
-
-      const mockReq = createMockReq();
-
-      await service.logout(sessionId, mockReq, 'correlation-123');
-
-      expect(mockSessionRepository.update).toHaveBeenCalledWith(
-        { id: sessionId },
-        { isValid: false },
-      );
-    });
-  });
-
-  describe('validateUser', () => {
-    it('should return user for valid active user', async () => {
-      mockUserRepository.findOne.mockResolvedValue(mockUser);
-
-      const result = await service.validateUser(mockUser.id);
-
-      expect(result).toEqual(mockUser);
-    });
-
-    it('should throw UnauthorizedException for non-existent user', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.validateUser('non-existent-id')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('should throw UnauthorizedException for inactive user', async () => {
-      const inactiveUser = { ...mockUser, isActive: false };
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.validateUser(inactiveUser.id)).rejects.toThrow(UnauthorizedException);
+    it('rejects an invalid token without changing anything', async () => {
+      users.findOne.mockResolvedValue(null);
+      await expect(service.resetPassword({ token: 'bad', newPassword: 'Brandnew123' })).rejects.toBeInstanceOf(BadRequestException);
+      expect(users.update).not.toHaveBeenCalled();
+      expect(sessions.revokeAllForUser).not.toHaveBeenCalled();
     });
   });
 });

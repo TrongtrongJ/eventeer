@@ -1,48 +1,38 @@
 import { z } from "zod";
-import { IsoStringDate } from "./base/fields";
+import { emailField, IsoStringDate, passwordField } from "./base/fields";
 
-// User Schemas
-export const RegisterSchema = z.object({
-  email: z.email(),
-  password: z.string().min(8).max(100),
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-}).meta({
-  description: "New user registration payload",
-  examples: [
-      {
-          email: "user@example.com",
-          password: "Secret123",
-          confirmPassword: "Secret123",
-      },
-  ],
-});
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+export const RegisterSchema = z
+  .object({
+    email: emailField,
+    password: passwordField,
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().min(1).max(100),
+    /** Defaults to CUSTOMER. ADMIN sign-up is gated server-side (ALLOW_ADMIN_SIGNUP). */
+    role: z.enum(["CUSTOMER", "ORGANIZER", "ADMIN"]).optional(),
+  })
+  .meta({ description: "New user registration payload" });
 
-export const LoginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-}).meta({
-  description: "User login credentials",
-  examples: [{ email: "user@example.com", password: "Secret123" }],
-});;
+export const LoginSchema = z
+  .object({
+    email: emailField,
+    // No strength rules on login: never reject an existing password client-side.
+    password: z.string().min(1).max(72),
+  })
+  .meta({ description: "User login credentials" });
 
-export const ChangePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(100),
-});
-
-export const ForgotPasswordSchema = z.object({
-  email: z.email(),
-});
+export const ForgotPasswordSchema = z.object({ email: emailField });
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1),
-  newPassword: z.string().min(8).max(100),
+  newPassword: passwordField,
 });
 
 export const ResetPasswordFormSchema = z
   .object({
-    password: z.string().min(8, "Password too short").max(100, 'Password too long'),
+    password: passwordField,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -50,12 +40,11 @@ export const ResetPasswordFormSchema = z
     path: ["confirmPassword"],
   });
 
-export const UpdateProfileSchema = z.object({
-  firstName: z.string().min(1).max(100).optional(),
-  lastName: z.string().min(1).max(100).optional(),
-  avatarUrl: z.url().optional(),
-});
+export const VerifyEmailSchema = z.object({ token: z.string().min(1) });
 
+// ---------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------
 export const UserSchema = z.object({
   id: z.uuid(),
   email: z.email(),
@@ -71,82 +60,32 @@ export const UserSchema = z.object({
   updatedAt: IsoStringDate.nullable().optional(),
 });
 
-export const RefreshTokenSchema = z.object({
-  refreshToken: z.string().min(1),
-});
-
-export const OAuth2CallbackSchema = z.object({
-  code: z.string().min(1),
-  state: z.string().optional(),
-});
-
-export const VerifyEmailSchema = z.object({
-  token: z.string().min(1),
-});
-
-const MinimalUserData = UserSchema.pick({
-    id: true,
-    email: true,
-});
-
-const JwtUserDataSchema = MinimalUserData.transform(({ id, ...rest }) => ({
-    ...rest,
-    sub: id,
-}));
-
+/**
+ * Auth responses never carry tokens: the access and refresh tokens are opaque,
+ * httpOnly cookies that JavaScript (and therefore XSS) can never read.
+ */
 export const AuthResponseSchema = z
-    .object({
-      accessToken: z.string(),
-      refreshToken: z.string(),
-      //user: UserSchema,
-      user: MinimalUserData,
-      expiresIn: z.number(),
-    })
-    .meta({
-        id: "AuthResponse",
-        description: "Successful authentication response",
-    });
+  .object({ user: UserSchema })
+  .meta({ id: "AuthResponse", description: "Authenticated user; tokens are set as httpOnly cookies" });
+
+export const MessageResponseSchema = z.object({ message: z.string() }).meta({ id: "MessageResponse" });
+
+export const ErrorResponseSchema = z
+  .object({
+    statusCode: z.number().int(),
+    message: z.union([z.string(), z.array(z.string())]),
+    error: z.string().optional(),
+  })
+  .meta({ id: "ErrorResponse" });
 
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type LoginDto = z.infer<typeof LoginSchema>;
-export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 export type ForgotPasswordDto = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type ResetPasswordFormDto = z.infer<typeof ResetPasswordFormSchema>;
-export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>;
-export type UserDto = z.infer<typeof UserSchema>;
-export type OAuthProvider = UserDto['provider'];
-export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
-export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
-export type OAuth2CallbackDto = z.infer<typeof OAuth2CallbackSchema>;
 export type VerifyEmailDto = z.infer<typeof VerifyEmailSchema>;
-
-export const MeSchema = z
-    .object({
-        user: MinimalUserData,
-    })
-    .meta({ id: "Me", description: "User get me return object" });
-
-export const MessageResponseSchema = z
-    .object({
-        message: z.string(),
-    })
-    .meta({ id: "MessageResponse" });
-
-export const ErrorResponseSchema = z
-    .object({
-        statusCode: z.number().int(),
-        message: z.union([z.string(), z.array(z.string())]),
-        error: z.string().optional(),
-    })
-    .meta({ id: "ErrorResponse" });
-
-// ---------------------------------------------------------------------------
-// Inferred TypeScript types
-// ---------------------------------------------------------------------------
-export type Me = z.infer<typeof MeSchema>;
-export type JwtUserData = z.infer<typeof JwtUserDataSchema>;
-export type AuthResponse = z.infer<typeof AuthResponseSchema>;
+export type UserDto = z.infer<typeof UserSchema>;
+export type OAuthProvider = UserDto["provider"];
+export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
 export type MessageResponse = z.infer<typeof MessageResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
-

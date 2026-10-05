@@ -1,11 +1,12 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { User, UserRole, AuthProvider } from '../entities/user.entity';
-import { AuthService } from './auth.service';
+import { AuthResult, AuthService } from './auth.service';
+import type { SessionMeta } from './session.service';
 
 interface OAuthProfile {
   id: string;
@@ -14,6 +15,8 @@ interface OAuthProfile {
   lastName: string;
   avatarUrl?: string;
   provider: AuthProvider;
+  /** True only when the provider itself asserts the user controls this email. */
+  emailVerified: boolean;
 }
 
 interface GoogleOAuthTokenRes {
@@ -48,7 +51,7 @@ export class OAuthService {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  async handleGoogleCallback(code: string, correlationId: string) {
+  async handleGoogleCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
     try {
       // Exchange code for tokens
       const tokenResponse = await firstValueFrom(
@@ -77,9 +80,10 @@ export class OAuthService {
         lastName: profileResponse.data.family_name || '',
         avatarUrl: profileResponse.data.picture,
         provider: AuthProvider.GOOGLE,
+        emailVerified: profileResponse.data.verified_email === true,
       };
 
-      return this.handleOAuthLogin(profile, correlationId);
+      return this.handleOAuthLogin(profile, meta, correlationId);
     } catch (error: any) {
       this.logger.error({
         message: 'Google OAuth failed',
@@ -102,7 +106,7 @@ export class OAuthService {
     return `https://github.com/login/oauth/authorize?${params.toString()}`;
   }
 
-  async handleGitHubCallback(code: string, correlationId: string) {
+  async handleGitHubCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
     try {
       // Exchange code for token
       const tokenResponse = await firstValueFrom(
@@ -136,19 +140,21 @@ export class OAuthService {
         ),
       ]);
 
-      const primaryEmail = emailsResponse.data.find((e: any) => e.primary)?.email;
+      // Only a primary AND verified GitHub email may identify the user.
+      const primaryEmail = emailsResponse.data.find((e: any) => e.primary && e.verified)?.email;
       const nameParts = userResponse.data.name?.split(' ') || ['User'];
 
       const profile: OAuthProfile = {
         id: userResponse.data.id.toString(),
-        email: primaryEmail || userResponse.data.email,
+        email: primaryEmail,
         firstName: nameParts[0] || 'User',
         lastName: nameParts.slice(1).join(' ') || '',
         avatarUrl: userResponse.data.avatar_url,
         provider: AuthProvider.GITHUB,
+        emailVerified: !!primaryEmail,
       };
 
-      return this.handleOAuthLogin(profile, correlationId);
+      return this.handleOAuthLogin(profile, meta, correlationId);
     } catch (error: any) {
       this.logger.error({
         message: 'GitHub OAuth failed',
@@ -171,7 +177,7 @@ export class OAuthService {
     return `https://www.facebook.com/v12.0/dialog/oauth?${params.toString()}`;
   }
 
-  async handleFacebookCallback(code: string, correlationId: string) {
+  async handleFacebookCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
     try {
       // Exchange code for token
       const tokenResponse = await firstValueFrom(
@@ -204,9 +210,10 @@ export class OAuthService {
         lastName: profileResponse.data.last_name || '',
         avatarUrl: profileResponse.data.picture?.data?.url,
         provider: AuthProvider.FACEBOOK,
+        emailVerified: false, // Facebook gives no verification signal
       };
 
-      return this.handleOAuthLogin(profile, correlationId);
+      return this.handleOAuthLogin(profile, meta, correlationId);
     } catch (error: any) {
       this.logger.error({
         message: 'Facebook OAuth failed',
@@ -217,71 +224,58 @@ export class OAuthService {
     }
   }
 
-  private async handleOAuthLogin(profile: OAuthProfile, correlationId: string) {
-    this.logger.log({
-      message: 'OAuth login attempt',
-      correlationId,
-      provider: profile.provider,
-      email: profile.email,
-    });
+  private async handleOAuthLogin(
+    profile: OAuthProfile,
+    meta: SessionMeta,
+    correlationId: string,
+  ): Promise<AuthResult> {
+    if (!profile.email) {
+      throw new BadRequestException('The provider did not return a verified email address');
+    }
+    const email = profile.email.toLowerCase();
 
-    // Check if user exists
     let user = await this.userRepository.findOne({
-      where: [
-        { email: profile.email, provider: profile.provider },
-        { providerId: profile.id, provider: profile.provider },
-      ],
+      where: { provider: profile.provider, providerId: profile.id },
     });
 
     if (!user) {
-      // Check if email exists with different provider
-      const existingUser = await this.userRepository.findOne({
-        where: { email: profile.email },
-      });
+      const existing = await this.userRepository.findOne({ where: { email } });
 
-      if (existingUser) {
-        // Link OAuth account to existing user
-        existingUser.providerId = profile.id;
-        existingUser.avatarUrl = profile.avatarUrl || existingUser.avatarUrl;
-        existingUser.isEmailVerified = true; // Trust OAuth provider
-        user = await this.userRepository.save(existingUser);
-
-        this.logger.log({
-          message: 'OAuth account linked to existing user',
-          correlationId,
-          userId: user.id,
-          provider: profile.provider,
-        });
+      if (existing) {
+        // Never link on an unverified provider email: that's an account-takeover vector.
+        if (!profile.emailVerified) {
+          throw new ConflictException('An account with this email already exists. Sign in with your original method.');
+        }
+        if (!existing.isEmailVerified) {
+          // The local account may have been pre-registered by someone who doesn't own the
+          // mailbox. The provider just proved who does, so strip any credentials they set.
+          existing.passwordHash = null;
+          existing.emailVerificationToken = null;
+          existing.passwordResetToken = null;
+        }
+        existing.isEmailVerified = true;
+        existing.avatarUrl = existing.avatarUrl || profile.avatarUrl;
+        user = await this.userRepository.save(existing);
+        this.logger.log({ message: 'OAuth identity linked to existing user', correlationId, userId: user.id });
       } else {
-        // Create new user
-        user = this.userRepository.create({
-          email: profile.email,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          avatarUrl: profile.avatarUrl,
-          provider: profile.provider,
-          providerId: profile.id,
-          role: UserRole.CUSTOMER,
-          isEmailVerified: true, // Trust OAuth provider
-          isActive: true,
-        });
-
-        user = await this.userRepository.save(user);
-
-        this.logger.log({
-          message: 'New user created via OAuth',
-          correlationId,
-          userId: user.id,
-          provider: profile.provider,
-        });
+        user = await this.userRepository.save(
+          this.userRepository.create({
+            email,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            avatarUrl: profile.avatarUrl,
+            provider: profile.provider,
+            providerId: profile.id,
+            role: UserRole.CUSTOMER,
+            isEmailVerified: profile.emailVerified,
+            isActive: true,
+          }),
+        );
+        this.logger.log({ message: 'User created via OAuth', correlationId, userId: user.id, provider: profile.provider });
       }
     }
 
-    // Update last login
-    user.lastLoginAt = new Date();
-    await this.userRepository.save(user);
-
-    // Generate auth response using AuthService
-    return this.authService['generateAuthResponse'](user, correlationId);
+    if (!user.isActive) throw new UnauthorizedException('This account has been disabled');
+    return this.authService.startSession(user, meta);
   }
 }

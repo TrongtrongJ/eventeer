@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import type { BookingDto, CreateBookingDto } from '@packages/shared-schemas';
 import { server } from '@/test-utils/server';
-import { wrapResponse } from '@/test-utils/response-envelope';
+import { wrapResponse, apiError } from '@/test-utils/response-envelope';
 import { apiUrl } from '../../config';
 
 export const mockBooking1Id = 'booking-uuid-1';
@@ -94,7 +94,7 @@ export const bookingsApiMock = {
   useMockErrorMyBookingsList: () =>
     server.use(
       http.get(`${apiUrl}/bookings/booking/me`, () =>
-        HttpResponse.json({ message: 'Internal server error' }, { status: 500 }),
+        HttpResponse.json(apiError('INTERNAL_SERVER_ERROR', 'Internal server error'), { status: 500 }),
       ),
     ),
 
@@ -116,7 +116,7 @@ export const bookingsApiMock = {
         if (id === mockBookingNewId) {
           return HttpResponse.json(wrapResponse(mockNewBooking), { status: 200 });
         }
-        return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+        return HttpResponse.json(apiError('NOT_FOUND', 'Not found'), { status: 404 });
       }),
     ),
 
@@ -138,7 +138,7 @@ export const bookingsApiMock = {
     return server.use(
       http.get(`${apiUrl}/bookings/:id`, ({ params }) => {
         if (params.id !== mockBookingNewId) {
-          return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+          return HttpResponse.json(apiError('NOT_FOUND', 'Not found'), { status: 404 });
         }
         return HttpResponse.json(
           wrapResponse({ ...mockNewBooking, status: isConfirmed ? 'CONFIRMED' : 'PENDING' }),
@@ -147,7 +147,7 @@ export const bookingsApiMock = {
       }),
       http.post(`${apiUrl}/bookings/:id/confirm`, ({ params }) => {
         if (params.id !== mockBookingNewId) {
-          return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+          return HttpResponse.json(apiError('NOT_FOUND', 'Not found'), { status: 404 });
         }
         isConfirmed = true;
         return HttpResponse.json(wrapResponse({ ...mockNewBooking, status: 'CONFIRMED' }), {

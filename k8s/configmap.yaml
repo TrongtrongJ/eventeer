@@ -4,16 +4,9 @@ metadata:
   name: backend-config
   namespace: event-management
 data:
+  # https is REQUIRED in production (auth cookies are Secure). Same host as the web app, so the
+  # session cookies are first-party. See ingress.yaml: the API is served under /api.
+  frontend-url: https://event-management.example.com
+  trust-proxy: "1"
   smtp-host: smtp.gmail.com
   smtp-port: "587"
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: frontend-config
-  namespace: event-management
-data:
-  stripe-publishable-key: pk_test_your_key_here
-
----

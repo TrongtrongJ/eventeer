@@ -1,28 +1,32 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { GraphQLModule as NestGraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { join } from 'path';
-import { EventsModule } from '../events/events.module';
-import { BookingsModule } from '../bookings/bookings.module';
+import type { EnvConfig } from '../env.validation';
 
+/**
+ * Resolvers live next to their services (events.resolver, bookings.resolver) and
+ * are auto-discovered. Authentication/authorization is NOT re-implemented here:
+ * the global guards resolve the same httpOnly cookie for GraphQL, so `req.user`
+ * is populated identically to REST/oRPC.
+ */
 @Module({
   imports: [
-    NestGraphQLModule.forRoot<ApolloDriverConfig>({
+    NestGraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/graphql/schema.gql'),
-      sortSchema: true,
-      graphiql: true, // Enable GraphQL Playground
-      context: ({ req }: any) => ({ req }), // Pass request to resolvers
-      formatError: (error: any) => {
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<EnvConfig, true>) => {
+        const isProd = config.get('isProd', { infer: true });
         return {
-          message: error.message,
-          code: error.extensions?.code,
-          path: error.path,
+          autoSchemaFile: true, // in-memory; no generated file committed or written in containers
+          sortSchema: true,
+          graphiql: !isProd,
+          introspection: !isProd,
+          includeStacktraceInErrorResponses: !isProd,
+          context: ({ req, res }: any) => ({ req, res }),
         };
       },
     }),
-    EventsModule,
-    BookingsModule,
   ],
 })
 export class GraphQLModule {}

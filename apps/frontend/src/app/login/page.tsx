@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,16 +20,31 @@ export default function LoginPage() {
 
   const loginMutation = useMutation(orpc.auth.login.mutationOptions());
 
+  // The OAuth callback redirects back here with ?error=... when it can't sign the user in.
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('error');
+    if (error) {
+      addToast({
+        message: error === 'oauth_state' ? 'Sign-in expired. Please try again.' : 'Social sign-in failed. Please try again.',
+        type: 'error',
+      });
+    }
+  }, [addToast]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       try {
         await loginMutation.mutateAsync(formData);
-        // The backend set the httpOnly cookies on this response; refresh our
-        // cached session so Navigation etc. pick up the logged-in state.
-        // await queryClient.invalidateQueries({ queryKey: orpc.auth.key() });
+        // The API set the httpOnly cookies on this response. Refresh the cached session so the
+        // navigation updates, and re-run server components so protected pages see the new cookie.
+        await queryClient.invalidateQueries({ queryKey: orpc.auth.key() });
         addToast({ message: 'Login successful!', type: 'success' });
-        router.push('/');
+
+        // Only ever follow same-site relative paths (prevents open-redirect via ?from=).
+        const from = new URLSearchParams(window.location.search).get('from');
+        router.push(from && from.startsWith('/') && !from.startsWith('//') ? from : '/');
+        router.refresh();
       } catch (error: any) {
         addToast({ message: error?.message || 'Login failed', type: 'error' });
       }
