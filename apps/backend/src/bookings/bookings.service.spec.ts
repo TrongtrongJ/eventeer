@@ -1,486 +1,400 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { Booking, BookingStatus } from '../entities/booking.entity';
-import { Ticket } from '../entities/ticket.entity';
-import { Event } from '../entities/event.entity';
-import { EventsService } from '../events/events.service';
-import { CouponsService } from '../coupons/coupons.service';
-import { PaymentService } from '../payment/payment.service';
-import { EmailService } from '../email/email.service';
+import { BookingStatus } from '../entities/booking.entity';
+import { UserRole } from '../entities/user.entity';
+
+const HOLD_MINUTES = 15;
+const owner = { userId: 'u-1', role: UserRole.CUSTOMER };
+const stranger = { userId: 'u-2', role: UserRole.CUSTOMER };
+const admin = { userId: 'u-3', role: UserRole.ADMIN };
+const past = () => new Date(Date.now() - 60_000);
+const future = () => new Date(Date.now() + 3_600_000);
+
+const dto = { eventId: 'evt-1', quantity: 3, firstName: 'A', lastName: 'B', email: 'a@b.com' } as any;
+const reserved = { id: 'evt-1', title: 'Rock Night', ticketPrice: '1000.00', currency: 'THB', capacity: 100, availableSeats: 97 };
 
 describe('BookingsService', () => {
+  let bookings: Map<string, any>;
+  let tickets: any[];
+  let event: any;
+  let repo: any;
+  let manager: any;
+  let events: any;
+  let coupons: any;
+  let payments: any;
+  let email: any;
   let service: BookingsService;
-  let bookingRepository: Repository<Booking>;
-  let eventsService: EventsService;
-  let couponsService: CouponsService;
-  let paymentService: PaymentService;
-  let dataSource: DataSource;
+  let seq: number;
 
-  const mockEvent = {
-    id: 'event-123',
-    title: 'Test Event',
-    ticketPrice: 100,
-    availableSeats: 50,
-    capacity: 100,
-    currency: 'USD',
+  /** A booking already in the store, PENDING with a live hold by default. */
+  const seed = (over: Record<string, unknown> = {}) => {
+    const b = {
+      id: 'b-1', eventId: 'evt-1', userId: 'u-1', quantity: 2, email: 'a@b.com', firstName: 'A', lastName: 'B',
+      totalAmount: 2000, finalAmount: 2000, discount: 0, couponCode: undefined,
+      status: BookingStatus.PENDING, paymentIntentId: 'pi_1', clientSecret: 'secret_1', expiresAt: future(),
+      createdAt: new Date(), updatedAt: new Date(), ...over,
+    };
+    bookings.set(b.id as string, b);
+    return b as any;
   };
 
-  const mockBooking = {
-    id: 'booking-123',
-    eventId: 'event-123',
-    userId: 'user-123',
-    quantity: 2,
-    totalAmount: 200,
-    finalAmount: 200,
-    discount: 0,
-    status: BookingStatus.PENDING,
-    email: 'test@example.com',
-    firstName: 'John',
-    lastName: 'Doe',
-    tickets: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  beforeEach(() => {
+    seq = 0;
+    bookings = new Map();
+    tickets = [];
+    event = { id: 'evt-1', title: 'Rock Night', currency: 'THB', location: 'Bangkok', startDate: future(), organizerId: 'org-1' };
 
-  const mockBookingRepository = {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-  };
+    repo = {
+      findOne: vi.fn(async ({ where }: any) => {
+        const b = [...bookings.values()].find((x) => (where.id ? x.id === where.id : x.paymentIntentId === where.paymentIntentId));
+        return b ? { ...b, tickets: tickets.filter((t) => t.bookingId === b.id), event } : null;
+      }),
+      find: vi.fn(async () => [...bookings.values()].filter((b) => b.status === BookingStatus.PENDING && b.expiresAt < new Date())),
+      update: vi.fn(async (id: string, patch: any) => Object.assign(bookings.get(id), patch)),
+    };
 
-  const mockTicketRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-  };
+    // Transaction manager: honours the conditional-UPDATE semantics the service relies on.
+    manager = {
+      create: (_entity: unknown, data: any) => ({ ...data }),
+      save: vi.fn(async (x: any) => {
+        if (Array.isArray(x)) return tickets.push(...x.map((t, i) => ({ id: `t-${tickets.length + i}`, ...t }))), x;
+        const saved = { id: `b-${++seq}`, createdAt: new Date(), updatedAt: new Date(), ...x };
+        bookings.set(saved.id, saved);
+        return saved;
+      }),
+      update: vi.fn(async (_entity: unknown, criteria: any, patch: any) => {
+        const b = bookings.get(criteria.id);
+        const allowed = Array.isArray(criteria.status?.value) ? criteria.status.value : [criteria.status];
+        if (!b || !allowed.includes(b.status)) return { affected: 0 };
+        Object.assign(b, patch);
+        return { affected: 1 };
+      }),
+      findOneByOrFail: vi.fn(async (_entity: unknown, { id }: any) => bookings.get(id)),
+    };
 
-  const mockEventRepository = {
-    findOne: jest.fn(),
-  };
+    events = {
+      reserveSeats: vi.fn().mockResolvedValue(reserved),
+      releaseSeats: vi.fn(),
+      broadcastSeatsFor: vi.fn(),
+      findOne: vi.fn().mockResolvedValue({ id: 'evt-1', organizerId: 'org-1' }),
+    };
+    coupons = { redeem: vi.fn(), release: vi.fn() };
+    payments = {
+      isMock: false,
+      createPaymentIntent: vi.fn().mockResolvedValue({ id: 'pi_new', clientSecret: 'secret_new' }),
+      getPaymentStatus: vi.fn().mockResolvedValue({ status: 'succeeded', amountCents: 200_000 }),
+      cancelPaymentIntent: vi.fn(),
+      refund: vi.fn(),
+    };
+    email = { queueBookingConfirmation: vi.fn() };
+    const dataSource = { transaction: (cb: any) => cb(manager) };
+    const config = { get: vi.fn(() => HOLD_MINUTES) };
 
-  const mockEventsService = {
-    findOne: jest.fn(),
-    updateAvailableSeats: jest.fn(),
-  };
-
-  const mockCouponsService = {
-    validateAndApply: jest.fn(),
-    revertUsage: jest.fn(),
-  };
-
-  const mockPaymentService = {
-    createPaymentIntent: jest.fn(),
-    confirmPayment: jest.fn(),
-    refundPayment: jest.fn(),
-  };
-
-  const mockEmailService = {
-    queueBookingConfirmation: jest.fn(),
-  };
-
-  const mockDataSource = {
-    transaction: jest.fn(),
-    manager: {
-      findOne: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-    },
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        BookingsService,
-        {
-          provide: getRepositoryToken(Booking),
-          useValue: mockBookingRepository,
-        },
-        {
-          provide: getRepositoryToken(Ticket),
-          useValue: mockTicketRepository,
-        },
-        {
-          provide: getRepositoryToken(Event),
-          useValue: mockEventRepository,
-        },
-        {
-          provide: EventsService,
-          useValue: mockEventsService,
-        },
-        {
-          provide: CouponsService,
-          useValue: mockCouponsService,
-        },
-        {
-          provide: PaymentService,
-          useValue: mockPaymentService,
-        },
-        {
-          provide: EmailService,
-          useValue: mockEmailService,
-        },
-        {
-          provide: DataSource,
-          useValue: mockDataSource,
-        },
-      ],
-    }).compile();
-
-    service = module.get<BookingsService>(BookingsService);
-    bookingRepository = module.get<Repository<Booking>>(getRepositoryToken(Booking));
-    eventsService = module.get<EventsService>(EventsService);
-    couponsService = module.get<CouponsService>(CouponsService);
-    paymentService = module.get<PaymentService>(PaymentService);
-    dataSource = module.get<DataSource>(DataSource);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    service = new BookingsService(repo, events, coupons, payments, email, dataSource as any, config as any);
   });
 
   describe('create', () => {
-    const createBookingDto = {
-      eventId: 'event-123',
-      quantity: 2,
-      email: 'test@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-    };
+    it('prices server-side in cents, holds the seats, and opens a payment for the right amount', async () => {
+      const result = await service.create(dto, 'u-1', 'cid');
 
-    it('should create booking successfully', async () => {
-      mockEventsService.findOne.mockResolvedValue(mockEvent);
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        const manager = {
-          create: jest.fn((Entity, data) => ({ ...data, id: 'booking-123' })),
-          save: jest.fn((Entity, data) => Promise.resolve(data)),
-          findOne: jest.fn().mockResolvedValue({ ...mockBooking, tickets: [] }),
-        };
-        return callback(manager);
-      });
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockPaymentService.createPaymentIntent.mockResolvedValue({
-        clientSecret: 'secret_123',
-        paymentIntentId: 'pi_123',
-      });
-
-      const result = await service.create(createBookingDto, 'user-123', 'corr-123');
-
-      expect(result).toHaveProperty('id');
-      expect(result.quantity).toBe(2);
-      expect(result.totalAmount).toBe(200);
-      expect(mockEventsService.updateAvailableSeats).toHaveBeenCalledWith(
-        'event-123',
-        -2,
-        'corr-123',
-        expect.anything()
-      );
+      expect(events.reserveSeats).toHaveBeenCalledWith(manager, 'evt-1', 3);
+      expect(payments.createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 300_000, currency: 'THB' }));
+      expect(result).toMatchObject({ status: 'PENDING', totalAmount: 3000, finalAmount: 3000, discount: 0, clientSecret: 'secret_new' });
+      // the hold deadline is ~15 minutes out
+      const holdMs = new Date(result.expiresAt!).getTime() - Date.now();
+      expect(holdMs).toBeGreaterThan((HOLD_MINUTES - 1) * 60_000);
+      expect(holdMs).toBeLessThanOrEqual(HOLD_MINUTES * 60_000);
     });
 
-    it('should throw BadRequestException if insufficient seats', async () => {
-      const eventWithFewSeats = { ...mockEvent, availableSeats: 1 };
-      mockEventsService.findOne.mockResolvedValue(eventWithFewSeats);
-
-      await expect(
-        service.create(createBookingDto, 'user-123', 'corr-123'),
-      ).rejects.toThrow(BadRequestException);
+    it('issues NO tickets until payment is confirmed', async () => {
+      const result = await service.create(dto, 'u-1', 'cid');
+      expect(result.tickets).toEqual([]);
+      expect(tickets).toHaveLength(0);
     });
 
-    it('should apply coupon discount if valid coupon provided', async () => {
-      const createBookingWithCoupon = {
-        ...createBookingDto,
-        couponCode: 'SAVE20',
-      };
+    it('applies a coupon redeemed against the real total, and records the normalised code', async () => {
+      coupons.redeem.mockResolvedValue({ code: 'EARLY20', discountCents: 60_000 });
 
-      mockEventsService.findOne.mockResolvedValue(mockEvent);
-      mockCouponsService.validateAndApply.mockResolvedValue({
-        isValid: true,
-        discount: 40,
-        finalAmount: 160,
-      });
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        const manager = {
-          create: jest.fn((Entity, data) => ({ ...data, id: 'booking-123' })),
-          save: jest.fn((Entity, data) => Promise.resolve(data)),
-          findOne: jest.fn().mockResolvedValue({ ...mockBooking, tickets: [] }),
-        };
-        return callback(manager);
-      });
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockPaymentService.createPaymentIntent.mockResolvedValue({
-        clientSecret: 'secret_123',
-        paymentIntentId: 'pi_123',
-      });
+      const result = await service.create({ ...dto, couponCode: 'early20' }, 'u-1', 'cid');
 
-      const result = await service.create(createBookingWithCoupon, 'user-123', 'corr-123');
-
-      expect(result.discount).toBe(40);
-      expect(result.finalAmount).toBe(160);
-      expect(mockCouponsService.validateAndApply).toHaveBeenCalled();
+      expect(coupons.redeem).toHaveBeenCalledWith(manager, 'early20', 'evt-1', 300_000);
+      expect(result).toMatchObject({ totalAmount: 3000, discount: 600, finalAmount: 2400, couponCode: 'EARLY20' });
+      expect(payments.createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 240_000 }));
     });
 
-    it('should generate tickets with QR codes', async () => {
-      mockEventsService.findOne.mockResolvedValue(mockEvent);
-      const tickets: Ticket[] = [];
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        const manager = {
-          create: jest.fn((Entity, data) => {
-            if (Entity === Ticket) {
-              tickets.push(data);
-            }
-            return { ...data, id: 'booking-123' };
-          }),
-          save: jest.fn((Entity, data) => {
-            if (Array.isArray(data)) {
-              return Promise.resolve(data);
-            }
-            return Promise.resolve(data);
-          }),
-          findOne: jest.fn().mockResolvedValue({
-            ...mockBooking,
-            tickets: [
-              { id: 'ticket-1', ticketNumber: 'TKT-1', qrCode: 'qr1' },
-              { id: 'ticket-2', ticketNumber: 'TKT-2', qrCode: 'qr2' },
-            ],
-          }),
-        };
-        return callback(manager);
-      });
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockPaymentService.createPaymentIntent.mockResolvedValue({
-        clientSecret: 'secret_123',
-        paymentIntentId: 'pi_123',
-      });
+    it('a fully discounted booking is confirmed immediately: tickets issued, email queued, no payment intent', async () => {
+      coupons.redeem.mockResolvedValue({ code: 'FREE', discountCents: 300_000 });
 
-      const result = await service.create(createBookingDto, 'user-123', 'corr-123');
+      const result = await service.create({ ...dto, couponCode: 'free' }, 'u-1', 'cid');
 
-      expect(tickets).toHaveLength(2);
-      expect(tickets[0]).toHaveProperty('ticketNumber');
-      expect(tickets[0]).toHaveProperty('qrCode');
+      expect(result).toMatchObject({ status: 'CONFIRMED', finalAmount: 0, expiresAt: null });
+      expect(result.clientSecret).toBeUndefined();
+      expect(result.tickets).toHaveLength(3);
+      expect(payments.createPaymentIntent).not.toHaveBeenCalled();
+      expect(email.queueBookingConfirmation).toHaveBeenCalledTimes(1);
     });
 
-    it('should rollback on payment intent failure', async () => {
-      mockEventsService.findOne.mockResolvedValue(mockEvent);
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        const manager = {
-          create: jest.fn((Entity, data) => ({ ...data, id: 'booking-123' })),
-          save: jest.fn((Entity, data) => Promise.resolve(data)),
-        };
-        return callback(manager);
-      });
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockPaymentService.createPaymentIntent.mockRejectedValue(
-        new Error('Payment service error'),
-      );
+    it('a free event (price 0) needs no payment either', async () => {
+      events.reserveSeats.mockResolvedValue({ ...reserved, ticketPrice: '0.00' });
+      const result = await service.create(dto, 'u-1', 'cid');
+      expect(result.status).toBe('CONFIRMED');
+      expect(payments.createPaymentIntent).not.toHaveBeenCalled();
+    });
 
-      await expect(
-        service.create(createBookingDto, 'user-123', 'corr-123'),
-      ).rejects.toThrow();
+    it('stops before saving anything when seats cannot be reserved', async () => {
+      events.reserveSeats.mockRejectedValue(new BadRequestException('This event is sold out'));
+      await expect(service.create(dto, 'u-1', 'cid')).rejects.toThrow(/sold out/);
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(payments.createPaymentIntent).not.toHaveBeenCalled();
+    });
 
-      // Should restore seats
-      expect(mockEventsService.updateAvailableSeats).toHaveBeenCalledWith(
-        'event-123',
-        2, // Positive to restore
-        'corr-123',
-      );
+    it('stops before saving anything when the coupon is rejected', async () => {
+      coupons.redeem.mockRejectedValue(new BadRequestException('Invalid or expired coupon code'));
+      await expect(service.create({ ...dto, couponCode: 'nope' }, 'u-1', 'cid')).rejects.toThrow(/coupon/);
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(payments.createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('compensates when the payment provider fails: booking FAILED, seats and coupon usage returned', async () => {
+      coupons.redeem.mockResolvedValue({ code: 'EARLY20', discountCents: 60_000 });
+      payments.createPaymentIntent.mockRejectedValue(new Error('stripe down'));
+
+      await expect(service.create({ ...dto, couponCode: 'early20' }, 'u-1', 'cid')).rejects.toThrow('stripe down');
+
+      expect([...bookings.values()][0].status).toBe(BookingStatus.FAILED);
+      expect(events.releaseSeats).toHaveBeenCalledWith(manager, 'evt-1', 3);
+      expect(coupons.release).toHaveBeenCalledWith(manager, 'EARLY20', 'evt-1');
     });
   });
 
   describe('confirmBooking', () => {
-    it('should confirm booking successfully', async () => {
-      const bookingWithTickets = {
-        ...mockBooking,
-        paymentIntentId: 'pi_123',
-        event: mockEvent,
-        tickets: [
-          { ticketNumber: 'TKT-1', qrCode: 'qr1' },
-          { ticketNumber: 'TKT-2', qrCode: 'qr2' },
-        ],
-      };
+    it('verifies with the provider, then confirms: tickets issued, email sent, hold cleared', async () => {
+      seed();
+      const result = await service.confirmBooking('b-1', owner, 'cid');
 
-      mockBookingRepository.findOne.mockResolvedValue(bookingWithTickets);
-      mockPaymentService.confirmPayment.mockResolvedValue(true);
-      mockBookingRepository.save.mockResolvedValue({
-        ...bookingWithTickets,
-        status: BookingStatus.CONFIRMED,
-      });
-
-      const result = await service.confirmBooking('booking-123', 'corr-123');
-
-      expect(result.status).toBe(BookingStatus.CONFIRMED);
-      expect(mockEmailService.queueBookingConfirmation).toHaveBeenCalled();
+      expect(payments.getPaymentStatus).toHaveBeenCalledWith('pi_1');
+      expect(result.status).toBe('CONFIRMED');
+      expect(result.tickets).toHaveLength(2);
+      expect(result.clientSecret).toBeUndefined();
+      expect(bookings.get('b-1')).toMatchObject({ expiresAt: null, clientSecret: null });
+      expect(email.queueBookingConfirmation).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw NotFoundException if booking not found', async () => {
-      mockBookingRepository.findOne.mockResolvedValue(null);
+    it('never trusts the client: unpaid or mismatched-amount payments are rejected and nothing changes', async () => {
+      seed();
+      payments.getPaymentStatus.mockResolvedValue({ status: 'pending', amountCents: 200_000 });
+      await expect(service.confirmBooking('b-1', owner, 'cid')).rejects.toThrow(/not completed/);
 
-      await expect(service.confirmBooking('non-existent', 'corr-123')).rejects.toThrow(
-        NotFoundException,
-      );
+      payments.getPaymentStatus.mockResolvedValue({ status: 'succeeded', amountCents: 100 });
+      await expect(service.confirmBooking('b-1', owner, 'cid')).rejects.toThrow(/does not match/);
+
+      expect(bookings.get('b-1').status).toBe(BookingStatus.PENDING);
+      expect(tickets).toHaveLength(0);
     });
 
-    it('should throw BadRequestException if payment not confirmed', async () => {
-      const bookingWithPayment = {
-        ...mockBooking,
-        paymentIntentId: 'pi_123',
-        event: mockEvent,
-        tickets: [],
-      };
-
-      mockBookingRepository.findOne.mockResolvedValue(bookingWithPayment);
-      mockPaymentService.confirmPayment.mockResolvedValue(false);
-
-      await expect(service.confirmBooking('booking-123', 'corr-123')).rejects.toThrow(
-        BadRequestException,
-      );
+    it('mock mode (dev only): the explicit confirm IS the payment, so the provider is not consulted', async () => {
+      payments.isMock = true;
+      seed();
+      const result = await service.confirmBooking('b-1', owner, 'cid');
+      expect(result.status).toBe('CONFIRMED');
+      expect(payments.getPaymentStatus).not.toHaveBeenCalled();
     });
 
-    it('should return booking if already confirmed', async () => {
-      const confirmedBooking = {
-        ...mockBooking,
-        status: BookingStatus.CONFIRMED,
-        event: mockEvent,
-        tickets: [],
-      };
+    it('is idempotent: confirming again changes nothing and does not re-check the provider', async () => {
+      seed({ status: BookingStatus.CONFIRMED });
+      const result = await service.confirmBooking('b-1', owner, 'cid');
+      expect(result.status).toBe('CONFIRMED');
+      expect(payments.getPaymentStatus).not.toHaveBeenCalled();
+      expect(tickets).toHaveLength(0);
+    });
 
-      mockBookingRepository.findOne.mockResolvedValue(confirmedBooking);
+    it.each([BookingStatus.EXPIRED, BookingStatus.CANCELLED, BookingStatus.FAILED])('refuses to confirm a %s booking', async (status) => {
+      seed({ status });
+      await expect(service.confirmBooking('b-1', owner, 'cid')).rejects.toBeInstanceOf(ConflictException);
+    });
 
-      const result = await service.confirmBooking('booking-123', 'corr-123');
-
-      expect(result.status).toBe(BookingStatus.CONFIRMED);
-      expect(mockPaymentService.confirmPayment).not.toHaveBeenCalled();
+    it("hides other users' bookings behind a 404, but lets an admin through", async () => {
+      seed();
+      await expect(service.confirmBooking('b-1', stranger, 'cid')).rejects.toMatchObject({ status: 404 });
+      await expect(service.confirmBooking('b-1', admin, 'cid')).resolves.toBeDefined();
     });
   });
 
-  describe('findOne', () => {
-    it('should return booking by id', async () => {
-      mockBookingRepository.findOne.mockResolvedValue(mockBooking);
-
-      const result = await service.findOne('booking-123');
-
-      expect(result.id).toBe('booking-123');
-      expect(mockBookingRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'booking-123' },
-        relations: ['tickets', 'event', 'user'],
-      });
+  describe('handlePaymentEvent (Stripe webhook)', () => {
+    it('confirms a PENDING booking on payment success', async () => {
+      seed();
+      await service.handlePaymentEvent({ type: 'succeeded', paymentIntentId: 'pi_1' });
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CONFIRMED);
+      expect(tickets).toHaveLength(2);
     });
 
-    it('should throw NotFoundException if booking not found', async () => {
-      mockBookingRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+    it('is idempotent under duplicate delivery: tickets and email happen exactly once', async () => {
+      seed();
+      await service.handlePaymentEvent({ type: 'succeeded', paymentIntentId: 'pi_1' });
+      await service.handlePaymentEvent({ type: 'succeeded', paymentIntentId: 'pi_1' });
+      expect(tickets).toHaveLength(2);
+      expect(email.queueBookingConfirmation).toHaveBeenCalledTimes(1);
+      expect(payments.refund).not.toHaveBeenCalled();
     });
-  });
 
-  describe('findByUser', () => {
-    it('should return all bookings for user', async () => {
-      const userBookings = [mockBooking, { ...mockBooking, id: 'booking-456' }];
-      mockBookingRepository.find.mockResolvedValue(userBookings);
+    it.each([BookingStatus.EXPIRED, BookingStatus.CANCELLED])('refunds a payment that arrives after the booking was %s', async (status) => {
+      seed({ status });
+      await service.handlePaymentEvent({ type: 'succeeded', paymentIntentId: 'pi_1' });
+      expect(payments.refund).toHaveBeenCalledWith('pi_1');
+      expect(bookings.get('b-1').status).toBe(status);
+      expect(tickets).toHaveLength(0);
+    });
 
-      const result = await service.findByUser('user-123');
+    it('ignores events for unknown payment intents', async () => {
+      await expect(service.handlePaymentEvent({ type: 'succeeded', paymentIntentId: 'pi_unknown' })).resolves.toBeUndefined();
+      expect(manager.update).not.toHaveBeenCalled();
+    });
 
-      expect(result).toHaveLength(2);
-      expect(mockBookingRepository.find).toHaveBeenCalledWith({
-        where: { userId: 'user-123' },
-        relations: ['tickets', 'event'],
-        order: { createdAt: 'DESC' },
-      });
+    it('a canceled intent fails the PENDING booking and returns its seats', async () => {
+      seed();
+      await service.handlePaymentEvent({ type: 'canceled', paymentIntentId: 'pi_1' });
+      expect(bookings.get('b-1').status).toBe(BookingStatus.FAILED);
+      expect(events.releaseSeats).toHaveBeenCalledWith(manager, 'evt-1', 2);
     });
   });
 
   describe('cancelBooking', () => {
-    it('should cancel booking and restore seats', async () => {
-      mockBookingRepository.findOne.mockResolvedValue(mockBooking);
-      mockPaymentService.refundPayment.mockResolvedValue(true);
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockBookingRepository.save.mockResolvedValue({
-        ...mockBooking,
-        status: BookingStatus.CANCELLED,
+    it('cancels a PENDING hold: stops the payment, returns seats and coupon usage, no refund', async () => {
+      seed({ couponCode: 'EARLY20' });
+      await service.cancelBooking('b-1', owner, 'cid');
+
+      expect(payments.cancelPaymentIntent).toHaveBeenCalledWith('pi_1');
+      expect(payments.refund).not.toHaveBeenCalled();
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CANCELLED);
+      expect(events.releaseSeats).toHaveBeenCalledWith(manager, 'evt-1', 2);
+      expect(coupons.release).toHaveBeenCalledWith(manager, 'EARLY20', 'evt-1');
+    });
+
+    it('refunds a CONFIRMED paid booking BEFORE releasing anything', async () => {
+      seed({ status: BookingStatus.CONFIRMED });
+      await service.cancelBooking('b-1', owner, 'cid');
+
+      expect(payments.refund).toHaveBeenCalledWith('pi_1');
+      expect(refundOrder(payments.refund, events.releaseSeats)).toBe(true);
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CANCELLED);
+    });
+
+    it('if the refund fails, nothing is released and the booking stays CONFIRMED', async () => {
+      seed({ status: BookingStatus.CONFIRMED });
+      payments.refund.mockRejectedValue(new Error('refund failed'));
+
+      await expect(service.cancelBooking('b-1', owner, 'cid')).rejects.toThrow('refund failed');
+
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CONFIRMED);
+      expect(events.releaseSeats).not.toHaveBeenCalled();
+    });
+
+    it('does not refund a free booking (nothing was charged)', async () => {
+      seed({ status: BookingStatus.CONFIRMED, finalAmount: 0, paymentIntentId: undefined });
+      await service.cancelBooking('b-1', owner, 'cid');
+      expect(payments.refund).not.toHaveBeenCalled();
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CANCELLED);
+    });
+
+    it('refuses to cancel a confirmed booking once the event has started', async () => {
+      event.startDate = past();
+      seed({ status: BookingStatus.CONFIRMED });
+      await expect(service.cancelBooking('b-1', owner, 'cid')).rejects.toBeInstanceOf(BadRequestException);
+      expect(payments.refund).not.toHaveBeenCalled();
+    });
+
+    it.each([BookingStatus.CANCELLED, BookingStatus.EXPIRED, BookingStatus.FAILED])('refuses to cancel an already-%s booking', async (status) => {
+      seed({ status });
+      await expect(service.cancelBooking('b-1', owner, 'cid')).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('expireStaleHolds (maintenance job)', () => {
+    it('expires an unpaid hold: cancels the intent, returns the seats, counts it', async () => {
+      seed({ expiresAt: past() });
+      payments.getPaymentStatus.mockResolvedValue({ status: 'pending', amountCents: 200_000 });
+
+      expect(await service.expireStaleHolds()).toBe(1);
+
+      expect(payments.cancelPaymentIntent).toHaveBeenCalledWith('pi_1');
+      expect(bookings.get('b-1').status).toBe(BookingStatus.EXPIRED);
+      expect(events.releaseSeats).toHaveBeenCalledWith(manager, 'evt-1', 2);
+    });
+
+    it('confirms instead of expiring when the customer paid just in time', async () => {
+      seed({ expiresAt: past() });
+      payments.getPaymentStatus.mockResolvedValue({ status: 'succeeded', amountCents: 200_000 });
+
+      expect(await service.expireStaleHolds()).toBe(0);
+
+      expect(bookings.get('b-1').status).toBe(BookingStatus.CONFIRMED);
+      expect(events.releaseSeats).not.toHaveBeenCalled();
+    });
+
+    it('leaves a still-processing payment alone for the next run', async () => {
+      seed({ expiresAt: past() });
+      payments.getPaymentStatus.mockResolvedValue({ status: 'processing', amountCents: 200_000 });
+
+      expect(await service.expireStaleHolds()).toBe(0);
+
+      expect(bookings.get('b-1').status).toBe(BookingStatus.PENDING);
+      expect(payments.cancelPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('never touches holds that have not lapsed', async () => {
+      seed({ expiresAt: future() });
+      expect(await service.expireStaleHolds()).toBe(0);
+      expect(events.releaseSeats).not.toHaveBeenCalled();
+    });
+
+    it('releases seats only once even if the job overlaps itself', async () => {
+      seed({ expiresAt: past() });
+      payments.getPaymentStatus.mockResolvedValue({ status: 'pending', amountCents: 200_000 });
+      await Promise.all([service.expireStaleHolds(), service.expireStaleHolds()]);
+      expect(events.releaseSeats).toHaveBeenCalledTimes(1);
+    });
+
+    it('one failing booking does not stop the rest of the batch', async () => {
+      seed({ id: 'b-1', paymentIntentId: 'pi_bad', expiresAt: past() });
+      seed({ id: 'b-2', paymentIntentId: 'pi_ok', expiresAt: past() });
+      payments.getPaymentStatus.mockImplementation(async (id: string) => {
+        if (id === 'pi_bad') throw new Error('stripe timeout');
+        return { status: 'pending', amountCents: 200_000 };
       });
 
-      await service.cancelBooking('booking-123', 'corr-123');
+      expect(await service.expireStaleHolds()).toBe(1);
+      expect(bookings.get('b-2').status).toBe(BookingStatus.EXPIRED);
+    });
+  });
 
-      expect(mockEventsService.updateAvailableSeats).toHaveBeenCalledWith(
-        'event-123',
-        2, // Restore seats
-        'corr-123',
-      );
-      expect(mockBookingRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: BookingStatus.CANCELLED,
-        }),
-      );
+  describe('reads', () => {
+    it('shows the Stripe client secret only to the owner of a PENDING booking', async () => {
+      seed();
+      expect((await service.findOneFor('b-1', owner)).clientSecret).toBe('secret_1');
+      expect((await service.findOneFor('b-1', admin)).clientSecret).toBeUndefined();
+      await expect(service.findOneFor('b-1', stranger)).rejects.toMatchObject({ status: 404 });
     });
 
-    it('should refund payment if booking was confirmed', async () => {
-      const confirmedBooking = {
-        ...mockBooking,
-        status: BookingStatus.CONFIRMED,
-        paymentIntentId: 'pi_123',
-      };
-
-      mockBookingRepository.findOne.mockResolvedValue(confirmedBooking);
-      mockPaymentService.refundPayment.mockResolvedValue(true);
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockBookingRepository.save.mockResolvedValue({
-        ...confirmedBooking,
-        status: BookingStatus.CANCELLED,
-      });
-
-      await service.cancelBooking('booking-123', 'corr-123');
-
-      expect(mockPaymentService.refundPayment).toHaveBeenCalledWith(
-        'pi_123',
-        200,
-        'corr-123',
-      );
+    it('stops showing the secret once the booking is no longer PENDING', async () => {
+      seed({ status: BookingStatus.CONFIRMED });
+      expect((await service.findOneFor('b-1', owner)).clientSecret).toBeUndefined();
     });
 
-    it('should revert coupon usage if coupon was used', async () => {
-      const bookingWithCoupon = {
-        ...mockBooking,
-        couponCode: 'SAVE20',
-      };
-
-      mockBookingRepository.findOne.mockResolvedValue(bookingWithCoupon);
-      mockEventsService.updateAvailableSeats.mockResolvedValue(undefined);
-      mockCouponsService.revertUsage.mockResolvedValue(undefined);
-      mockBookingRepository.save.mockResolvedValue({
-        ...bookingWithCoupon,
-        status: BookingStatus.CANCELLED,
-      });
-
-      await service.cancelBooking('booking-123', 'corr-123');
-
-      expect(mockCouponsService.revertUsage).toHaveBeenCalledWith(
-        'SAVE20',
-        'event-123',
-        'corr-123',
-      );
+    it('exposes the booking currency from its event', async () => {
+      seed();
+      expect((await service.findOneFor('b-1', owner)).currency).toBe('THB');
     });
 
-    it('should not throw if booking not found', async () => {
-      mockBookingRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.cancelBooking('non-existent', 'corr-123')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should return early if already cancelled', async () => {
-      const cancelledBooking = {
-        ...mockBooking,
-        status: BookingStatus.CANCELLED,
-      };
-
-      mockBookingRepository.findOne.mockResolvedValue(cancelledBooking);
-
-      await service.cancelBooking('booking-123', 'corr-123');
-
-      expect(mockPaymentService.refundPayment).not.toHaveBeenCalled();
-      expect(mockEventsService.updateAvailableSeats).not.toHaveBeenCalled();
+    it("lets only an event's own organizer (or an admin) list its bookings", async () => {
+      repo.find.mockResolvedValue([]);
+      await expect(service.findByEvent('evt-1', { userId: 'org-9', role: UserRole.ORGANIZER })).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.findByEvent('evt-1', { userId: 'org-1', role: UserRole.ORGANIZER })).resolves.toEqual([]);
+      await expect(service.findByEvent('evt-1', admin)).resolves.toEqual([]);
     });
   });
 });
+
+/** True when the refund call happened before any seat release (call-order check). */
+function refundOrder(refund: any, release: any): boolean {
+  return refund.mock.invocationCallOrder[0] < release.mock.invocationCallOrder[0];
+}
