@@ -1,6 +1,5 @@
 import { oc } from "@orpc/contract";
 import { openapi } from "@orpc/openapi";
-import { z } from "zod";
 import { TicketLookupResSchema, ValidateTicketResSchema, ValidateTicketSchema } from "@packages/shared-schemas";
 import { createBaseResponse } from "./base/base-response.dto";
 

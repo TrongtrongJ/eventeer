@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { loadavg } from "os";
 
 export interface MetricData {
     name: string;
@@ -228,7 +229,7 @@ export class MetricsService {
             },
             cpu: {
                 usage: Math.round((cpuUsage.user + cpuUsage.system) / 1000), // ms
-                loadAverage: process.platform === "linux" ? require("os").loadavg() : [0, 0, 0],
+                loadAverage: process.platform === "linux" ? loadavg() : [0, 0, 0],
             },
             eventLoop: {
                 lag: Math.round(lag),

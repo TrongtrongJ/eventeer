@@ -1,12 +1,13 @@
 "use client";
 
 import { useMoney } from "@/i18n/hooks";
-import { useFormatter, useTranslations } from "next-intl";
+import { type NamespaceKeys, useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
 import { getBookingStatusClass, formatBookingDate } from "./helpers";
 
+type BookingStatusMessageKey = NamespaceKeys<"Enums", "bookingStatus">;
 export function MyBookingsClient() {
     const t = useTranslations("Bookings");
     const tc = useTranslations("Common");
@@ -74,7 +75,7 @@ export function MyBookingsClient() {
                                         <span
                                             className={`px-2 py-1 rounded text-xs font-medium ${getBookingStatusClass(booking.status)}`}
                                         >
-                                            {tStatus(booking.status)}
+                                            {tStatus(booking.status as BookingStatusMessageKey)}
                                         </span>
                                     </div>
                                     <div>

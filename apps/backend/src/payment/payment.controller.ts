@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, type RawBodyRequest, Req, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Headers, type RawBodyRequest, Req, HttpCode, HttpStatus } from "@nestjs/common";
 import { PaymentService } from "./payment.service";
 import { Request } from "express";
 

@@ -132,12 +132,12 @@ Cleaner than Claude standard, every depreciation was througroughly studied and f
 - [ ] Flesh out API documentation with Scalar
 - [x] finalize dependency-cruiser
 - [ ] [Partial] Complete dockerization support
-- [X] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
+- [x] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
     - [x] Major flow frontend tests
     - [x] Major flow backend tests
     - [x] Full suite integration test (auth and booking)
-    - [X] Github Actions CI/CD
-    - [X] Bitbucket pipeline
+    - [x] Github Actions CI/CD
+    - [x] Bitbucket pipeline
 
 ---
 

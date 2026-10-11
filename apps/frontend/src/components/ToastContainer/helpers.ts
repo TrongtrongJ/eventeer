@@ -1,4 +1,4 @@
-import type { ToastType } from "../../store/slices/ui";
+type ToastType = "success" | "info" | "error";
 
 const toastColorMap = new Map<ToastType, string>([
     ["success", "bg-green-500"],

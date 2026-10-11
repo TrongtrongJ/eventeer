@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { AUTH_COOKIE, getCookieOptions } from "@packages/shared-schemas";
 
 /**

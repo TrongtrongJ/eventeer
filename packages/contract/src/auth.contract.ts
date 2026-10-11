@@ -1,6 +1,5 @@
 import { oc } from "@orpc/contract";
 import { openapi } from "@orpc/openapi";
-import { z } from "zod";
 import { createBaseResponse, responseWithMessage, responseWithNullData } from "./base/base-response.dto";
 import {
     AuthResponseSchema,

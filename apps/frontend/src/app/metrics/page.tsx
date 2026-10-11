@@ -1,4 +1,3 @@
-import React from "react";
 import { requireSession } from "@/lib/auth/require-session";
 import { AccessDenied } from "@/components/AccessDenied";
 import { MetricsDashboardClient } from "./MetricsDashboardClient";

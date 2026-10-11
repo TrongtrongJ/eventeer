@@ -1,13 +1,14 @@
 "use client";
 
 import { useMoney } from "@/i18n/hooks";
-import { useTranslations } from "next-intl";
+import { useTranslations, type NamespaceKeys } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "react-qr-code";
 import { orpc } from "@/lib/orpc/query";
 import SpinnerLoader from "@/components/Loader/SpinnerLoader";
 
+type BookingStatusMessageKey = NamespaceKeys<"Enums", "bookingStatus">;
 export function BookingConfirmationClient({ bookingId }: { bookingId: string }) {
     const router = useRouter();
     const t = useTranslations("BookingConfirmation");
@@ -41,7 +42,9 @@ export function BookingConfirmationClient({ bookingId }: { bookingId: string }) 
                         </div>
                         <div>
                             <span className="text-gray-500">{t("status")}</span>
-                            <p className="font-semibold text-green-600">{tStatus(currentBooking.status)}</p>
+                            <p className="font-semibold text-green-600">
+                                {tStatus(currentBooking.status as BookingStatusMessageKey)}
+                            </p>
                         </div>
                         <div>
                             <span className="text-gray-500">{t("name")}</span>

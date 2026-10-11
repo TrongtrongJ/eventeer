@@ -1,7 +1,7 @@
 import { oc } from "@orpc/contract";
 import { openapi } from "@orpc/openapi";
 import { z } from "zod";
-import { CreateCouponSchema, CouponSchema, UpdateCouponSchema, BookingSchema } from "@packages/shared-schemas";
+import { CreateCouponSchema, CouponSchema, UpdateCouponSchema } from "@packages/shared-schemas";
 import { createBaseResponse } from "./base/base-response.dto";
 
 export const couponContract = oc.router({

@@ -17,7 +17,7 @@
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:report": "playwright show-report",
         "prepare": "husky",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit -p tsconfig.json"
     },
     "dependencies": {
         "@hookform/resolvers": "^3.10.0",

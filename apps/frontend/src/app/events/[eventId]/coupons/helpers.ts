@@ -1,4 +1,3 @@
-import type { DiscountType } from "@packages/shared-schemas";
 import type { Formatter } from "@/i18n/types";
 
 export function getCouponsUsagePercentage(current: number, max: number) {
