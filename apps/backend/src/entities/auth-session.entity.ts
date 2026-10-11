@@ -1,13 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
-import { User } from './user.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from "typeorm";
+import { User } from "./user.entity";
 
 /**
  * One row per login (device). Holds the SHA-256 *hashes* of the current opaque
@@ -19,49 +11,49 @@ import { User } from './user.entity';
  * Refresh rotation swaps both hashes in place and remembers the previous
  * refresh hash so that replaying an already-rotated token is detectable.
  */
-@Entity('auth_sessions')
-@Index(['userId', 'revokedAt'])
+@Entity("auth_sessions")
+@Index(["userId", "revokedAt"])
 export class AuthSession {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+    @PrimaryGeneratedColumn("uuid")
+    id: string;
 
-  @Column({ type: 'uuid' })
-  userId: string;
+    @Column({ type: "uuid" })
+    userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user: User;
+    @ManyToOne(() => User, { onDelete: "CASCADE" })
+    @JoinColumn({ name: "userId" })
+    user: User;
 
-  @Index({ unique: true })
-  @Column({ type: 'char', length: 64 })
-  accessTokenHash: string;
+    @Index({ unique: true })
+    @Column({ type: "char", length: 64 })
+    accessTokenHash: string;
 
-  @Column({ type: 'timestamptz' })
-  accessExpiresAt: Date;
+    @Column({ type: "timestamptz" })
+    accessExpiresAt: Date;
 
-  @Index({ unique: true })
-  @Column({ type: 'char', length: 64 })
-  refreshTokenHash: string;
+    @Index({ unique: true })
+    @Column({ type: "char", length: 64 })
+    refreshTokenHash: string;
 
-  @Column({ type: 'timestamptz' })
-  refreshExpiresAt: Date;
+    @Column({ type: "timestamptz" })
+    refreshExpiresAt: Date;
 
-  @Index()
-  @Column({ type: 'char', length: 64, nullable: true })
-  previousRefreshTokenHash: string | null;
+    @Index()
+    @Column({ type: "char", length: 64, nullable: true })
+    previousRefreshTokenHash: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  rotatedAt: Date | null;
+    @Column({ type: "timestamptz", nullable: true })
+    rotatedAt: Date | null;
 
-  @Column({ type: 'varchar', length: 64, nullable: true })
-  ipAddress: string | null;
+    @Column({ type: "varchar", length: 64, nullable: true })
+    ipAddress: string | null;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
-  userAgent: string | null;
+    @Column({ type: "varchar", length: 512, nullable: true })
+    userAgent: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  revokedAt: Date | null;
+    @Column({ type: "timestamptz", nullable: true })
+    revokedAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+    @CreateDateColumn({ type: "timestamptz" })
+    createdAt: Date;
 }

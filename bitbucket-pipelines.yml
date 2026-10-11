@@ -1,0 +1,120 @@
+# Pull requests: lint + unit tests + build run in parallel; only if ALL pass do the e2e steps run.
+# Push to main (i.e. after a merge): the same pipeline runs again on the merged result, then the
+# Docker images are built and pushed. Nothing is deployed automatically.
+#
+# Repository variables for the image step (Repository settings > Pipelines > Repository variables):
+#   REGISTRY (e.g. registry.example.com/eventeer), REGISTRY_USER, REGISTRY_PASSWORD (secured),
+#   NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+image: node:22
+
+definitions:
+    caches:
+        yarn: ~/.yarn/berry/cache
+
+    services:
+        postgres:
+            image: postgres:16-alpine
+            variables:
+                POSTGRES_PASSWORD: postgres # must match apps/backend/.env.test
+        redis:
+            image: redis:7-alpine
+        docker:
+            memory: 3072 # image builds (esp. `next build`) need more than the 1 GB default
+
+    steps:
+        # Corepack provides Yarn 4; --immutable fails the build if yarn.lock is out of sync.
+        # (Anchored once, reused by every step below.)
+        - step: &lint
+              name: Lint
+              caches: [yarn]
+              script:
+                  - &install corepack enable && yarn install --immutable
+                  - yarn lint
+                  - yarn typecheck
+                  - yarn lint:deps # architecture rules (dependency-cruiser)
+
+        - step: &unit
+              name: Unit tests
+              caches: [yarn]
+              script:
+                  - *install
+                  - yarn test
+
+        - step: &build
+              name: Build
+              size: 2x # `next build` is memory hungry
+              caches: [yarn]
+              script:
+                  - *install
+                  - yarn build
+
+        - step: &e2e-api
+              name: E2E (API)
+              # Real Postgres + Redis, reachable on localhost (matches apps/backend/.env.test). The suite
+              # creates and wipes its own *_test database and refuses to run against any other name.
+              services: [postgres, redis]
+              caches: [yarn]
+              script:
+                  - *install
+                  - yarn test:e2e
+
+        - step: &e2e-web
+              name: E2E (Web, Playwright)
+              size: 2x # Next dev server + Chromium
+              caches: [yarn]
+              script:
+                  - *install
+                  - yarn workspace @eventeer/web exec playwright install --with-deps chromium
+                  # The web app runs against mocked API responses (MOCK_API=1): no backend needed.
+                  - CI=true yarn test:e2e:web --reporter=list
+              artifacts:
+                  - apps/frontend/test-results/** # failure traces and screenshots
+
+        - step: &publish-images
+              name: Build and push images
+              size: 2x
+              services: [docker]
+              script:
+                  # An unset variable becomes an EMPTY build-arg, which breaks `next build` obscurely.
+                  - |
+                      for v in REGISTRY REGISTRY_USER REGISTRY_PASSWORD NEXT_PUBLIC_API_URL NEXT_PUBLIC_WS_URL; do
+                        eval "val=\$$v"
+                        [ -n "$val" ] || { echo "Missing repository variable: $v"; exit 1; }
+                      done
+                  - export TAG="$BITBUCKET_COMMIT"
+                  - echo "$REGISTRY_PASSWORD" | docker login "${REGISTRY%%/*}" --username "$REGISTRY_USER" --password-stdin
+                  - docker build -f apps/backend/Dockerfile -t "$REGISTRY/api:$TAG" .
+                  - >-
+                      docker build -f apps/frontend/Dockerfile
+                      --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL"
+                      --build-arg NEXT_PUBLIC_WS_URL="$NEXT_PUBLIC_WS_URL"
+                      --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
+                      -t "$REGISTRY/web:$TAG" .
+                  - docker push "$REGISTRY/api:$TAG"
+                  - docker push "$REGISTRY/web:$TAG"
+
+pipelines:
+    pull-requests:
+        "**":
+            # Stage 1: concurrent. Any failure stops the pipeline before the (slower) e2e stage.
+            - parallel:
+                  - step: *lint
+                  - step: *unit
+                  - step: *build
+            # Stage 2: runs only because every step above passed.
+            - parallel:
+                  - step: *e2e-api
+                  - step: *e2e-web
+
+    branches:
+        main:
+            - parallel:
+                  - step: *lint
+                  - step: *unit
+                  - step: *build
+            - parallel:
+                  - step: *e2e-api
+                  - step: *e2e-web
+            # Stage 3: only after a merge to main.
+            - step: *publish-images

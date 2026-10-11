@@ -9,6 +9,7 @@
 ## 📋 Table of Contents
 
 - [Engineering Highlights](#engineering-highlights)
+- [DX Highlights](#dx-highlights)
 - [Key Features](#key-features)
 - [Roadmap](#roadmap)
 - [Architecture](#architecture)
@@ -25,33 +26,68 @@
 ## 🛠 Engineering Highlights
 
 ### 1. Contract-First Architecture (E2E Type Safety)
-To ensure 100% synchronization between the React frontend and NestJS backend, we utilize a shared workspace package (`@event-mgmt/contract`). 
-* **Single Source of Truth:** Zod schemas define the API boundary.
-* **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
-* **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.
+
+To ensure 100% synchronization between the React frontend and NestJS backend, we utilize a shared workspace package (`@event-mgmt/contract`).
+
+- **Single Source of Truth:** Zod schemas define the API boundary.
+- **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
+- **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.
 
 ### 2. High-Concurrency Integrity (Race Condition Mitigation)
+
 Ticketing systems face unique challenges during "hot" event drops. This platform implements:
-* **Pessimistic Locking:** Uses PostgreSQL `SELECT FOR UPDATE` to lock seat availability rows during the transaction window, ensuring zero over-selling.
-* **Distributed Locking:** Redis-based locks for coupon redemptions to prevent multiple users from exhausting a single-use code simultaneously.
+
+- **Pessimistic Locking:** Uses PostgreSQL `SELECT FOR UPDATE` to lock seat availability rows during the transaction window, ensuring zero over-selling.
+- **Distributed Locking:** Redis-based locks for coupon redemptions to prevent multiple users from exhausting a single-use code simultaneously.
 
 ### 3. Service Resilience & Observability
-* **Circuit Breaker Pattern:** Protects the core API from cascading failures by monitoring Stripe and SMTP health; opens the circuit if external latency exceeds 5s.
-* **Distributed Tracing:** Implements Correlation IDs propagated via NestJS Interceptors for unified logging across the request lifecycle.
-* **Horizontal Scalability:** Stateless design optimized for Kubernetes HPA, utilizing Redis for shared session/queue state.
+
+- **Circuit Breaker Pattern:** Protects the core API from cascading failures by monitoring Stripe and SMTP health; opens the circuit if external latency exceeds 5s.
+- **Distributed Tracing:** Implements Correlation IDs propagated via NestJS Interceptors for unified logging across the request lifecycle.
+- **Horizontal Scalability:** Stateless design optimized for Kubernetes HPA, utilizing Redis for shared session/queue state.
+
+---
+
+## 🚀 DX Highlights
+
+### 1. Fullstack ESM & CJS Compatability
+
+Solving NestJS persistent ESM compatability problem, esm-only packages work in NestJS!!.
+
+### 2. No node-gyp Dependencies
+
+Effortless deployment regardless of pipeline environment, no more bcrypt or node-gyp error.
+
+### 3. Monorepo
+
+Monorepo integration, where every changes, e2e tests, could be built with the full repo present.
+
+### 4. Cutting Edge Contract-first Integration
+
+The very first production-ready monorepo on the github with full Typescript NestJS 12, oRPC 2, Zod 4, NextJS 16, Redis 7, and BullMQ.
+
+### 5. React Compiler
+
+Follow the best practices to fully leverage React compiler integration, ease the overhead of useCallback and useMemo hooks.
+
+### 6. Code Sanitary
+
+Cleaner than Claude standard, every depreciation was througroughly studied and fixed.
 
 ---
 
 ## ✨ Key Features
 
 ### User Management & Authentication
-- 🔐 **JWT Authentication** with access and refresh tokens
+
+- 🔐 **Opaque Duo Token Authentication** with access and refresh tokens
 - 🌐 **OAuth 2.0 Integration** (Google, GitHub, Facebook)
 - 👥 **Role-Based Access Control** (Admin, Organizer, Customer)
 - ✉️ **Email Verification** and password reset flows
 - 🔄 **Session Management** with device tracking
 
 ### Event Management
+
 - 📅 **CRUD Operations** for events with rich details
 - 🎫 **Dynamic Pricing** and capacity management
 - 📊 **Real-time Seat Availability** via WebSockets
@@ -59,6 +95,7 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 - 🔒 **Race Condition Prevention** using distributed locks
 
 ### Booking & Ticketing
+
 - 🎟️ **QR Code Generation** for each ticket
 - 💳 **Payment Processing** (Stripe integration + mock mode)
 - 📧 **Email Confirmations** with ticket details
@@ -66,6 +103,7 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 - 📱 **Booking Management** (view, cancel, refund)
 
 ### Technical Features
+
 - ⚡ **Real-time Updates** with WebSocket
 - 🔀 **Circuit Breaker Pattern** for service resilience
 - 📬 **Message Queue** (Bull + Redis) for async operations
@@ -77,28 +115,30 @@ Ticketing systems face unique challenges during "hot" event drops. This platform
 ---
 
 ## 🗺️ Roadmap
-- [X] Complete application architecture & Design documentation
-- [X] Complete application cloud architecture (AWS) & documentation 
-- [X] Zod 4 and oRPC contract pattern integration
-- [X] Fullstack support CJS and ESM
-- [X] Complete initial k8s & terraform template
-- [X] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
+
+- [x] Complete application architecture & Design documentation
+- [x] Complete application cloud architecture (AWS) & documentation
+- [x] Zod 4 and oRPC contract pattern integration
+- [x] Fullstack support CJS and ESM
+- [x] Complete initial k8s & terraform template
+- [x] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
+- [ ] [Partial] Migrate NestJS and tests to the new oRPC error paradism
 - [ ] [Partial] Edge cases handling
-  - [X] Request thundering herd problems
-  - [X] Coupon race condition
-  - [X] Token corruption 
-  - [ ] ...
+    - [x] Request thundering herd problems
+    - [x] Coupon race condition
+    - [x] Token corruption
+    - [ ] ...
 - [ ] [Partial] Ensure secondary workflows functionality
 - [ ] Flesh out API documentation with Scalar
-- [X] finalize dependency-cruiser
+- [x] finalize dependency-cruiser
 - [ ] [Partial] Complete dockerization support
 - [ ] [Partial] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
-  - [X] Major flow frontend tests
-  - [X] Major flow backend tests
-  - [ ] Circuit-breaker and email-queuing tests
-  - [X] Full suite integration test (auth and booking)
-  - [ ] Github Actions CI/CD
-  - [ ] Bitbucket pipeline
+    - [x] Major flow frontend tests
+    - [x] Major flow backend tests
+    - [ ] Circuit-breaker and email-queuing tests
+    - [x] Full suite integration test (auth and booking)
+    - [ ] Github Actions CI/CD
+    - [ ] Bitbucket pipeline
 
 ---
 
@@ -175,16 +215,17 @@ event-management-monorepo/
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **React 18** - UI library
-- **Redux Toolkit** - State management
+
+- **NextJS 16** - UI library
+- **Tanstack Query** - Query and state management
 - **React Router** - Navigation
 - **TailwindCSS** - Styling
 - **Stripe Elements** - Payment UI
 - **Socket.io Client** - Real-time updates
-- **Axios** - HTTP client
 
 ### Backend
-- **NestJS 10** - Node.js framework
+
+- **NestJS 12** - Node.js framework
 - **TypeORM** - ORM for PostgreSQL
 - **PostgreSQL 15** - Primary database
 - **Redis 7** - Caching & message queue
@@ -195,6 +236,7 @@ event-management-monorepo/
 - **Zod** - Schema validation
 
 ### DevOps & Tools
+
 - **Turborepo** - Monorepo management
 - **Docker** - Containerization
 - **Kubernetes** - Orchestration
@@ -211,7 +253,7 @@ event-management-monorepo/
 
 ```bash
 # Required
-- Node.js 20+ 
+- Node.js 20+
 - Docker & Docker Compose
 - PostgreSQL 15
 - Redis 7
@@ -243,11 +285,12 @@ npm install
 # Backend
 cp apps/backend/.env.example apps/backend/.env
 
-# Frontend  
+# Frontend
 cp apps/frontend/.env.example apps/frontend/.env
 ```
 
 **Minimum required configuration** (apps/backend/.env):
+
 ```env
 # Database
 DB_HOST=localhost
@@ -287,6 +330,7 @@ npm run seed:demo
 ```
 
 This creates:
+
 - Admin user: `admin@demo.com` / `Admin123!`
 - Organizer user: `organizer@demo.com` / `Organizer123!`
 - Customer user: `customer@demo.com` / `Customer123!`
@@ -360,6 +404,7 @@ GET    /tickets/lookup             # Lookup ticket by QR
 The platform supports both **real Stripe payments** and **mock payments**:
 
 #### Mock Payment Mode (Default)
+
 - Perfect for demos and portfolios
 - No Stripe account required
 - Auto-succeeds after 2 seconds
@@ -367,17 +412,20 @@ The platform supports both **real Stripe payments** and **mock payments**:
 - Clear "Demo Mode" indicators
 
 **Configuration:**
+
 ```env
 FEATURE_PAYMENT_ENABLED=true
 # Don't set STRIPE_SECRET_KEY
 ```
 
 #### Real Stripe Mode
+
 - Production-ready payments
 - Actual credit card processing
 - Webhook support
 
 **Configuration:**
+
 ```env
 FEATURE_PAYMENT_ENABLED=true
 STRIPE_SECRET_KEY=sk_live_...
@@ -387,10 +435,12 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 ### Coupon System
 
 **Discount Types:**
+
 - **Percentage:** 10%, 20%, 50% off
 - **Fixed Amount:** $10, $25, $50 off
 
 **Features:**
+
 - Usage limits (max redemptions)
 - Expiration dates
 - Minimum purchase amounts
@@ -433,6 +483,7 @@ docker-compose up -d
 ### Kubernetes Deployment
 
 #### Prerequisites
+
 - Kubernetes cluster (minikube, EKS, GKE, AKS)
 - kubectl configured
 - nginx-ingress-controller
@@ -499,11 +550,13 @@ pnpm test:cov
 ### Testing Strategy
 
 **Unit Tests:**
+
 - Services: Business logic validation
 - Guards: Authorization checks
 - Utilities: Helper functions
 
 **Integration Tests:**
+
 - API endpoints: Request/response validation
 - Database interactions: CRUD operations
 - Authentication flows: Login, registration

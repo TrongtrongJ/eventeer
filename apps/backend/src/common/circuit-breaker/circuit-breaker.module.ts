@@ -3,7 +3,7 @@ import { CircuitBreakerService } from "./circuit-breaker.service";
 
 @Global()
 @Module({
-  providers: [CircuitBreakerService],
-  exports: [CircuitBreakerService],
+    providers: [CircuitBreakerService],
+    exports: [CircuitBreakerService],
 })
 export class CircuitBreakerModule {}

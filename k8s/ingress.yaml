@@ -10,59 +10,59 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: eventeer-api
-  namespace: event-management
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    name: eventeer-api
+    namespace: event-management
+    annotations:
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
-  ingressClassName: nginx
-  tls:
-  - hosts: [event-management.example.com]
-    secretName: event-management-tls
-  rules:
-  - host: event-management.example.com
-    http:
-      paths:
-      - path: /api(/|$)(.*)
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: backend
-            port:
-              number: 4000
+    ingressClassName: nginx
+    tls:
+        - hosts: [event-management.example.com]
+          secretName: event-management-tls
+    rules:
+        - host: event-management.example.com
+          http:
+              paths:
+                  - path: /api(/|$)(.*)
+                    pathType: ImplementationSpecific
+                    backend:
+                        service:
+                            name: backend
+                            port:
+                                number: 4000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: eventeer-web
-  namespace: event-management
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    # Long-lived websocket connections.
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    name: eventeer-web
+    namespace: event-management
+    annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Long-lived websocket connections.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
-  ingressClassName: nginx
-  tls:
-  - hosts: [event-management.example.com]
-    secretName: event-management-tls
-  rules:
-  - host: event-management.example.com
-    http:
-      paths:
-      - path: /socket.io
-        pathType: Prefix
-        backend:
-          service:
-            name: backend
-            port:
-              number: 4000
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: frontend
-            port:
-              number: 3000
+    ingressClassName: nginx
+    tls:
+        - hosts: [event-management.example.com]
+          secretName: event-management-tls
+    rules:
+        - host: event-management.example.com
+          http:
+              paths:
+                  - path: /socket.io
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: backend
+                            port:
+                                number: 4000
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: frontend
+                            port:
+                                number: 3000

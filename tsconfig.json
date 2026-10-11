@@ -1,9 +1,11 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./apps/frontend" },
-    { "path": "./apps/backend" },
-    { "path": "./packages/shared-schemas" },
-    { "path": "./packages/contract" }
-  ]
+    "files": [],
+    "references": [
+        { "path": "./apps/frontend" },
+        { "path": "./apps/backend" },
+        { "path": "./packages/shared-schemas" },
+        { "path": "./packages/contract" },
+        { "path": "./packages/eslint-config" },
+        { "path": "./packages/prettier-config" }
+    ]
 }

@@ -1,16 +1,6 @@
-export function formatEventDate(dateString?: string) {
-  if (!dateString) return ''
-  try {
-    return new Date(dateString).toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch(err) {
-    console.error(err)
-  }
-  
-};
-export function formatPrice(price?: number) {
-  if (!price) return '';
-  return price.toFixed(2);
+import type { Formatter } from "@/i18n/types";
+
+export function formatEventDate(format: Formatter, dateString?: string) {
+    if (!dateString) return "";
+    return format.dateTime(new Date(dateString), { dateStyle: "medium", timeStyle: "short" });
 }

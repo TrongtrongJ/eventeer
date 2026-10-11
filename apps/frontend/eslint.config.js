@@ -13,6 +13,10 @@ export default [
                 tsconfigRootDir: __dirname,
             },
         },
+        rules: {
+            // Props are type-checked by TypeScript; prop-types only produces false positives on memo()/FC.
+            "react/prop-types": "off",
+        },
         settings: {
             "import/resolver": {
                 typescript: {

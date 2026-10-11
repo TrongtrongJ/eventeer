@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { mockAuthMe, loginAsRole } from './support/mock-routes';
+import { test, expect } from "@playwright/test";
+import { mockAuthMe, loginAsRole } from "./support/mock-routes";
 
 /**
  * requireSession(['ORGANIZER', 'ADMIN']) runs server-side in the page itself
@@ -7,28 +7,28 @@ import { mockAuthMe, loginAsRole } from './support/mock-routes';
  * confirms a CUSTOMER genuinely gets the Access Denied panel server-rendered,
  * not merely a hidden nav link they could route around.
  */
-test.describe('role-based page access', () => {
-  test('CUSTOMER sees Access Denied on the organizer-only create page', async ({ page, context }) => {
-    await mockAuthMe(page);
-    await loginAsRole(context, 'CUSTOMER');
+test.describe("role-based page access", () => {
+    test("CUSTOMER sees Access Denied on the organizer-only create page", async ({ page, context }) => {
+        await mockAuthMe(page);
+        await loginAsRole(context, "CUSTOMER");
 
-    await page.goto('/create');
+        await page.goto("/create");
 
-    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible();
-    await expect(page.getByLabel('Event Title *')).toHaveCount(0);
-  });
+        await expect(page.getByRole("heading", { name: "Access Denied" })).toBeVisible();
+        await expect(page.getByLabel("Event Title *")).toHaveCount(0);
+    });
 
-  test('ORGANIZER can access the create page', async ({ page, context }) => {
-    await mockAuthMe(page);
-    await loginAsRole(context, 'ORGANIZER');
+    test("ORGANIZER can access the create page", async ({ page, context }) => {
+        await mockAuthMe(page);
+        await loginAsRole(context, "ORGANIZER");
 
-    await page.goto('/create');
+        await page.goto("/create");
 
-    await expect(page.getByRole('heading', { name: 'Create New Event' })).toBeVisible();
-  });
+        await expect(page.getByRole("heading", { name: "Create New Event" })).toBeVisible();
+    });
 
-  test('CUSTOMER is redirected away from create with no cookie at all', async ({ page }) => {
-    await page.goto('/create');
-    await expect(page).toHaveURL(/\/login/);
-  });
+    test("CUSTOMER is redirected away from create with no cookie at all", async ({ page }) => {
+        await page.goto("/create");
+        await expect(page).toHaveURL(/\/login/);
+    });
 });
