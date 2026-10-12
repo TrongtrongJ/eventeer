@@ -2,9 +2,10 @@
 
 > A production-grade, full-stack event management system built with React, NestJS, PostgreSQL, and Redis. Features real-time updates, secure authentication, payment processing, and comprehensive booking management.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
-[![NestJS](https://img.shields.io/badge/NestJS-10.0-red.svg)](https://nestjs.com/)
-[![NextJS](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-12.0-red.svg)](https://nestjs.com/)
+[![NextJS](https://img.shields.io/badge/NextJS-16.4-61dafb.svg)](https://nextjs.org/)
+[![oRPC](https://img.shields.io/badge/oRPC-2.beta-pink.svg)](https://orpc.dev/)
 
 ## 📋 Table of Contents
 
