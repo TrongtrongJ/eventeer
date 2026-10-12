@@ -12,6 +12,12 @@ import { useSession } from "@/hooks/useSession";
 import { useToast } from "@/lib/toast/toast-context";
 import { useTranslations } from "next-intl";
 import { useValidationMessage } from "@/i18n/validation";
+import { AuthLayout } from "@/components/shell/AuthLayout";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 
 const initialFormData: RegisterDto = {
     email: "",
@@ -62,122 +68,65 @@ export default function RegisterPage() {
     const isCreateAccountButtonDisabled = registerMutation.isPending || !isValid;
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t("title")}</h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
-                        {t.rich("haveAccount", {
-                            link: chunks => (
-                                <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-                                    {chunks}
-                                </Link>
-                            ),
-                        })}
-                    </p>
+        <AuthLayout
+            title={t("title")}
+            description={t.rich("haveAccount", {
+                link: chunks => (
+                    <Link href="/login" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
+                        {chunks}
+                    </Link>
+                ),
+            })}
+        >
+            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-2 gap-3">
+                    <Field>
+                        <FieldLabel htmlFor="firstName">{t("firstName")}</FieldLabel>
+                        <Input id="firstName" type="text" required aria-invalid={!!errors.firstName} {...register("firstName")} />
+                        <FieldError>{errors.firstName && localizeMessage(errors.firstName.message)}</FieldError>
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor="lastName">{t("lastName")}</FieldLabel>
+                        <Input id="lastName" type="text" required aria-invalid={!!errors.lastName} {...register("lastName")} />
+                        <FieldError>{errors.lastName && localizeMessage(errors.lastName.message)}</FieldError>
+                    </Field>
                 </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                    <div className="rounded-md shadow-sm space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                                    {t("firstName")}
-                                </label>
-                                <input
-                                    id="firstName"
-                                    type="text"
-                                    required
-                                    {...register("firstName")}
-                                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
-                                {errors.firstName && (
-                                    <p className="mt-1 text-xs text-red-600">
-                                        {localizeMessage(errors.firstName.message)}
-                                    </p>
-                                )}
-                            </div>
+                <Field>
+                    <FieldLabel htmlFor="role">{t("accountType")}</FieldLabel>
+                    <NativeSelect id="role" {...register("role")}>
+                        <option value="CUSTOMER">{t("roleCustomer")}</option>
+                        <option value="ORGANIZER">{t("roleOrganizer")}</option>
+                        <option value="ADMIN">{t("roleAdmin")}</option>
+                    </NativeSelect>
+                </Field>
 
-                            <div>
-                                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                                    {t("lastName")}
-                                </label>
-                                <input
-                                    id="lastName"
-                                    type="text"
-                                    required
-                                    {...register("lastName")}
-                                    className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
-                                {errors.lastName && (
-                                    <p className="mt-1 text-xs text-red-600">
-                                        {localizeMessage(errors.lastName.message)}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
+                <Field>
+                    <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
+                    <Input id="email" type="email" required autoComplete="email" aria-invalid={!!errors.email} {...register("email")} />
+                    <FieldError>{errors.email && localizeMessage(errors.email.message)}</FieldError>
+                </Field>
 
-                        <div>
-                            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                                {t("accountType")}
-                            </label>
-                            <select
-                                id="role"
-                                {...register("role")}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            >
-                                <option value="CUSTOMER">{t("roleCustomer")}</option>
-                                <option value="ORGANIZER">{t("roleOrganizer")}</option>
-                                <option value="ADMIN">{t("roleAdmin")}</option>
-                            </select>
-                        </div>
+                <Field>
+                    <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
+                    <Input
+                        id="password"
+                        type="password"
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        aria-invalid={!!errors.password}
+                        {...register("password")}
+                    />
+                    <FieldDescription>{t("passwordHelp")}</FieldDescription>
+                    <FieldError>{errors.password && localizeMessage(errors.password.message)}</FieldError>
+                </Field>
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                {t("email")}
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                required
-                                {...register("email")}
-                                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            />
-                            {errors.email && (
-                                <p className="mt-1 text-xs text-red-600">{localizeMessage(errors.email.message)}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                {t("password")}
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                required
-                                minLength={8}
-                                {...register("password")}
-                                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            />
-                            <p className="mt-1 text-xs text-gray-500">{t("passwordHelp")}</p>
-                            {errors.password && (
-                                <p className="mt-1 text-xs text-red-600">{localizeMessage(errors.password.message)}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isCreateAccountButtonDisabled}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {registerMutation.isPending ? t("submitting") : t("submit")}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <Button type="submit" size="lg" disabled={isCreateAccountButtonDisabled} className="w-full">
+                    {registerMutation.isPending && <Spinner />}
+                    {registerMutation.isPending ? t("submitting") : t("submit")}
+                </Button>
+            </form>
+        </AuthLayout>
     );
 }

@@ -6,6 +6,14 @@ import { apiUrl } from "@/lib/orpc/config";
 import { useFormatter, useTranslations } from "next-intl";
 import { getUptimeParts } from "./helpers";
 import type { Metrics } from "./types";
+import { cn } from "@/lib/utils";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pause, RefreshCw } from "lucide-react";
 
 async function fetchMetrics(): Promise<Metrics> {
     const [healthRes, metricsRes] = await Promise.all([
@@ -17,6 +25,60 @@ async function fetchMetrics(): Promise<Metrics> {
         health: healthRes.data,
         ...metricsRes.data,
     };
+}
+
+
+function Stat({ label, children, hint, tone }: { label: string; children: React.ReactNode; hint?: React.ReactNode; tone?: "success" | "warning" | "danger" }) {
+    return (
+        <Card className="gap-1 py-4">
+            <CardHeader className="gap-0">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div
+                    className={cn(
+                        "text-2xl font-semibold tracking-tight tabular-nums",
+                        tone === "success" && "text-success",
+                        tone === "warning" && "text-warning",
+                        tone === "danger" && "text-destructive",
+                    )}
+                >
+                    {children}
+                </div>
+                {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+            </CardContent>
+        </Card>
+    );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <Card className="gap-0 py-0">
+            <CardHeader className="border-b py-3">
+                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y px-4">{children}</CardContent>
+        </Card>
+    );
+}
+
+function Row({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "success" | "warning" | "danger" | "primary" }) {
+    return (
+        <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
+            <span className="text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    "font-medium tabular-nums",
+                    tone === "success" && "text-success",
+                    tone === "warning" && "text-warning",
+                    tone === "danger" && "text-destructive",
+                    tone === "primary" && "text-primary dark:text-[#a3acff]",
+                )}
+            >
+                {value}
+            </span>
+        </div>
+    );
 }
 
 export function MetricsDashboardClient() {
@@ -37,241 +99,149 @@ export function MetricsDashboardClient() {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-            </div>
+            <>
+                <PageHeader title={t("title")} />
+                <SpinnerLoader />
+            </>
         );
     }
 
     if (!metrics) {
         return (
-            <div className="text-center py-12">
-                <p className="text-gray-600">{t("loadFailed")}</p>
-            </div>
+            <>
+                <PageHeader title={t("title")} />
+                <p className="py-12 text-center text-muted-foreground">{t("loadFailed")}</p>
+            </>
         );
     }
 
+    const status = metrics.health.status;
+    const statusTone = status === "healthy" ? "success" : status === "degraded" ? "warning" : "danger";
+    const growth = metrics.business.bookings.revenue.growth;
+
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">{t("title")}</h1>
-                <div className="flex items-center space-x-4">
-                    <button
-                        onClick={() => setAutoRefresh(!autoRefresh)}
-                        className={`px-4 py-2 rounded-md ${autoRefresh ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
-                    >
-                        {autoRefresh ? t("autoRefreshOn") : t("autoRefreshOff")}
-                    </button>
-                    <button
-                        onClick={() => refetch()}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                    >
-                        {t("refreshNow")}
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600">{t("status")}</p>
-                            <p
-                                className={`text-2xl font-bold ${
-                                    metrics.health.status === "healthy"
-                                        ? "text-green-600"
-                                        : metrics.health.status === "degraded"
-                                          ? "text-yellow-600"
-                                          : "text-red-600"
-                                }`}
-                            >
-                                {t.has(`statusValues.${metrics.health.status}` as "statusValues.healthy")
-                                    ? t(`statusValues.${metrics.health.status}` as "statusValues.healthy")
-                                    : metrics.health.status.toUpperCase()}
-                            </p>
-                        </div>
-                        <div
-                            className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                metrics.health.status === "healthy"
-                                    ? "bg-green-100"
-                                    : metrics.health.status === "degraded"
-                                      ? "bg-yellow-100"
-                                      : "bg-red-100"
-                            }`}
+        <>
+            <PageHeader
+                title={t("title")}
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            aria-pressed={autoRefresh}
+                            onClick={() => setAutoRefresh(!autoRefresh)}
+                            className={cn(autoRefresh && "text-success")}
                         >
-                            {metrics.health.status === "healthy" ? "✓" : "⚠"}
-                        </div>
-                    </div>
-                </div>
+                            {autoRefresh ? <RefreshCw /> : <Pause />}
+                            {autoRefresh ? t("autoRefreshOn") : t("autoRefreshOff")}
+                        </Button>
+                        <Button size="sm" onClick={() => refetch()}>
+                            {t("refreshNow")}
+                        </Button>
+                    </>
+                }
+            />
 
-                <div className="bg-white rounded-lg shadow p-6">
-                    <p className="text-sm text-gray-600 mb-1">{t("uptime")}</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                        {t("uptimeValue", getUptimeParts(metrics.health.uptime))}
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                    <p className="text-sm text-gray-600 mb-1">{t("memoryUsage")}</p>
-                    <p className="text-2xl font-bold text-gray-900">{metrics.health.memory.percentage}%</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                        {metrics.health.memory.used}MB / {metrics.health.memory.total}MB
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                    <p className="text-sm text-gray-600 mb-1">{t("cpuUsage")}</p>
-                    <p className="text-2xl font-bold text-gray-900">{metrics.health.cpu.usage}ms</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("events")}</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalEvents")}</span>
-                            <span className="font-bold">{metrics.business.events.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("active")}</span>
-                            <span className="font-bold text-green-600">{metrics.business.events.active}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("soldOut")}</span>
-                            <span className="font-bold text-red-600">{metrics.business.events.soldOut}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("bookings")}</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalBookings")}</span>
-                            <span className="font-bold">{metrics.business.bookings.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("confirmed")}</span>
-                            <span className="font-bold text-green-600">{metrics.business.bookings.confirmed}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalRevenue")}</span>
-                            <span className="font-bold text-indigo-600">
-                                {formatCurrency(metrics.business.bookings.revenue.total)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("users")}</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalUsers")}</span>
-                            <span className="font-bold">{metrics.business.users.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("active")}</span>
-                            <span className="font-bold text-green-600">{metrics.business.users.active}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("newToday")}</span>
-                            <span className="font-bold text-blue-600">{metrics.business.users.newToday}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("revenueGrowth")}</h3>
-                <div className="grid grid-cols-3 gap-6">
-                    <div>
-                        <p className="text-sm text-gray-600 mb-1">{t("thisMonth")}</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                            {formatCurrency(metrics.business.bookings.revenue.thisMonth)}
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-600 mb-1">{t("growth")}</p>
-                        <p
-                            className={`text-2xl font-bold ${
-                                metrics.business.bookings.revenue.growth >= 0 ? "text-green-600" : "text-red-600"
-                            }`}
-                        >
-                            {metrics.business.bookings.revenue.growth >= 0 ? "+" : ""}
-                            {metrics.business.bookings.revenue.growth.toFixed(1)}%
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {metrics.business.events.topEvents?.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("topEvents")}</h3>
-                    <div className="space-y-3">
-                        {metrics.business.events.topEvents.map((event, index) => (
-                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                                <div>
-                                    <p className="font-medium text-gray-900">{event.title}</p>
-                                    <p className="text-sm text-gray-600">
-                                        {t("bookingsCount", { count: event.bookings })}
-                                    </p>
-                                </div>
-                                <p className="text-lg font-bold text-indigo-600">{formatCurrency(event.revenue)}</p>
+            <PageContent width="wide" className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    <Stat label={t("status")} tone={statusTone}>
+                        {t.has(`statusValues.${status}` as "statusValues.healthy")
+                            ? t(`statusValues.${status}` as "statusValues.healthy")
+                            : status.toUpperCase()}
+                    </Stat>
+                    <Stat label={t("uptime")}>{t("uptimeValue", getUptimeParts(metrics.health.uptime))}</Stat>
+                    <Stat
+                        label={t("memoryUsage")}
+                        hint={
+                            <div className="space-y-1.5">
+                                <Progress value={metrics.health.memory.percentage} />
+                                <span className="tabular-nums">
+                                    {metrics.health.memory.used}MB / {metrics.health.memory.total}MB
+                                </span>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("apiPerformance")}</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalRequests")}</span>
-                            <span className="font-bold">{metrics.requests.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("successRate")}</span>
-                            <span className="font-bold text-green-600">
-                                {((metrics.requests.success / metrics.requests.total) * 100).toFixed(1)}%
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("avgResponse")}</span>
-                            <span className="font-bold">{metrics.response.averageTime}ms</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("p95Response")}</span>
-                            <span className="font-bold">{metrics.response.p95}ms</span>
-                        </div>
-                    </div>
+                        }
+                    >
+                        {metrics.health.memory.percentage}%
+                    </Stat>
+                    <Stat label={t("cpuUsage")}>{metrics.health.cpu.usage}ms</Stat>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("dbPerformance")}</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("totalQueries")}</span>
-                            <span className="font-bold">{metrics.database.queries.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("slowQueries")}</span>
-                            <span className="font-bold text-yellow-600">{metrics.database.queries.slow}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("queryErrors")}</span>
-                            <span className="font-bold text-red-600">{metrics.database.queries.errors}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">{t("avgQueryTime")}</span>
-                            <span className="font-bold">{metrics.database.queries.averageTime}ms</span>
-                        </div>
-                    </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Section title={t("events")}>
+                        <Row label={t("totalEvents")} value={metrics.business.events.total} />
+                        <Row label={t("active")} value={metrics.business.events.active} tone="success" />
+                        <Row label={t("soldOut")} value={metrics.business.events.soldOut} tone="danger" />
+                    </Section>
+                    <Section title={t("bookings")}>
+                        <Row label={t("totalBookings")} value={metrics.business.bookings.total} />
+                        <Row label={t("confirmed")} value={metrics.business.bookings.confirmed} tone="success" />
+                        <Row label={t("totalRevenue")} value={formatCurrency(metrics.business.bookings.revenue.total)} tone="primary" />
+                    </Section>
+                    <Section title={t("users")}>
+                        <Row label={t("totalUsers")} value={metrics.business.users.total} />
+                        <Row label={t("active")} value={metrics.business.users.active} tone="success" />
+                        <Row label={t("newToday")} value={metrics.business.users.newToday} />
+                    </Section>
                 </div>
-            </div>
-        </div>
+
+                <Section title={t("revenueGrowth")}>
+                    <Row label={t("thisMonth")} value={formatCurrency(metrics.business.bookings.revenue.thisMonth)} />
+                    <Row
+                        label={t("growth")}
+                        value={`${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`}
+                        tone={growth >= 0 ? "success" : "danger"}
+                    />
+                </Section>
+
+                {metrics.business.events.topEvents?.length > 0 && (
+                    <Card className="gap-0 overflow-hidden py-0">
+                        <CardHeader className="border-b py-3">
+                            <CardTitle className="text-sm font-medium">{t("topEvents")}</CardTitle>
+                        </CardHeader>
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead>{t("events")}</TableHead>
+                                    <TableHead className="text-right">{t("bookings")}</TableHead>
+                                    <TableHead className="text-right">{t("totalRevenue")}</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {metrics.business.events.topEvents.map((event, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell className="font-medium">{event.title}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                                            {t("bookingsCount", { count: event.bookings })}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium tabular-nums">
+                                            {formatCurrency(event.revenue)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </Card>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Section title={t("apiPerformance")}>
+                        <Row label={t("totalRequests")} value={metrics.requests.total} />
+                        <Row
+                            label={t("successRate")}
+                            value={`${((metrics.requests.success / metrics.requests.total) * 100).toFixed(1)}%`}
+                            tone="success"
+                        />
+                        <Row label={t("avgResponse")} value={`${metrics.response.averageTime}ms`} />
+                        <Row label={t("p95Response")} value={`${metrics.response.p95}ms`} />
+                    </Section>
+                    <Section title={t("dbPerformance")}>
+                        <Row label={t("totalQueries")} value={metrics.database.queries.total} />
+                        <Row label={t("slowQueries")} value={metrics.database.queries.slow} tone="warning" />
+                        <Row label={t("queryErrors")} value={metrics.database.queries.errors} tone="danger" />
+                        <Row label={t("avgQueryTime")} value={`${metrics.database.queries.averageTime}ms`} />
+                    </Section>
+                </div>
+            </PageContent>
+        </>
     );
 }

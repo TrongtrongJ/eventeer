@@ -39,7 +39,6 @@ const nextConfig: NextConfig = {
         turbopackFileSystemCacheForDev: true,
         turbopackPluginRuntimeStrategy: "workerThreads",
         turbopackRustReactCompiler: true,
-        cacheComponents: true,
     },
 
     async headers() {

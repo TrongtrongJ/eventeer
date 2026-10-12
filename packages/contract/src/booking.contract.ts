@@ -11,8 +11,9 @@ export const bookingContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/create",
+                path: "/bookings/create",
                 description: "Create booking",
+                tags: ["Booking"]
             }),
         ),
     confirmBooking: oc
@@ -25,8 +26,9 @@ export const bookingContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/{id}/confirm",
+                path: "/bookings/{id}/confirm",
                 description: "Create booking",
+                tags: ["Booking"]
             }),
         ),
     findOne: oc
@@ -39,15 +41,17 @@ export const bookingContract = oc.router({
         .meta(
             openapi({
                 method: "GET",
-                path: "/{id}",
+                path: "/bookings/{id}",
                 description: "Find booking by id",
+                tags: ["Booking"]
             }),
         ),
     getMyBookings: oc.output(createBaseResponse(z.array(BookingSchema))).meta(
         openapi({
             method: "GET",
-            path: "/booking/me",
+            path: "/bookings/booking/me",
             description: "Get user bookings",
+            tags: ["Booking"]
         }),
     ),
     cancelBooking: oc
@@ -60,15 +64,17 @@ export const bookingContract = oc.router({
         .meta(
             openapi({
                 method: "DELETE",
-                path: "/{id}",
+                path: "/bookings/{id}",
                 description: "Delete booking",
+                tags: ["Booking"]
             }),
         ),
     adminListBookings: oc.output(createBaseResponse(z.array(BookingSchema))).meta(
         openapi({
             method: "GET",
-            path: "/admin/all",
+            path: "/bookings/admin/all",
             description: "Admin endpoint to view all bookings",
+            tags: ["Booking"]
         }),
     ),
     getEventBookings: oc
@@ -81,8 +87,9 @@ export const bookingContract = oc.router({
         .meta(
             openapi({
                 method: "GET",
-                path: "/event/{eventId}/bookings",
+                path: "/bookings/event/{eventId}/bookings",
                 description: "Organizer endpoint to view bookings for their events",
+                tags: ["Booking"]
             }),
         ),
 });

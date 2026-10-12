@@ -7,6 +7,12 @@ import { type ResetPasswordFormDto, ResetPasswordFormSchema } from "@packages/sh
 import { orpc } from "@/lib/orpc/query";
 import { useToast } from "@/lib/toast/toast-context";
 import { useTranslations } from "next-intl";
+import { AuthLayout } from "@/components/shell/AuthLayout";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 
 const initialFormData: ResetPasswordFormDto = { password: "", confirmPassword: "" };
 
@@ -44,57 +50,39 @@ export function ResetPasswordForm() {
     const isSubmitButtonDisabled = resetPasswordMutation.isPending || !isFormValid || !token;
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t("title")}</h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">{t("intro")}</p>
-                </div>
+        <AuthLayout title={t("title")} description={t("intro")}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+                <Field>
+                    <FieldLabel htmlFor="password">{t("newPassword")}</FieldLabel>
+                    <Input
+                        id="password"
+                        type="password"
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        value={formData.password}
+                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    />
+                </Field>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                {t("newPassword")}
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                required
-                                minLength={8}
-                                value={formData.password}
-                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            />
-                        </div>
+                <Field>
+                    <FieldLabel htmlFor="confirmPassword">{t("confirmPassword")}</FieldLabel>
+                    <Input
+                        id="confirmPassword"
+                        type="password"
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        value={formData.confirmPassword}
+                        onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    />
+                </Field>
 
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                                {t("confirmPassword")}
-                            </label>
-                            <input
-                                id="confirmPassword"
-                                type="password"
-                                required
-                                minLength={8}
-                                value={formData.confirmPassword}
-                                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isSubmitButtonDisabled}
-                            className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {resetPasswordMutation.isPending ? t("submitting") : t("submit")}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <Button type="submit" size="lg" disabled={isSubmitButtonDisabled} className="w-full">
+                    {resetPasswordMutation.isPending && <Spinner />}
+                    {resetPasswordMutation.isPending ? t("submitting") : t("submit")}
+                </Button>
+            </form>
+        </AuthLayout>
     );
 }

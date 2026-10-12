@@ -12,8 +12,9 @@ export const eventContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/",
+                path: "/events",
                 description: "Create new event",
+                tags: ["Event"],
             }),
         ),
     findAll: oc
@@ -22,8 +23,9 @@ export const eventContract = oc.router({
         .meta(
             openapi({
                 method: "GET",
-                path: "/",
+                path: "/events",
                 description: "List events with filters and pagination",
+                tags: ["Event"],
             }),
         ),
     findOne: oc
@@ -36,15 +38,17 @@ export const eventContract = oc.router({
         .meta(
             openapi({
                 method: "GET",
-                path: "/{id}",
+                path: "/events/{id}",
                 description: "Get event item by id",
+                tags: ["Event"],
             }),
         ),
     getMyEvents: oc.output(createBaseResponse(z.array(EventSchema))).meta(
         openapi({
             method: "GET",
-            path: "/my/events",
+            path: "/events/my/events",
             description: "Get current user events",
+            tags: ["Event"],
         }),
     ),
     updateEvent: oc
@@ -58,9 +62,10 @@ export const eventContract = oc.router({
         .meta(
             openapi({
                 method: "PUT",
-                path: "/{id}",
+                path: "/events/{id}",
                 description: "Update event by id",
                 inputStructure: "detailed",
+                tags: ["Event"],
             }),
         ),
     deleteEvent: oc
@@ -73,8 +78,9 @@ export const eventContract = oc.router({
         .meta(
             openapi({
                 method: "DELETE",
-                path: "/{id}",
+                path: "/events/{id}",
                 description: "Delete event by id",
+                tags: ["Event"],
             }),
         ),
 });

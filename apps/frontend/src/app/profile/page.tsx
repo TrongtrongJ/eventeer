@@ -1,6 +1,9 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { AccessDenied } from "@/components/AccessDenied";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 export default async function ProfilePage() {
     const { session, denied } = await requireSession();
@@ -9,89 +12,60 @@ export default async function ProfilePage() {
     const user = session.user;
     if (!user) return null;
 
-    const [t, tEnum, tProvider, format] = await Promise.all([
+    const [t, tNav, tEnum, tProvider, format] = await Promise.all([
         getTranslations("Profile"),
+        getTranslations("Nav"),
         getTranslations("Enums.role"),
         getTranslations("Enums.provider"),
         getFormatter(),
     ]);
 
+    const fullName = `${user.firstName} ${user.lastName}`;
+    const rows: { label: string; value: string }[] = [
+        { label: t("accountType"), value: tEnum(user.role) },
+        { label: t("loginProvider"), value: user.provider ? tProvider(user.provider) : "" },
+        {
+            label: t("lastLogin"),
+            value: user.lastLoginAt
+                ? format.dateTime(new Date(user.lastLoginAt), { dateStyle: "medium", timeStyle: "short" })
+                : t("never"),
+        },
+        { label: t("memberSince"), value: format.dateTime(new Date(user.createdAt), { dateStyle: "medium" }) },
+    ];
+
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                    <div className="flex items-center space-x-5">
-                        {user.avatarUrl ? (
-                            <img
-                                src={user.avatarUrl}
-                                alt={`${user.firstName} ${user.lastName}`}
-                                className="h-20 w-20 rounded-full"
-                            />
-                        ) : (
-                            <div className="h-20 w-20 rounded-full bg-indigo-600 flex items-center justify-center">
-                                <span className="text-white text-2xl font-medium">
-                                    {user.firstName[0]}
-                                    {user.lastName[0]}
-                                </span>
-                            </div>
-                        )}
-
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">
-                                {user.firstName} {user.lastName}
-                            </h1>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                            <div className="mt-1 flex items-center space-x-2">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                    {tEnum(user.role)}
-                                </span>
-                                {user.isEmailVerified ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        {t("verified")}
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                        {t("unverified")}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
-                        <div>
-                            <h3 className="text-sm font-medium text-gray-500">{t("accountType")}</h3>
-                            <p className="mt-1 text-sm text-gray-900">{tEnum(user.role)}</p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-sm font-medium text-gray-500">{t("loginProvider")}</h3>
-                            <p className="mt-1 text-sm text-gray-900">
-                                {user.provider ? tProvider(user.provider) : ""}
-                            </p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-sm font-medium text-gray-500">{t("lastLogin")}</h3>
-                            <p className="mt-1 text-sm text-gray-900">
-                                {user.lastLoginAt
-                                    ? format.dateTime(new Date(user.lastLoginAt), {
-                                          dateStyle: "medium",
-                                          timeStyle: "short",
-                                      })
-                                    : t("never")}
-                            </p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-sm font-medium text-gray-500">{t("memberSince")}</h3>
-                            <p className="mt-1 text-sm text-gray-900">
-                                {format.dateTime(new Date(user.createdAt), { dateStyle: "medium" })}
-                            </p>
+        <>
+            <PageHeader title={tNav("profile")} />
+            <PageContent width="narrow" className="space-y-8">
+                <div className="flex items-center gap-4">
+                    <Avatar className="size-16">
+                        {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={fullName} />}
+                        <AvatarFallback className="text-xl">
+                            {user.firstName[0]}
+                            {user.lastName[0]}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 space-y-1.5">
+                        <h2 className="truncate text-xl font-semibold tracking-tight">{fullName}</h2>
+                        <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="primary">{tEnum(user.role)}</Badge>
+                            <Badge variant={user.isEmailVerified ? "success" : "warning"}>
+                                {user.isEmailVerified ? t("verified") : t("unverified")}
+                            </Badge>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <dl className="divide-y rounded-lg border bg-card">
+                    {rows.map(row => (
+                        <div key={row.label} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                            <dt className="text-muted-foreground">{row.label}</dt>
+                            <dd className="font-medium">{row.value}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </PageContent>
+        </>
     );
 }

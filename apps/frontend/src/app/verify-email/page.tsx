@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
+import { CircleAlert, CircleCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { AuthLayout } from "@/components/shell/AuthLayout";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 type State = "verifying" | "success" | "error";
 
@@ -34,29 +38,25 @@ export default function VerifyEmailPage() {
             .catch(() => setState("error"));
     }, [verify, queryClient]);
 
+    if (state === "verifying") {
+        return (
+            <AuthLayout title={t("verifying")}>
+                <div className="flex justify-center text-muted-foreground">
+                    <Spinner className="size-5" />
+                </div>
+            </AuthLayout>
+        );
+    }
+
+    const ok = state === "success";
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full bg-white rounded-lg shadow p-8 text-center space-y-4">
-                {state === "verifying" && <p className="text-gray-600">{t("verifying")}</p>}
-                {state === "success" && (
-                    <>
-                        <h2 className="text-2xl font-bold text-gray-900">{t("successTitle")}</h2>
-                        <p className="text-gray-600">{t("successBody")}</p>
-                        <Link href="/" className="inline-block text-indigo-600 font-medium hover:text-indigo-500">
-                            {t("continue")}
-                        </Link>
-                    </>
-                )}
-                {state === "error" && (
-                    <>
-                        <h2 className="text-2xl font-bold text-gray-900">{t("errorTitle")}</h2>
-                        <p className="text-gray-600">{t("errorBody")}</p>
-                        <Link href="/login" className="inline-block text-indigo-600 font-medium hover:text-indigo-500">
-                            {t("goToSignIn")}
-                        </Link>
-                    </>
-                )}
+        <AuthLayout title={ok ? t("successTitle") : t("errorTitle")} description={ok ? t("successBody") : t("errorBody")}>
+            <div className="flex flex-col items-center gap-5">
+                {ok ? <CircleCheck className="size-8 text-success" /> : <CircleAlert className="size-8 text-destructive" />}
+                <Button asChild variant={ok ? "default" : "outline"} className="w-full">
+                    <Link href={ok ? "/" : "/login"}>{ok ? t("continue") : t("goToSignIn")}</Link>
+                </Button>
             </div>
-        </div>
+        </AuthLayout>
     );
 }

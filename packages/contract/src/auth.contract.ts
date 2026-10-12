@@ -19,8 +19,9 @@ export const authContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/register",
+                path: "/auth/register",
                 description: "Register user",
+                tags: ['Auth']
             }),
         ),
     login: oc
@@ -37,29 +38,33 @@ export const authContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/login",
+                path: "/auth/login",
                 description: "Login user",
+                tags: ['Auth']
             }),
         ),
     me: oc.output(createBaseResponse(UserSchema)).meta(
         openapi({
             method: "GET",
-            path: "/me",
+            path: "/auth/me",
             description: "Get me",
+            tags: ['Auth']
         }),
     ),
     refresh: oc.output(createBaseResponse(UserSchema)).meta(
         openapi({
             method: "POST",
-            path: "/refresh",
+            path: "/auth/refresh",
             description: "Refresh user auth",
+            tags: ['Auth']
         }),
     ),
     logout: oc.output(responseWithNullData).meta(
         openapi({
             method: "POST",
-            path: "/logout",
+            path: "/auth/logout",
             description: "Logout user",
+            tags: ['Auth']
         }),
     ),
     verifyEmail: oc
@@ -68,8 +73,9 @@ export const authContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/verify-email",
+                path: "/auth/verify-email",
                 description: "Verify user email",
+                tags: ['Auth']
             }),
         ),
     forgotPassword: oc
@@ -78,8 +84,9 @@ export const authContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/forgot-password",
+                path: "/auth/forgot-password",
                 description: "Forgot password",
+                tags: ['Auth']
             }),
         ),
     resetPassword: oc
@@ -88,8 +95,9 @@ export const authContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/reset-password",
+                path: "/auth/reset-password",
                 description: "Reset password",
+                tags: ['Auth']
             }),
         ),
 });
