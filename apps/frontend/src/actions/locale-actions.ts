@@ -1,23 +1,18 @@
 "use server";
 
-import { getCookieOptions } from "@packages/shared-schemas";
 import { cookies } from "next/headers";
+import { LOCALE_COOKIE, isValidLocale } from "@/i18n/helper";
 import { defaultOneYearTs } from "./actions.const";
-import { locales, type Locale } from '../i18n/routing';
 
+export async function setLocale(locale: string) {
+    // Server Actions are public POST endpoints: the TypeScript type is not a runtime guarantee.
+    if (!isValidLocale(locale)) return;
 
-export async function setLocale(locale: Locale) {
-    const cookieStore = await cookies();
-
-    if (!locales.includes(locale)) {
-        console.error(`Invalid locale provided: ${locale}`);
-        return;
-    }
-
-    const cookieOptions = getCookieOptions({
+    (await cookies()).set(LOCALE_COOKIE, locale, {
+        path: "/",
         maxAge: defaultOneYearTs,
-        httpOnly: false,
+        sameSite: "lax",
+        httpOnly: false, // a UI preference, not a credential
+        secure: process.env.NODE_ENV === "production", // `secure` would make Safari drop it on http://localhost
     });
-
-    cookieStore.set("NEXT_LOCALE", locale, cookieOptions);
 }

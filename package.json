@@ -1,39 +1,41 @@
 {
-  "name": "event-management-monorepo",
-  "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "turbo run dev --ui=tui",
-    "dev:backend": "turbo run dev --ui=tui --filter=@eventeer/api",
-    "dev:frontend": "turbo run dev --ui=tui --filter=@eventeer/web",
-    "seed:demo": "yarn workspace @eventeer/api seed:demo",
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
-    "visualize:deps": "depcruise --config .dependency-cruiser.js apps --output-type dot | dot -T svg > dependency-graph.svg",
-    "clean": "turbo run clean && rm -rf node_modules",
-    "typecheck": "turbo run typecheck",
-    "test:e2e": "turbo run test:e2e --filter=@eventeer/api",
-    "test:e2e:web": "turbo run test:e2e --filter=@eventeer/web"
-  },
-  "devDependencies": {
-    "@commitlint/config-conventional": "^21.2.2",
-    "concurrently": "^8.2.2",
-    "dependency-cruiser": "^17.3.6",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.4.1",
-    "prettier": "^3.8.1",
-    "turbo": "^2.9.0",
-    "typescript": "^5.0.0"
-  },
-  "packageManager": "yarn@4.14.1",
-  "resolutions": {
-    "@tanstack/react-query": "5.102.8",
-    "@tanstack/query-core": "5.102.8"
-  }
+    "name": "event-management-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "turbo run dev --ui=tui",
+        "dev:backend": "turbo run dev --ui=tui --filter=@eventeer/api",
+        "dev:frontend": "turbo run dev --ui=tui --filter=@eventeer/web",
+        "seed:demo": "yarn workspace @eventeer/api seed:demo",
+        "build": "turbo run build",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "turbo run test",
+        "lint": "turbo run lint",
+        "lint:deps": "depcruise --config .dependency-cruiser.js apps packages",
+        "visualize:deps": "depcruise --config .dependency-cruiser.js apps --output-type dot | dot -T svg > dependency-graph.svg",
+        "clean": "turbo run clean && rm -rf node_modules",
+        "typecheck": "turbo run typecheck",
+        "test:e2e": "turbo run test:e2e --filter=@eventeer/api",
+        "test:e2e:web": "turbo run test:e2e --filter=@eventeer/web"
+    },
+    "devDependencies": {
+        "@commitlint/config-conventional": "^21.2.2",
+        "concurrently": "^8.2.2",
+        "dependency-cruiser": "^17.3.6",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.4.1",
+        "prettier": "^3.8.1",
+        "turbo": "^2.9.0",
+        "typescript": "^6.0.0"
+    },
+    "packageManager": "yarn@4.14.1",
+    "resolutions": {
+        "@tanstack/react-query": "5.102.8",
+        "@tanstack/query-core": "5.102.8"
+    }
 }

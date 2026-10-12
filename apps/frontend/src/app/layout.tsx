@@ -1,26 +1,41 @@
-import type { Metadata } from 'next';
-import React from 'react';
-import { Providers } from './providers';
-import Navigation from '@/components/Navigation';
-import { getSessionSeed } from '@/lib/auth/session';
-import './globals.css';
+import type { Metadata } from "next";
+import React, { Suspense } from "react";
+import { Providers } from "./providers";
+import Navigation from "@/components/Navigation";
+import { getSessionSeed } from "@/lib/auth/session";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { ZodLocale } from "@/components/ZodLocale";
+import "./globals.css";
 
-export const metadata: Metadata = {
-  title: 'Event Manager',
-  description: 'Discover, book, and manage events',
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const t = await getTranslations("Metadata");
+    return { title: t("title"), description: t("description") };
+}
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const sessionSeed = await getSessionSeed();
+async function DynamicAppShell({ children }: { children: React.ReactNode }) {
+    const [sessionSeed] = await Promise.all([getSessionSeed(), getLocale()]);
 
-  return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50">
+    return (
         <Providers sessionSeed={sessionSeed}>
-          <Navigation />
-          <main>{children}</main>
+            <NextIntlClientProvider>
+                <ZodLocale />
+                <Navigation />
+                <main>{children}</main>
+            </NextIntlClientProvider>
         </Providers>
-      </body>
-    </html>
-  );
+    );
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <html lang="en">
+            <body className="min-h-screen bg-gray-50">
+                {/* 3. Wrap the dynamic shell in Suspense */}
+                <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+                    <DynamicAppShell>{children}</DynamicAppShell>
+                </Suspense>
+            </body>
+        </html>
+    );
 }

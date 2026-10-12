@@ -6,35 +6,33 @@ export * from "./auth.schemas";
 export * from "./ticket-validation.schemas";
 export * from "./pagination.schemas";
 export * from "./user.schemas";
-export * from './cookie.const';
-export * from './base/const';
+export * from "./cookie.const";
+export * from "./base/const";
 
 // WebSocket Event Types
 export const SeatAvailabilityUpdateSchema = z.object({
-  eventId: z.uuid(),
-  availableSeats: z.number().int().min(0),
-  capacity: z.number().int().positive(),
-  timestamp: z.string().datetime(),
+    eventId: z.uuid(),
+    availableSeats: z.number().int().min(0),
+    capacity: z.number().int().positive(),
+    timestamp: z.string().datetime(),
 });
 
-export type SeatAvailabilityUpdate = z.infer<
-  typeof SeatAvailabilityUpdateSchema
->;
+export type SeatAvailabilityUpdate = z.infer<typeof SeatAvailabilityUpdateSchema>;
 
 // API Response Wrapper
 export const ApiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
-  z.object({
-    success: z.boolean(),
-    data: dataSchema.optional(),
-    error: z.string().optional(),
-    correlationId: z.uuid(),
-    timestamp: z.iso.datetime(),
-  });
+    z.object({
+        success: z.boolean(),
+        data: dataSchema.optional(),
+        error: z.string().optional(),
+        correlationId: z.uuid(),
+        timestamp: z.iso.datetime(),
+    });
 
 export type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-  correlationId: string;
-  timestamp: string;
+    success: boolean;
+    data?: T;
+    error?: string;
+    correlationId: string;
+    timestamp: string;
 };

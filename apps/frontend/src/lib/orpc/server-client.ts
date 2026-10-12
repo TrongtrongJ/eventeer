@@ -1,18 +1,12 @@
-import 'server-only';
+import "server-only";
 
-import { cookies } from 'next/headers';
-import { createORPCClient, type StandardUrl } from '@orpc/client';
-import { OpenAPILink } from '@orpc/openapi/fetch';
-import type { JsonifiedClient } from '@orpc/openapi';
-import type { ContractRouterClient } from '@orpc/contract';
-import {
-  authContract,
-  bookingContract,
-  couponContract,
-  eventContract,
-  ticketContract,
-} from '@packages/contract';
-import { serverDomainBaseUrl as domainBaseUrl } from './config';
+import { cookies } from "next/headers";
+import { createORPCClient, type StandardUrl } from "@orpc/client";
+import { OpenAPILink } from "@orpc/openapi/fetch";
+import type { JsonifiedClient } from "@orpc/openapi";
+import type { ContractRouterClient } from "@orpc/contract";
+import { authContract, bookingContract, couponContract, eventContract, ticketContract } from "@packages/contract";
+import { serverDomainBaseUrl as domainBaseUrl } from "./config";
 
 /**
  * Server Components / Route Handlers talk to the backend directly (no browser
@@ -22,23 +16,23 @@ import { serverDomainBaseUrl as domainBaseUrl } from './config';
  * access token happens earlier, in middleware.ts, before any page renders.
  */
 async function serverFetch(request: Request | string, init?: RequestInit) {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore.toString();
 
-  return globalThis.fetch(request, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      ...(cookieHeader ? { cookie: cookieHeader } : {}),
-    },
-  });
+    return globalThis.fetch(request, {
+        ...init,
+        headers: {
+            ...(init?.headers ?? {}),
+            ...(cookieHeader ? { cookie: cookieHeader } : {}),
+        },
+    });
 }
 
 function makeServerLink<T extends object>(contract: T, url: string) {
-  return new OpenAPILink(contract as any, {
-    url: url as StandardUrl,
-    fetch: serverFetch,
-  });
+    return new OpenAPILink(contract as any, {
+        url: url as StandardUrl,
+        fetch: serverFetch,
+    });
 }
 
 /**
@@ -47,21 +41,21 @@ function makeServerLink<T extends object>(contract: T, url: string) {
  * the result at module scope, since it captures per-request cookies.
  */
 export function createServerOrpc() {
-  return {
-    auth: createORPCClient(makeServerLink(authContract, domainBaseUrl.auth)) as JsonifiedClient<
-      ContractRouterClient<typeof authContract>
-    >,
-    events: createORPCClient(
-      makeServerLink(eventContract, domainBaseUrl.events),
-    ) as JsonifiedClient<ContractRouterClient<typeof eventContract>>,
-    bookings: createORPCClient(
-      makeServerLink(bookingContract, domainBaseUrl.bookings),
-    ) as JsonifiedClient<ContractRouterClient<typeof bookingContract>>,
-    coupons: createORPCClient(
-      makeServerLink(couponContract, domainBaseUrl.coupons),
-    ) as JsonifiedClient<ContractRouterClient<typeof couponContract>>,
-    tickets: createORPCClient(
-      makeServerLink(ticketContract, domainBaseUrl.tickets),
-    ) as JsonifiedClient<ContractRouterClient<typeof ticketContract>>,
-  };
+    return {
+        auth: createORPCClient(makeServerLink(authContract, domainBaseUrl.auth)) as JsonifiedClient<
+            ContractRouterClient<typeof authContract>
+        >,
+        events: createORPCClient(makeServerLink(eventContract, domainBaseUrl.events)) as JsonifiedClient<
+            ContractRouterClient<typeof eventContract>
+        >,
+        bookings: createORPCClient(makeServerLink(bookingContract, domainBaseUrl.bookings)) as JsonifiedClient<
+            ContractRouterClient<typeof bookingContract>
+        >,
+        coupons: createORPCClient(makeServerLink(couponContract, domainBaseUrl.coupons)) as JsonifiedClient<
+            ContractRouterClient<typeof couponContract>
+        >,
+        tickets: createORPCClient(makeServerLink(ticketContract, domainBaseUrl.tickets)) as JsonifiedClient<
+            ContractRouterClient<typeof ticketContract>
+        >,
+    };
 }

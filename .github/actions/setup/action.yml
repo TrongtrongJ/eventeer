@@ -1,0 +1,16 @@
+name: Setup
+description: Node + Yarn 4 (Corepack) with the dependency cache, then an immutable install.
+
+runs:
+    using: composite
+    steps:
+        # Corepack must be enabled BEFORE setup-node so `cache: yarn` can find the yarn binary.
+        - run: corepack enable
+          shell: bash
+        - uses: actions/setup-node@v4
+          with:
+              node-version: 22
+              cache: yarn
+        # --immutable: fail the build if yarn.lock is out of sync with the package.json files.
+        - run: yarn install --immutable
+          shell: bash

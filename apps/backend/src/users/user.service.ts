@@ -52,12 +52,12 @@ export class UsersService {
 
     async validatePassword(user: User, password: string): Promise<boolean> {
         if (user.passwordHash == null) return false;
-        const result = await bcrypt.compare(password, user.passwordHash)
+        const result = await bcrypt.compare(password, user.passwordHash);
         console.log({
-          password,
-          passwordHash: user.passwordHash,
-          result
-        })
+            password,
+            passwordHash: user.passwordHash,
+            result,
+        });
         return result;
     }
 

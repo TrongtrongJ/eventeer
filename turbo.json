@@ -17,7 +17,7 @@
             "env": ["DB_HOST", "DB_PORT", "DB_USERNAME", "DB_PASSWORD", "REDIS_HOST", "REDIS_PORT"]
         },
         "typecheck": {
-            "outputs": []
+            "dependsOn": ["^build"]
         },
         "format": {
             "dependsOn": [],

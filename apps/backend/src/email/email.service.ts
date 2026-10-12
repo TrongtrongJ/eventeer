@@ -1,169 +1,163 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { InjectQueue } from '@nestjs/bull';
-import { type Queue } from 'bull';
-import * as nodemailer from 'nodemailer';
-import { CircuitBreakerService } from '../common/circuit-breaker/circuit-breaker.service';
-import type { EnvConfig } from '../env.validation';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { InjectQueue } from "@nestjs/bull";
+import { type Queue } from "bull";
+import * as nodemailer from "nodemailer";
+import { CircuitBreakerService } from "../common/circuit-breaker/circuit-breaker.service";
+import type { EnvConfig } from "../env.validation";
 
 const esc = (value: unknown): string =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 
 export interface EmailJob {
-  to: string;
-  subject: string;
-  html: string;
-  correlationId: string;
+    to: string;
+    subject: string;
+    html: string;
+    correlationId: string;
 }
 
 export interface BookingConfirmationData {
-  email: string;
-  firstName: string;
-  lastName: string;
-  eventTitle: string;
-  eventDate: string;
-  eventLocation: string;
-  quantity: number;
-  totalAmount: number;
-  currency: string;
-  bookingId: string;
-  qrCodes: Array<{ ticketNumber: string; qrCode: string }>;
+    email: string;
+    firstName: string;
+    lastName: string;
+    eventTitle: string;
+    eventDate: string;
+    eventLocation: string;
+    quantity: number;
+    totalAmount: number;
+    currency: string;
+    bookingId: string;
+    qrCodes: Array<{ ticketNumber: string; qrCode: string }>;
 }
 
 export interface EmailVerificationData {
-  email: string;
-  firstName: string;
-  token: string;
+    email: string;
+    firstName: string;
+    token: string;
 }
 
 export interface PasswordResetData {
-  email: string;
-  firstName: string;
-  token: string;
+    email: string;
+    firstName: string;
+    token: string;
 }
 
 @Injectable()
 export class EmailService {
-  private readonly logger = new Logger(EmailService.name);
-  private readonly transporter: nodemailer.Transporter;
-  private readonly featureEnabled: boolean;
-  private readonly frontendUrl: string;
-  private readonly isProd: boolean;
+    private readonly logger = new Logger(EmailService.name);
+    private readonly transporter: nodemailer.Transporter;
+    private readonly featureEnabled: boolean;
+    private readonly frontendUrl: string;
+    private readonly isProd: boolean;
 
-  constructor(
-    @InjectQueue('email') private readonly emailQueue: Queue,
-    private readonly configService: ConfigService<EnvConfig, true>,
-    private readonly circuitBreaker: CircuitBreakerService,
-  ) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get('SMTP_HOST', { infer: true }),
-      port: this.configService.get('SMTP_PORT', { infer: true }),
-      secure: this.configService.get('SMTP_PORT', { infer: true }) === 465,
-      auth: {
-        user: this.configService.get('SMTP_USER', { infer: true }),
-        pass: this.configService.get('SMTP_PASS', { infer: true }),
-      },
-    });
+    constructor(
+        @InjectQueue("email") private readonly emailQueue: Queue,
+        private readonly configService: ConfigService<EnvConfig, true>,
+        private readonly circuitBreaker: CircuitBreakerService,
+    ) {
+        this.transporter = nodemailer.createTransport({
+            host: this.configService.get("SMTP_HOST", { infer: true }),
+            port: this.configService.get("SMTP_PORT", { infer: true }),
+            secure: this.configService.get("SMTP_PORT", { infer: true }) === 465,
+            auth: {
+                user: this.configService.get("SMTP_USER", { infer: true }),
+                pass: this.configService.get("SMTP_PASS", { infer: true }),
+            },
+        });
 
-    this.featureEnabled = this.configService.get('FEATURE_EMAIL_ENABLED', { infer: true });
-    this.frontendUrl = this.configService.get('FRONTEND_URL', { infer: true }).replace(/\/$/, '');
-    this.isProd = this.configService.get('isProd', { infer: true });
-  }
-
-  async queueBookingConfirmation(
-    data: BookingConfirmationData,
-    correlationId: string,
-  ): Promise<void> {
-    if (!this.featureEnabled) {
-      this.logger.warn({
-        message: 'Email feature is disabled, skipping email',
-        correlationId,
-        email: data.email,
-      });
-      return;
+        this.featureEnabled = this.configService.get("FEATURE_EMAIL_ENABLED", { infer: true });
+        this.frontendUrl = this.configService.get("FRONTEND_URL", { infer: true }).replace(/\/$/, "");
+        this.isProd = this.configService.get("isProd", { infer: true });
     }
 
-    const html = this.generateBookingConfirmationHtml(data);
+    async queueBookingConfirmation(data: BookingConfirmationData, correlationId: string): Promise<void> {
+        if (!this.featureEnabled) {
+            this.logger.warn({
+                message: "Email feature is disabled, skipping email",
+                correlationId,
+                email: data.email,
+            });
+            return;
+        }
 
-    await this.emailQueue.add(
-      'booking-confirmation',
-      {
-        to: data.email,
-        subject: `Booking Confirmation - ${esc(data.eventTitle)}`,
-        html,
-        correlationId,
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+        const html = this.generateBookingConfirmationHtml(data);
 
-    this.logger.log({
-      message: 'Booking confirmation email queued',
-      correlationId,
-      email: data.email,
-      bookingId: data.bookingId,
-    });
-  }
+        await this.emailQueue.add(
+            "booking-confirmation",
+            {
+                to: data.email,
+                subject: `Booking Confirmation - ${esc(data.eventTitle)}`,
+                html,
+                correlationId,
+            },
+            {
+                attempts: 3,
+                backoff: {
+                    type: "exponential",
+                    delay: 2000,
+                },
+                removeOnComplete: true,
+                removeOnFail: false,
+            },
+        );
 
-  async sendEmail(emailData: EmailJob): Promise<void> {
-    const { to, subject, html, correlationId } = emailData;
-
-    try {
-      await this.circuitBreaker.execute(
-        'email-service',
-        async () => {
-          const info = await this.transporter.sendMail({
-            from: this.configService.get('EMAIL_FROM', { infer: true }),
-            to,
-            subject,
-            html,
-          });
-
-          this.logger.log({
-            message: 'Email sent successfully',
+        this.logger.log({
+            message: "Booking confirmation email queued",
             correlationId,
-            to,
-            messageId: info.messageId,
-          });
-        },
-      );
-    } catch (error: any) {
-      this.logger.error({
-        message: 'Failed to send email',
-        correlationId,
-        to,
-        error: error.message,
-        stack: error.stack,
-      });
-      throw error;
+            email: data.email,
+            bookingId: data.bookingId,
+        });
     }
-  }
 
-  private generateBookingConfirmationHtml(data: BookingConfirmationData): string {
-    const ticketsList = data.qrCodes
-      .map(
-        (ticket) => `
+    async sendEmail(emailData: EmailJob): Promise<void> {
+        const { to, subject, html, correlationId } = emailData;
+
+        try {
+            await this.circuitBreaker.execute("email-service", async () => {
+                const info = await this.transporter.sendMail({
+                    from: this.configService.get("EMAIL_FROM", { infer: true }),
+                    to,
+                    subject,
+                    html,
+                });
+
+                this.logger.log({
+                    message: "Email sent successfully",
+                    correlationId,
+                    to,
+                    messageId: info.messageId,
+                });
+            });
+        } catch (error: any) {
+            this.logger.error({
+                message: "Failed to send email",
+                correlationId,
+                to,
+                error: error.message,
+                stack: error.stack,
+            });
+            throw error;
+        }
+    }
+
+    private generateBookingConfirmationHtml(data: BookingConfirmationData): string {
+        const ticketsList = data.qrCodes
+            .map(
+                ticket => `
         <div style="margin: 10px 0; padding: 15px; background: #f5f5f5; border-radius: 5px;">
           <p style="margin: 5px 0;"><strong>Ticket #${esc(ticket.ticketNumber)}</strong></p>
           <p style="margin: 5px 0; font-size: 12px; word-break: break-all;">QR Code: ${esc(ticket.qrCode)}</p>
         </div>
       `,
-      )
-      .join('');
+            )
+            .join("");
 
-    return `
+        return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -193,7 +187,7 @@ export class EmailService {
               <li><strong>Date:</strong> ${new Date(data.eventDate).toLocaleString()}</li>
               <li><strong>Location:</strong> ${esc(data.eventLocation)}</li>
               <li><strong>Quantity:</strong> ${data.quantity} ticket(s)</li>
-              <li><strong>Total Amount:</strong> ${esc(new Intl.NumberFormat('en-US', { style: 'currency', currency: data.currency }).format(data.totalAmount))}</li>
+              <li><strong>Total Amount:</strong> ${esc(new Intl.NumberFormat("en-US", { style: "currency", currency: data.currency }).format(data.totalAmount))}</li>
             </ul>
 
             <h3>Your Tickets:</h3>
@@ -215,93 +209,94 @@ export class EmailService {
       </body>
       </html>
     `;
-  }
-
-  async queueEmailVerification(data: EmailVerificationData, correlationId: string): Promise<void> {
-    if (!this.featureEnabled) {
-      this.logger.warn({
-        message: 'Email feature is disabled, skipping verification email',
-        correlationId,
-        email: data.email,
-        ...(this.isProd ? {} : { devLink: `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}` }),
-      });
-      return;
     }
 
-    const verificationUrl = `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}`;
-    const html = this.generateEmailVerificationHtml(data, verificationUrl);
+    async queueEmailVerification(data: EmailVerificationData, correlationId: string): Promise<void> {
+        if (!this.featureEnabled) {
+            this.logger.warn({
+                message: "Email feature is disabled, skipping verification email",
+                correlationId,
+                email: data.email,
+                ...(this.isProd
+                    ? {}
+                    : { devLink: `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}` }),
+            });
+            return;
+        }
 
-    await this.emailQueue.add(
-      'email-verification',
-      {
-        to: data.email,
-        subject: 'Verify Your Email Address',
-        html,
-        correlationId,
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+        const verificationUrl = `${this.frontendUrl}/verify-email?token=${encodeURIComponent(data.token)}`;
+        const html = this.generateEmailVerificationHtml(data, verificationUrl);
 
-    this.logger.log({
-      message: 'Email verification queued',
-      correlationId,
-      email: data.email,
-    });
-  }
+        await this.emailQueue.add(
+            "email-verification",
+            {
+                to: data.email,
+                subject: "Verify Your Email Address",
+                html,
+                correlationId,
+            },
+            {
+                attempts: 3,
+                backoff: {
+                    type: "exponential",
+                    delay: 2000,
+                },
+                removeOnComplete: true,
+                removeOnFail: false,
+            },
+        );
 
-  async queuePasswordReset(data: PasswordResetData, correlationId: string): Promise<void> {
-    if (!this.featureEnabled) {
-      this.logger.warn({
-        message: 'Email feature is disabled, skipping password reset email',
-        correlationId,
-        email: data.email,
-        ...(this.isProd ? {} : { devLink: `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}` }),
-      });
-      return;
+        this.logger.log({
+            message: "Email verification queued",
+            correlationId,
+            email: data.email,
+        });
     }
 
-    const resetUrl = `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}`;
-    const html = this.generatePasswordResetHtml(data, resetUrl);
+    async queuePasswordReset(data: PasswordResetData, correlationId: string): Promise<void> {
+        if (!this.featureEnabled) {
+            this.logger.warn({
+                message: "Email feature is disabled, skipping password reset email",
+                correlationId,
+                email: data.email,
+                ...(this.isProd
+                    ? {}
+                    : { devLink: `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}` }),
+            });
+            return;
+        }
 
-    await this.emailQueue.add(
-      'password-reset',
-      {
-        to: data.email,
-        subject: 'Reset Your Password',
-        html,
-        correlationId,
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+        const resetUrl = `${this.frontendUrl}/reset-password?token=${encodeURIComponent(data.token)}`;
+        const html = this.generatePasswordResetHtml(data, resetUrl);
 
-    this.logger.log({
-      message: 'Password reset email queued',
-      correlationId,
-      email: data.email,
-    });
-  }
+        await this.emailQueue.add(
+            "password-reset",
+            {
+                to: data.email,
+                subject: "Reset Your Password",
+                html,
+                correlationId,
+            },
+            {
+                attempts: 3,
+                backoff: {
+                    type: "exponential",
+                    delay: 2000,
+                },
+                removeOnComplete: true,
+                removeOnFail: false,
+            },
+        );
 
-  private generateEmailVerificationHtml(
-    data: EmailVerificationData,
-    verificationUrl: string,
-  ): string {
-    return `
+        this.logger.log({
+            message: "Password reset email queued",
+            correlationId,
+            email: data.email,
+        });
+    }
+
+    private generateEmailVerificationHtml(data: EmailVerificationData, verificationUrl: string): string {
+        return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -348,10 +343,10 @@ export class EmailService {
       </body>
       </html>
     `;
-  }
+    }
 
-  private generatePasswordResetHtml(data: PasswordResetData, resetUrl: string): string {
-    return `
+    private generatePasswordResetHtml(data: PasswordResetData, resetUrl: string): string {
+        return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -406,5 +401,5 @@ export class EmailService {
       </body>
       </html>
     `;
-  }
+    }
 }

@@ -1,8 +1,8 @@
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
 /** 256 bits of CSPRNG output, URL/cookie safe. Opaque: carries no claims. */
 export function generateToken(): string {
-  return randomBytes(32).toString('base64url');
+    return randomBytes(32).toString("base64url");
 }
 
 /**
@@ -11,11 +11,11 @@ export function generateToken(): string {
  * session up with a single indexed equality match.
  */
 export function hashToken(raw: string): string {
-  return createHash('sha256').update(raw).digest('hex');
+    return createHash("sha256").update(raw).digest("hex");
 }
 
 export function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
+    const ab = Buffer.from(a);
+    const bb = Buffer.from(b);
+    return ab.length === bb.length && timingSafeEqual(ab, bb);
 }

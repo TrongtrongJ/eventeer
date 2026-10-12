@@ -1,67 +1,67 @@
-import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float, Int } from "@nestjs/graphql";
 
 @ObjectType()
 export class TicketType {
-  @Field(() => ID)
-  id: string;
+    @Field(() => ID)
+    id: string;
 
-  @Field()
-  ticketNumber: string;
+    @Field()
+    ticketNumber: string;
 
-  @Field()
-  qrCode: string;
+    @Field()
+    qrCode: string;
 
-  @Field()
-  isValidated: boolean;
+    @Field()
+    isValidated: boolean;
 
-  @Field({ nullable: true })
-  validatedAt?: string;
+    @Field({ nullable: true })
+    validatedAt?: string;
 }
 
 @ObjectType()
 export class BookingType {
-  @Field(() => ID)
-  id: string;
+    @Field(() => ID)
+    id: string;
 
-  @Field(() => ID)
-  eventId: string;
+    @Field(() => ID)
+    eventId: string;
 
-  @Field(() => ID, { nullable: true })
-  userId?: string;
+    @Field(() => ID, { nullable: true })
+    userId?: string;
 
-  @Field(() => Int)
-  quantity: number;
+    @Field(() => Int)
+    quantity: number;
 
-  @Field()
-  email: string;
+    @Field()
+    email: string;
 
-  @Field()
-  firstName: string;
+    @Field()
+    firstName: string;
 
-  @Field()
-  lastName: string;
+    @Field()
+    lastName: string;
 
-  @Field(() => Float)
-  totalAmount: number;
+    @Field(() => Float)
+    totalAmount: number;
 
-  @Field(() => Float)
-  finalAmount: number;
+    @Field(() => Float)
+    finalAmount: number;
 
-  @Field(() => Float)
-  discount: number;
+    @Field(() => Float)
+    discount: number;
 
-  @Field({ nullable: true })
-  couponCode?: string;
+    @Field({ nullable: true })
+    couponCode?: string;
 
-  @Field()
-  status: string;
+    @Field()
+    status: string;
 
-  @Field(() => [TicketType])
-  tickets: TicketType[];
+    @Field(() => [TicketType])
+    tickets: TicketType[];
 
-  @Field()
-  createdAt: string;
+    @Field()
+    createdAt: string;
 
-  @Field()
-  updatedAt: string;
+    @Field()
+    updatedAt: string;
 }

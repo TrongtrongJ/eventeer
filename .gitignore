@@ -51,10 +51,6 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# lock files
-package-lock.json
-yarn.lock
-
 # TypeScript build cache
 *.tsbuildinfo
 # Real Kubernetes secrets live outside the repo (see k8s/secrets.example.yaml)

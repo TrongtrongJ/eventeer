@@ -1,49 +1,49 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
-  namespace: event-management
+    name: frontend
+    namespace: event-management
 spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-    spec:
-      containers:
-      - name: frontend
-        image: eventeer-web:0.1.0 # pin an immutable tag (never :latest)
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 3000
-        env:
-        # Server-side calls (middleware, server components) use the in-cluster address.
-        # NEXT_PUBLIC_* are baked into the image at build time (see apps/frontend/Dockerfile).
-        - name: API_INTERNAL_URL
-          value: http://backend:4000
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
+    replicas: 2
+    selector:
+        matchLabels:
+            app: frontend
+    template:
+        metadata:
+            labels:
+                app: frontend
+        spec:
+            containers:
+                - name: frontend
+                  image: eventeer-web:0.1.0 # pin an immutable tag (never :latest)
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                      - containerPort: 3000
+                  env:
+                      # Server-side calls (middleware, server components) use the in-cluster address.
+                      # NEXT_PUBLIC_* are baked into the image at build time (see apps/frontend/Dockerfile).
+                      - name: API_INTERNAL_URL
+                        value: http://backend:4000
+                  resources:
+                      requests:
+                          memory: "128Mi"
+                          cpu: "100m"
+                      limits:
+                          memory: "256Mi"
+                          cpu: "200m"
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend
-  namespace: event-management
+    name: frontend
+    namespace: event-management
 spec:
-  selector:
-    app: frontend
-  ports:
-  - port: 3000
-    targetPort: 3000
-  type: ClusterIP
+    selector:
+        app: frontend
+    ports:
+        - port: 3000
+          targetPort: 3000
+    type: ClusterIP
 
 ---

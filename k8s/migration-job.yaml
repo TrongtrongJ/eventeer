@@ -3,33 +3,34 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: backend-migrate
-  namespace: event-management
+    name: backend-migrate
+    namespace: event-management
 spec:
-  backoffLimit: 2
-  ttlSecondsAfterFinished: 3600
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-      - name: migrate
-        image: eventeer-api:0.1.0 # keep in sync with backend-deployment.yaml
-        workingDir: /app/apps/backend
-        command: ["node", "/app/node_modules/typeorm/cli.js", "-d", "dist/config/data-source.js", "migration:run"]
-        env:
-        - name: NODE_ENV
-          value: production
-        - name: DB_HOST
-          value: postgres
-        - name: DB_NAME
-          value: event_management
-        - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: username
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: password
+    backoffLimit: 2
+    ttlSecondsAfterFinished: 3600
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: migrate
+                  image: eventeer-api:0.1.0 # keep in sync with backend-deployment.yaml
+                  workingDir: /app/apps/backend
+                  command:
+                      ["node", "/app/node_modules/typeorm/cli.js", "-d", "dist/config/data-source.js", "migration:run"]
+                  env:
+                      - name: NODE_ENV
+                        value: production
+                      - name: DB_HOST
+                        value: postgres
+                      - name: DB_NAME
+                        value: event_management
+                      - name: DB_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: postgres-secret
+                                key: username
+                      - name: DB_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: postgres-secret
+                                key: password

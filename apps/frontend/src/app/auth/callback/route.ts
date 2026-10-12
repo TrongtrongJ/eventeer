@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { AUTH_COOKIE, getCookieOptions } from '@packages/shared-schemas';
+import { NextRequest, NextResponse } from "next/server";
+import { AUTH_COOKIE, getCookieOptions } from "@packages/shared-schemas";
 
 /**
  * The backend's OAuth callbacks (google/github/facebook) redirect here with
@@ -11,21 +10,21 @@ import { AUTH_COOKIE, getCookieOptions } from '@packages/shared-schemas';
  * so the OAuth flow ends up in the exact same cookie-authenticated state.
  */
 export async function GET(request: NextRequest) {
-  const accessToken = request.nextUrl.searchParams.get('accessToken');
-  const refreshToken = request.nextUrl.searchParams.get('refreshToken');
+    const accessToken = request.nextUrl.searchParams.get("accessToken");
+    const refreshToken = request.nextUrl.searchParams.get("refreshToken");
 
-  const redirectUrl = new URL(accessToken && refreshToken ? '/' : '/login', request.url);
-  if (!accessToken || !refreshToken) {
-    redirectUrl.searchParams.set('error', 'oauth_failed');
-  }
+    const redirectUrl = new URL(accessToken && refreshToken ? "/" : "/login", request.url);
+    if (!accessToken || !refreshToken) {
+        redirectUrl.searchParams.set("error", "oauth_failed");
+    }
 
-  const response = NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
 
-  if (accessToken && refreshToken) {
-    const cookieStore = response.cookies;
-    cookieStore.set(AUTH_COOKIE.ACCESS, accessToken, getCookieOptions());
-    cookieStore.set(AUTH_COOKIE.REFRESH, refreshToken, getCookieOptions());
-  }
+    if (accessToken && refreshToken) {
+        const cookieStore = response.cookies;
+        cookieStore.set(AUTH_COOKIE.ACCESS, accessToken, getCookieOptions());
+        cookieStore.set(AUTH_COOKIE.REFRESH, refreshToken, getCookieOptions());
+    }
 
-  return response;
+    return response;
 }

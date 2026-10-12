@@ -1,1 +1,2 @@
-export { ToastContainer as default } from './ToastContainer'
+import ToastContainer from "./ToastContainer";
+export default ToastContainer;

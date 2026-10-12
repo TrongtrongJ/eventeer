@@ -21,25 +21,28 @@ This document describes the architecture of the Event Management Platform, inclu
 ---
 
 ## Executive Summary
+
 This platform is built as a **Type-Safe Monorepo**, utilizing a "Contract-First" approach to ensure data synchronization between the React frontend and NestJS backend. The architecture is designed to solve the three primary challenges of event platforms: **concurrency (over-booking), consistency (payment-to-ticket integrity), and developer velocity**.
 
 ### Architectural Decision Records (ADR)
-| Decision | Choice | Justification |
-| :--- | :--- | :--- |
+
+| Decision              | Choice                  | Justification                                                                                                                                                                              |
+| :-------------------- | :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Consistency Model** | Strong Consistency (CP) | Through the lens of CAP Theorem, we prioritize consistency for the Booking module to prevent over-selling. We utilize PostgreSQL **Pessimistic Locking** during checkouts for consistency. |
-| **Type Strategy** | Shared Zod Contract | To eliminate type mismatch, we use a shared package as the single source of truth for DTOs and validation, reducing integration errors. |
-| **System Boundary** | Modular Monolith | Chosen to reduce network latency and deployment complexity during initial scaling, while maintaining strict domain boundaries for an ease of future Microservices migration. |
+| **Type Strategy**     | Shared Zod Contract     | To eliminate type mismatch, we use a shared package as the single source of truth for DTOs and validation, reducing integration errors.                                                    |
+| **System Boundary**   | Modular Monolith        | Chosen to reduce network latency and deployment complexity during initial scaling, while maintaining strict domain boundaries for an ease of future Microservices migration.               |
 
 ---
 
 ## High-Level Architecture
 
 ### The Monorepo Ecosystem
+
 The project is structured to enforce a "One-Way Dependency Flow."
 
-* **Apps Layer:** Contains the React (Vite) frontend and NestJS API.
-* **Packages Layer:** Contains the `@packages/contract` (Zod schemas), `@packages/ui` (Shared components), and shared configurations.
-* **Boundary Enforcement:** We use workspace linting rules to ensure the UI or API never imports directly from each other, only from shared packages.
+- **Apps Layer:** Contains the React (Vite) frontend and NestJS API.
+- **Packages Layer:** Contains the `@packages/contract` (Zod schemas), `@packages/ui` (Shared components), and shared configurations.
+- **Boundary Enforcement:** We use workspace linting rules to ensure the UI or API never imports directly from each other, only from shared packages.
 
 ### System Overview
 
@@ -98,17 +101,17 @@ graph LR
     B --> C[Auth Service]
     B --> D[Event Service]
     B --> E[Booking Service]
-    
+
     E --> F[Payment Service]
     E --> G[Email Queue]
     E --> H[Coupon Service]
-    
+
     C --> I[(PostgreSQL)]
     D --> I
     E --> I
     H --> J[(Redis)]
     G --> J
-    
+
     F --> K[Stripe API]
     C --> L[OAuth Providers]
     G --> M[SMTP Server]
@@ -119,36 +122,46 @@ graph LR
 ## Domain Logic & Patterns
 
 ### 1. Contract-First Development (Zod)
+
 Unlike standard implementations where validation is an afterthought, our architecture uses **Shared Zod Schemas** as the "source of truth."
-* **Backend:** Schemas are used by NestJS `ValidationPipe` for incoming request parsing.
-* **Frontend:** The same schemas generate TypeScript types via `z.infer<T>` for API client responses and form validation.
+
+- **Backend:** Schemas are used by NestJS `ValidationPipe` for incoming request parsing.
+- **Frontend:** The same schemas generate TypeScript types via `z.infer<T>` for API client responses and form validation.
 
 ### 2. Concurrency & Race Condition Management
+
 To handle "hot" event drops (concerts/festivals), we move beyond simple CRUD:
-* **Pessimistic Locking:** In the Booking Service, we use `SELECT FOR UPDATE` on the Event row to lock available seat counts during the transaction window.
-* **Atomic Updates:** We use raw SQL increments/decrements to avoid "lost update" anomalies common in standard ORM save patterns.
+
+- **Pessimistic Locking:** In the Booking Service, we use `SELECT FOR UPDATE` on the Event row to lock available seat counts during the transaction window.
+- **Atomic Updates:** We use raw SQL increments/decrements to avoid "lost update" anomalies common in standard ORM save patterns.
 
 ### 3. Resilience: Circuit Breaker Pattern
+
 To prevent cascading failures when external services (Stripe/SMTP) are degraded:
-* **Implementation:** If the Stripe API latency exceeds 5s or fails 5 consecutive times, the circuit opens.
-* **Result:** The system immediately returns a "Payment Gateway Temporarily Unavailable" response, preserving server thread pools for other system functions.
+
+- **Implementation:** If the Stripe API latency exceeds 5s or fails 5 consecutive times, the circuit opens.
+- **Result:** The system immediately returns a "Payment Gateway Temporarily Unavailable" response, preserving server thread pools for other system functions.
 
 ---
 
 ## Data Architecture
 
 ### Entity Relationship & Normalization
+
 The database is designed with high-read optimization in mind, utilizing PostgreSQL.
 
 ### Indexing & Performance Strategy
-* **Connection Pooling:** Configured via `pg-pool` to handle 1,000+ concurrent requests with an idle timeout of 30s to prevent resource exhaustion.
-* **Caching:** Redis is utilized as a **Cache-Aside** layer for event metadata (TTL: 300s) to reduce primary DB load during peak traffic.
+
+- **Connection Pooling:** Configured via `pg-pool` to handle 1,000+ concurrent requests with an idle timeout of 30s to prevent resource exhaustion.
+- **Caching:** Redis is utilized as a **Cache-Aside** layer for event metadata (TTL: 300s) to reduce primary DB load during peak traffic.
 
 **Primary Indexes:**
+
 - All primary keys (UUID)
 - Unique constraints (email, ticket QR codes)
 
 **Secondary Indexes:**
+
 - `users.email` - Fast login lookups
 - `events.startDate` - Event list queries
 - `events.organizerId` - Organizer's events
@@ -156,10 +169,12 @@ The database is designed with high-read optimization in mind, utilizing PostgreS
 - `tickets.qrCode` - Validation lookups
 
 **Composite Indexes:**
+
 - `(eventId, status)` - Event bookings by status to optimize real-time seat-count calculations.
 - `(userId, createdAt)` - User's recent bookings
 
 **Query Optimization:**
+
 - Indexed columns for WHERE/JOIN
 - Pagination for large result sets
 - Select only needed columns
@@ -172,12 +187,12 @@ erDiagram
     USER ||--o{ EVENT : "organizes"
     USER ||--o{ BOOKING : "creates"
     USER ||--o{ SESSION : "has"
-    
+
     EVENT ||--o{ BOOKING : "has"
     EVENT ||--o{ COUPON : "has"
-    
+
     BOOKING ||--o{ TICKET : "contains"
-    
+
     USER {
         uuid id PK
         string email UK
@@ -189,7 +204,7 @@ erDiagram
         boolean isEmailVerified
         timestamp createdAt
     }
-    
+
     EVENT {
         uuid id PK
         uuid organizerId FK
@@ -203,7 +218,7 @@ erDiagram
         decimal ticketPrice
         timestamp createdAt
     }
-    
+
     BOOKING {
         uuid id PK
         uuid userId FK
@@ -215,7 +230,7 @@ erDiagram
         string paymentIntentId
         timestamp createdAt
     }
-    
+
     TICKET {
         uuid id PK
         uuid bookingId FK
@@ -224,7 +239,7 @@ erDiagram
         boolean isValidated
         timestamp validatedAt
     }
-    
+
     COUPON {
         uuid id PK
         uuid eventId FK
@@ -235,7 +250,7 @@ erDiagram
         int currentUsages
         timestamp expiresAt
     }
-    
+
     SESSION {
         uuid id PK
         uuid userId FK
@@ -250,6 +265,7 @@ erDiagram
 ### Request/Response Format
 
 **Request:**
+
 ```http
 POST /bookings HTTP/1.1
 Authorization: Bearer <token>
@@ -264,105 +280,114 @@ X-Correlation-ID: req-123
 ```
 
 **Response:**
+
 ```json
 {
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "status": "PENDING",
-    "totalAmount": 100.00,
-    "finalAmount": 80.00
-  },
-  "correlationId": "req-123",
-  "timestamp": "2025-01-09T10:00:00Z"
+    "success": true,
+    "data": {
+        "id": "uuid",
+        "status": "PENDING",
+        "totalAmount": 100.0,
+        "finalAmount": 80.0
+    },
+    "correlationId": "req-123",
+    "timestamp": "2025-01-09T10:00:00Z"
 }
 ```
 
 ---
+
 ## Security & Reliability
 
 ### Authentication & Session Security
-* **JWT Rotation:** Implementation of short-lived Access Tokens (15m) and Refresh Tokens (7d) stored in an HTTP-only cookie to mitigate XSS.
-* **Refresh Token Rotation:** Every time a refresh token is used, a new one is issued, and the old one is invalidated in Redis to prevent replay attacks.
+
+- **JWT Rotation:** Implementation of short-lived Access Tokens (15m) and Refresh Tokens (7d) stored in an HTTP-only cookie to mitigate XSS.
+- **Refresh Token Rotation:** Every time a refresh token is used, a new one is issued, and the old one is invalidated in Redis to prevent replay attacks.
 
 ### Observability
 
-* **Correlation IDs:** A unique ID is generated for every request and propagated through logs and external service calls, allowing for distributed tracing.
+- **Correlation IDs:** A unique ID is generated for every request and propagated through logs and external service calls, allowing for distributed tracing.
 
-* **Structured Logging:** Logs are emitted in JSON format, ready for ingestion into ELK/Datadog for real-time monitoring:
+- **Structured Logging:** Logs are emitted in JSON format, ready for ingestion into ELK/Datadog for real-time monitoring:
+
 ```json
 {
-  "level": "info",
-  "timestamp": "2025-01-09T10:00:00Z",
-  "correlationId": "req-123",
-  "userId": "user-456",
-  "method": "POST",
-  "url": "/bookings",
-  "statusCode": 201,
-  "duration": 234,
-  "message": "Booking created successfully"
+    "level": "info",
+    "timestamp": "2025-01-09T10:00:00Z",
+    "correlationId": "req-123",
+    "userId": "user-456",
+    "method": "POST",
+    "url": "/bookings",
+    "statusCode": 201,
+    "duration": 234,
+    "message": "Booking created successfully"
 }
 ```
 
 ### JWT Token Structure
 
 **Access Token Payload:**
+
 ```json
 {
-  "sub": "user-id",
-  "email": "user@example.com",
-  "role": "CUSTOMER",
-  "sessionId": "session-id",
-  "iat": 1704801600,
-  "exp": 1704802500
+    "sub": "user-id",
+    "email": "user@example.com",
+    "role": "CUSTOMER",
+    "sessionId": "session-id",
+    "iat": 1704801600,
+    "exp": 1704802500
 }
 ```
 
 **Refresh Token Payload:**
+
 ```json
 {
-  "sub": "user-id",
-  "sessionId": "session-id",
-  "iat": 1704801600,
-  "exp": 1705406400
+    "sub": "user-id",
+    "sessionId": "session-id",
+    "iat": 1704801600,
+    "exp": 1705406400
 }
 ```
 
 ### Security Measures
 
 1. **Password Security**
-   - bcrypt hashing (12 rounds)
-   - Password strength validation
-   - No plaintext storage
+    - bcrypt hashing (12 rounds)
+    - Password strength validation
+    - No plaintext storage
 
 2. **Token Security**
-   - Short-lived access tokens (15min)
-   - Refresh token rotation
-   - Session invalidation on logout
+    - Short-lived access tokens (15min)
+    - Refresh token rotation
+    - Session invalidation on logout
 
 3. **API Security**
-   - CORS configuration
-   - Helmet middleware (security headers)
-   - Input validation (Zod schemas)
-   - SQL injection prevention (parameterized queries)
+    - CORS configuration
+    - Helmet middleware (security headers)
+    - Input validation (Zod schemas)
+    - SQL injection prevention (parameterized queries)
 
 4. **Rate Limiting**
-   - Per-IP limits
-   - Per-user limits
-   - Sliding window algorithm
+    - Per-IP limits
+    - Per-user limits
+    - Sliding window algorithm
 
 ---
 
 ## Scalability & Performance
 
 ### Vertical Partitioning
+
 - Separate read replicas
 - Master for writes, replicas for reads
 
 ### Horizontal Scaling
+
 The API is **Stateless**. No local file storage or in-memory sessions are used.
-* **Load Balancing:** Nginx/Ingress distributes traffic across $N$ replicas.
-* **Auto-scaling:** Pods are scaled via Kubernetes HPA based on a 70% CPU threshold.
+
+- **Load Balancing:** Nginx/Ingress distributes traffic across $N$ replicas.
+- **Auto-scaling:** Pods are scaled via Kubernetes HPA based on a 70% CPU threshold.
 
 ```
                     Load Balancer
@@ -390,12 +415,13 @@ The API is **Stateless**. No local file storage or in-memory sessions are used.
 1. **Application Cache (Redis)**
 
 2. **Database Query Cache**
-   - TypeORM query caching
-   - Materialized views for complex queries
+    - TypeORM query caching
+    - Materialized views for complex queries
 
 3. **CDN Cache** (Future)
-   - Static assets
-   - Event images
+    - Static assets
+    - Event images
+
 ---
 
 ## Deployment Architecture
@@ -447,14 +473,16 @@ The API is **Stateless**. No local file storage or in-memory sessions are used.
 ```
 
 **Benefits:**
+
 - Traffic management
 - Observability
 - Security (mTLS)
 - Resilience
 
 ### CI/CD Pipeline
-* Github Actions with utilized **Turborepo Remote Caching**:
-If the `@packages/contract` package is unchanged, the CI skips the build/test phases for dependent apps, reducing pipeline duration.
+
+- Github Actions with utilized **Turborepo Remote Caching**:
+  If the `@packages/contract` package is unchanged, the CI skips the build/test phases for dependent apps, reducing pipeline duration.
 
 ---
 
@@ -479,11 +507,13 @@ If the `@packages/contract` package is unchanged, the CI skips the build/test ph
             │  (RabbitMQ) │
             └─────────────┘
 ```
+
 ---
 
 ## Conclusion
 
 This architecture provides:
+
 - ✅ Scalability through horizontal scaling
 - ✅ Resilience through circuit breakers
 - ✅ Security through multiple layers
