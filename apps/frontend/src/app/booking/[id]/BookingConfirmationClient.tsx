@@ -2,112 +2,129 @@
 
 import { useMoney } from "@/i18n/hooks";
 import { useTranslations, type NamespaceKeys } from "next-intl";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Check, Printer } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "react-qr-code";
 import { orpc } from "@/lib/orpc/query";
+import { cn } from "@/lib/utils";
 import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { BookingStatusIcon } from "@/components/StatusIcons";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 type BookingStatusMessageKey = NamespaceKeys<"Enums", "bookingStatus">;
+
+function Detail({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+    return (
+        <div className={cn("space-y-1", className)}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="text-sm font-medium break-all">{children}</dd>
+        </div>
+    );
+}
+
 export function BookingConfirmationClient({ bookingId }: { bookingId: string }) {
-    const router = useRouter();
     const t = useTranslations("BookingConfirmation");
+    const tNav = useTranslations("Nav");
+    const tBookings = useTranslations("Bookings");
     const tStatus = useTranslations("Enums.bookingStatus");
     const formatMoney = useMoney();
     const { data, isLoading } = useQuery(orpc.bookings.findOne.queryOptions({ input: { id: bookingId } }));
     const currentBooking = data?.data;
 
     if (isLoading || !currentBooking) {
-        return <SpinnerLoader />;
+        return (
+            <>
+                <PageHeader crumbs={[{ label: tNav("myBookings"), href: "/bookings" }]} title={`#${bookingId.slice(0, 8)}`} titleAsText />
+                <SpinnerLoader />
+            </>
+        );
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-lg p-8">
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{t("title")}</h1>
-                    <p className="text-gray-600">{t("sentTo", { email: currentBooking.email })}</p>
-                </div>
-
-                <div className="border-t border-b py-6 mb-6">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span className="text-gray-500">{t("bookingId")}</span>
-                            <p className="font-semibold">{currentBooking.id}</p>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">{t("status")}</span>
-                            <p className="font-semibold text-green-600">
-                                {tStatus(currentBooking.status as BookingStatusMessageKey)}
-                            </p>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">{t("name")}</span>
-                            <p className="font-semibold">
-                                {currentBooking.firstName} {currentBooking.lastName}
-                            </p>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">{t("tickets")}</span>
-                            <p className="font-semibold">{currentBooking.quantity}</p>
-                        </div>
-                        <div>
-                            <span className="text-gray-500">{t("totalPaid")}</span>
-                            <p className="font-semibold text-indigo-600">
-                                {formatMoney(currentBooking.finalAmount, currentBooking.currency)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">{t("yourTickets")}</h2>
-
-                    {currentBooking.tickets?.map((ticket, index) => (
-                        <div key={ticket.id} className="border rounded-lg p-6 bg-gray-50">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-semibold text-lg">
-                                        {t("ticketNumber", { number: index + 1 })}
-                                    </h3>
-                                    <p className="text-sm text-gray-600">{ticket.ticketNumber}</p>
-                                </div>
-                                {ticket.isValidated && (
-                                    <span className="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-                                        {t("used")}
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="flex justify-center bg-white p-4 rounded">
-                                <QRCode value={ticket.qrCode} size={200} />
-                            </div>
-
-                            <p className="text-center text-sm text-gray-500 mt-4">{t("presentQr")}</p>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-8 flex gap-4">
-                    <button
-                        onClick={() => router.push("/")}
-                        className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 transition-colors font-semibold"
-                    >
-                        {t("browseMore")}
-                    </button>
-                    <button
-                        onClick={() => window.print()}
-                        className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-md hover:bg-gray-300 transition-colors font-semibold"
-                    >
+        <>
+            <PageHeader
+                crumbs={[{ label: tNav("myBookings"), href: "/bookings" }]}
+                title={tBookings("bookingNumber", { id: currentBooking.id.slice(0, 8) })}
+                titleAsText
+                actions={
+                    <Button variant="outline" size="sm" onClick={() => window.print()}>
+                        <Printer />
                         {t("print")}
-                    </button>
+                    </Button>
+                }
+            />
+
+            <PageContent width="default" className="space-y-8">
+                <div className="flex items-start gap-4">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-success/15 text-success">
+                        <Check className="size-5" strokeWidth={2.5} />
+                    </span>
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+                        <p className="text-sm text-muted-foreground">{t("sentTo", { email: currentBooking.email })}</p>
+                    </div>
                 </div>
-            </div>
-        </div>
+
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border bg-card p-4 sm:grid-cols-3">
+                    <Detail label={t("bookingId")} className="col-span-2 sm:col-span-3">
+                        <span className="font-mono text-xs">{currentBooking.id}</span>
+                    </Detail>
+                    <Detail label={t("status")}>
+                        <span className="inline-flex items-center gap-1.5">
+                            <BookingStatusIcon status={currentBooking.status} />
+                            {tStatus(currentBooking.status as BookingStatusMessageKey)}
+                        </span>
+                    </Detail>
+                    <Detail label={t("name")}>
+                        {currentBooking.firstName} {currentBooking.lastName}
+                    </Detail>
+                    <Detail label={t("tickets")}>{currentBooking.quantity}</Detail>
+                    <Detail label={t("totalPaid")}>
+                        <span className="tabular-nums">{formatMoney(currentBooking.finalAmount, currentBooking.currency)}</span>
+                    </Detail>
+                </dl>
+
+                <section className="space-y-4">
+                    <h2 className="text-base font-semibold tracking-tight">{t("yourTickets")}</h2>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {currentBooking.tickets?.map((ticket, index) => (
+                            <Card key={ticket.id} className="gap-0 overflow-hidden py-0 break-inside-avoid">
+                                <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-medium">{t("ticketNumber", { number: index + 1 })}</h3>
+                                        <p className="truncate font-mono text-xs text-muted-foreground">{ticket.ticketNumber}</p>
+                                    </div>
+                                    {ticket.isValidated && <Badge variant="destructive">{t("used")}</Badge>}
+                                </CardContent>
+
+                                {/* Perforation: notches + dashed rule, like a torn ticket stub. */}
+                                <div className="relative h-0 border-t border-dashed">
+                                    <span className="absolute -top-2 -left-2 size-4 rounded-full border bg-background" />
+                                    <span className="absolute -top-2 -right-2 size-4 rounded-full border bg-background" />
+                                </div>
+
+                                <CardContent className="flex flex-col items-center gap-3 px-4 py-5">
+                                    <div className={cn("rounded-lg bg-white p-3", ticket.isValidated && "opacity-40")}>
+                                        <QRCode value={ticket.qrCode} size={176} />
+                                    </div>
+                                    <p className="text-center text-xs text-muted-foreground">{t("presentQr")}</p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </section>
+
+                <div className="print:hidden">
+                    <Button asChild variant="outline">
+                        <Link href="/">{t("browseMore")}</Link>
+                    </Button>
+                </div>
+            </PageContent>
+        </>
     );
 }

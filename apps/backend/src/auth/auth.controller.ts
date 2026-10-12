@@ -29,7 +29,7 @@ const metaOf = (req: Request): SessionMeta => ({
     userAgent: req.headers["user-agent"] ?? null,
 });
 
-@Controller("auth")
+@Controller()
 export class AuthController {
     private readonly secure: boolean;
 

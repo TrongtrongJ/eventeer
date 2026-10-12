@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
+import { Spinner } from "@/components/ui/spinner";
 
 interface LoaderProps {
     message?: string;
@@ -8,14 +9,9 @@ interface LoaderProps {
 const FullScreenLoader: React.FC<LoaderProps> = ({ message }) => {
     const t = useTranslations("Common");
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white dark:bg-slate-950">
-            {/* The Spinner */}
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 dark:border-slate-800 dark:border-t-blue-500" />
-
-            {/* Subtle Text */}
-            <p className="mt-4 animate-pulse text-sm font-medium text-slate-500 dark:text-slate-400">
-                {message || t("loading")}
-            </p>
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-background/90 backdrop-blur-sm">
+            <Spinner className="size-5 text-primary" />
+            <p className="text-sm text-muted-foreground">{message || t("loading")}</p>
         </div>
     );
 };

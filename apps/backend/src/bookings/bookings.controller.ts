@@ -21,7 +21,7 @@ const ok = <T>(data: T, correlationId: string) => ({
  * Thin transport layer. Ownership / role rules live in BookingsService so the
  * REST and GraphQL surfaces cannot drift apart.
  */
-@Controller("bookings")
+@Controller()
 export class BookingsController {
     constructor(private readonly bookingsService: BookingsService) {}
 

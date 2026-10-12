@@ -46,7 +46,25 @@
         "signOut": "ออกจากระบบ",
         "signIn": "เข้าสู่ระบบ",
         "signUp": "สมัครสมาชิก",
-        "loggedOut": "ออกจากระบบเรียบร้อยแล้ว"
+        "loggedOut": "ออกจากระบบเรียบร้อยแล้ว",
+        "myBookings": "การจองของฉัน",
+        "myEvents": "อีเวนต์ของฉัน",
+        "metrics": "ตัวชี้วัด",
+        "groupTickets": "ตั๋ว",
+        "groupOrganize": "จัดการอีเวนต์",
+        "groupAdmin": "ผู้ดูแลระบบ",
+        "openMenu": "เปิดเมนูนำทาง",
+        "navigation": "การนำทาง",
+        "search": "ค้นหาหรือไปที่…",
+        "commandPlaceholder": "พิมพ์คำสั่งหรือค้นหา…",
+        "commandEmpty": "ไม่พบผลลัพธ์",
+        "commandGoTo": "ไปที่",
+        "commandPreferences": "การตั้งค่า",
+        "commandAccount": "บัญชี",
+        "theme": "ธีม",
+        "themeLight": "สว่าง",
+        "themeDark": "มืด",
+        "themeSystem": "ตามระบบ"
     },
     "AccessDenied": {
         "title": "ไม่มีสิทธิ์เข้าถึง",
@@ -59,7 +77,8 @@
         "soldOut": "ที่นั่งเต็มแล้ว",
         "previous": "ก่อนหน้า",
         "next": "ถัดไป",
-        "pageOf": "หน้า {page} จาก {total}"
+        "pageOf": "หน้า {page} จาก {total}",
+        "count": "{count} อีเวนต์"
     },
     "EventDetails": {
         "backToEvents": "กลับไปหน้าอีเวนต์",
@@ -75,7 +94,16 @@
         "total": "ยอดรวม:",
         "proceed": "ดำเนินการชำระเงิน",
         "processing": "กำลังดำเนินการ...",
-        "bookingFailed": "ไม่สามารถสร้างการจองได้"
+        "bookingFailed": "ไม่สามารถสร้างการจองได้",
+        "details": "รายละเอียด",
+        "date": "วันที่",
+        "location": "สถานที่",
+        "organizer": "ผู้จัด",
+        "price": "ราคา",
+        "availability": "ที่นั่งว่าง",
+        "seatsOf": "เหลือ {available} จาก {capacity} ที่นั่ง",
+        "reserve": "จองตั๋ว",
+        "soldOut": "ที่นั่งเต็มแล้ว"
     },
     "CreateEvent": {
         "heading": "สร้างอีเวนต์ใหม่",
@@ -106,13 +134,21 @@
         "couponInvalidFallback": "ไม่ถูกต้อง",
         "couponCreated": "สร้างคูปอง {code} แล้ว",
         "couponFailed": "สร้างอีเวนต์แล้ว แต่สร้างคูปองไม่สำเร็จ: {error}",
-        "unknownError": "ข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+        "unknownError": "ข้อผิดพลาดที่ไม่ทราบสาเหตุ",
+        "sectionBasics": "ข้อมูลพื้นฐาน",
+        "sectionBasicsHelp": "สิ่งแรกที่ผู้เข้าร่วมจะเห็น",
+        "sectionSchedule": "วันเวลาและสถานที่",
+        "sectionScheduleHelp": "กำหนดเวลาเริ่ม เวลาสิ้นสุด และสถานที่จัดงาน",
+        "sectionTickets": "ตั๋ว",
+        "sectionTicketsHelp": "จำนวนที่นั่งและราคาต่อใบ",
+        "sectionPromotion": "โปรโมชัน",
+        "sectionPromotionHelp": "เลือกเปิดตัวพร้อมรหัสส่วนลดได้"
     },
     "Coupons": {
         "backToEvent": "กลับไปที่อีเวนต์",
         "title": "คูปอง",
         "forEvent": "สำหรับ: {title}",
-        "createCoupon": "+ สร้างคูปอง",
+        "createCoupon": "สร้างคูปอง",
         "eventNotFound": "ไม่พบอีเวนต์ตาม eventId ที่ระบุ",
         "emptyTitle": "ยังไม่มีคูปอง",
         "emptyBody": "สร้างคูปองแรกของคุณเพื่อมอบส่วนลดให้ผู้เข้าร่วมงาน",
@@ -125,7 +161,13 @@
         "deactivate": "ปิดใช้งาน",
         "copy": "คัดลอก",
         "copied": "คัดลอกรหัสคูปองแล้ว!",
-        "discountOff": "{type, select, PERCENTAGE {ลด {value}%} other {ลด {amount}}}"
+        "discountOff": "{type, select, PERCENTAGE {ลด {value}%} other {ลด {amount}}}",
+        "colCode": "รหัส",
+        "colDiscount": "ส่วนลด",
+        "colUsage": "การใช้งาน",
+        "colExpires": "หมดอายุ",
+        "colStatus": "สถานะ",
+        "active": "ใช้งานอยู่"
     },
     "CreateCoupon": {
         "back": "กลับไปที่คูปอง",
@@ -239,7 +281,12 @@
         "total": "ยอดรวม:",
         "status": "สถานะ:",
         "date": "วันที่:",
-        "viewDetails": "ดูรายละเอียด"
+        "viewDetails": "ดูรายละเอียด",
+        "colBooking": "การจอง",
+        "colStatus": "สถานะ",
+        "colTickets": "จำนวนตั๋ว",
+        "colTotal": "ยอดรวม",
+        "colDate": "วันที่"
     },
     "BookingConfirmation": {
         "title": "ยืนยันการจองแล้ว!",
@@ -280,17 +327,21 @@
         "title": "อีเวนต์ของฉัน",
         "empty": "คุณยังไม่ได้สร้างอีเวนต์",
         "createFirst": "สร้างอีเวนต์แรกของคุณ",
-        "createEvent": "+ สร้างอีเวนต์",
+        "createEvent": "สร้างอีเวนต์",
         "available": "ที่นั่งที่ว่าง:",
         "price": "ราคา:",
         "view": "ดู",
-        "coupons": "คูปอง"
+        "coupons": "คูปอง",
+        "colEvent": "อีเวนต์",
+        "colDate": "วันที่",
+        "colSeats": "ที่นั่ง",
+        "colPrice": "ราคา"
     },
     "Metrics": {
         "title": "ตัวชี้วัดระบบ",
         "loadFailed": "ไม่สามารถโหลดตัวชี้วัดได้",
-        "autoRefreshOn": "🔄 รีเฟรชอัตโนมัติ: เปิด",
-        "autoRefreshOff": "⏸ รีเฟรชอัตโนมัติ: ปิด",
+        "autoRefreshOn": "รีเฟรชอัตโนมัติ: เปิด",
+        "autoRefreshOff": "รีเฟรชอัตโนมัติ: ปิด",
         "refreshNow": "รีเฟรชทันที",
         "status": "สถานะ",
         "statusValues": {
@@ -343,5 +394,9 @@
             "discountAmountZero": "จำนวนส่วนลดต้องไม่เป็น 0",
             "discountExceedsPrice": "จำนวนส่วนลดต้องไม่เกินราคาตั๋ว"
         }
+    },
+    "NotFound": {
+        "title": "ไม่พบหน้านี้",
+        "body": "หน้าที่คุณต้องการไม่มีอยู่หรือถูกย้ายไปแล้ว"
     }
 }

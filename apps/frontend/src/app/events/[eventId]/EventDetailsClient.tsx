@@ -6,13 +6,25 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Info, MapPin, Tag, User as UserIcon, Users } from "lucide-react";
 import { type CreateBookingDto, CreateBookingSchema, type UserDto, type EventDto } from "@packages/shared-schemas";
 import { orpc } from "@/lib/orpc/query";
-import { formatEventDate } from "./helpers";
+import { formatEventDate, seatsRemainingRatio } from "./helpers";
 import { useMoney } from "@/i18n/hooks";
 import { useFormatter, useTranslations } from "next-intl";
 import { useToast } from "@/lib/toast/toast-context";
 import { useSeatUpdates } from "@/hooks/useSeatUpdates";
+import { cn } from "@/lib/utils";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 
 interface EventDetailsClientProps {
     event: EventDto;
@@ -20,10 +32,24 @@ interface EventDetailsClientProps {
     user: UserDto | null;
 }
 
+/** One row of the Linear-style "properties" panel: icon + label on the left, value on the right. */
+function Property({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex items-start justify-between gap-4 py-2.5 text-sm">
+            <dt className="flex items-center gap-2 text-muted-foreground">
+                <Icon className="size-4" />
+                {label}
+            </dt>
+            <dd className="text-right font-medium">{children}</dd>
+        </div>
+    );
+}
+
 export function EventDetailsClient({ event, isAuthenticated, user }: EventDetailsClientProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
     const t = useTranslations("EventDetails");
+    const tNav = useTranslations("Nav");
     const formatMoney = useMoney();
     const format = useFormatter();
 
@@ -36,7 +62,7 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
         register,
         watch,
         handleSubmit,
-        formState: { isValid, errors },
+        formState: { isValid },
     } = useForm<CreateBookingDto>({
         resolver: zodResolver(CreateBookingSchema),
         defaultValues: {
@@ -72,194 +98,172 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
     const selectedEventData = formatEventDate(format, event.startDate);
     const canPurchase = availableSeats > 0 && isAuthenticated;
     const isSubmitButtonDisabled = createBookingMutation.isPending || !isValid;
+    const soldOut = availableSeats <= 0;
+    const ratio = seatsRemainingRatio(availableSeats, event.capacity);
+    const lowStock = !soldOut && ratio <= 0.15;
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <Link href="/" className="mb-6 text-indigo-600 hover:text-indigo-800 flex items-center">
-                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                {t("backToEvents")}
-            </Link>
+        <>
+            <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("details")} titleAsText />
 
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                {event.imageUrl && <img src={event.imageUrl} alt={event.title} className="w-full h-64 object-cover" />}
+            <PageContent width="wide">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                    <article className="min-w-0 space-y-6">
+                        {event.imageUrl && (
+                            <img
+                                src={event.imageUrl}
+                                alt={event.title}
+                                className="aspect-[21/9] w-full rounded-xl border object-cover"
+                            />
+                        )}
 
-                <div className="p-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-4">{event.title}</h1>
-
-                    {event.organizerName && (
-                        <p className="text-sm text-gray-500 mb-4">
-                            {t.rich("organizedBy", {
-                                organizer: event.organizerName,
-                                name: chunks => <span className="font-medium">{chunks}</span>,
-                            })}
-                        </p>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4 mb-6 text-gray-600">
-                        <div className="flex items-center">
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                />
-                            </svg>
-                            {selectedEventData}
-                        </div>
-
-                        <div className="flex items-center">
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                />
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                            </svg>
-                            {event.location}
-                        </div>
-                    </div>
-
-                    <p className="text-gray-700 mb-6">{event.description}</p>
-
-                    <div className="bg-indigo-50 rounded-lg p-4 mb-6">
-                        <div className="flex justify-between items-center">
-                            <span className="text-lg font-semibold text-gray-700">{t("availableSeats")}</span>
-                            <span
-                                className={`text-2xl font-bold ${availableSeats > 0 ? "text-green-600" : "text-red-600"}`}
-                            >
-                                {availableSeats} / {event.capacity}
-                            </span>
-                        </div>
-                    </div>
-
-                    {!isAuthenticated && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                            <div className="flex items-center">
-                                <svg
-                                    className="w-5 h-5 text-yellow-600 mr-2"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                    />
-                                </svg>
-                                <span className="text-yellow-800">
-                                    {t.rich("loginPrompt", {
-                                        link: chunks => (
-                                            <Link href="/login" className="font-medium underline">
-                                                {chunks}
-                                            </Link>
-                                        ),
+                        <header className="space-y-2">
+                            <h1 className="text-2xl font-semibold tracking-tight text-balance">{event.title}</h1>
+                            {event.organizerName && (
+                                <p className="text-sm text-muted-foreground">
+                                    {t.rich("organizedBy", {
+                                        organizer: event.organizerName,
+                                        name: chunks => <span className="font-medium text-foreground">{chunks}</span>,
                                     })}
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                                </p>
+                            )}
+                        </header>
 
-                    {canPurchase && (
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                                        {t("firstName")}
-                                    </label>
-                                    <input
-                                        id="firstName"
-                                        type="text"
-                                        required
-                                        {...register("firstName")}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
+                        <p className="max-w-prose text-[15px] leading-relaxed whitespace-pre-line text-foreground/85">
+                            {event.description}
+                        </p>
+                    </article>
 
-                                <div>
-                                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                                        {t("lastName")}
-                                    </label>
-                                    <input
-                                        id="lastName"
-                                        type="text"
-                                        required
-                                        {...register("lastName")}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-                            </div>
+                    <aside className="space-y-4 lg:sticky lg:top-17 lg:self-start">
+                        <Card className="gap-0 py-0">
+                            <CardHeader className="border-b py-3">
+                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("details")}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <dl className="divide-y">
+                                    <Property icon={CalendarDays} label={t("date")}>
+                                        {selectedEventData}
+                                    </Property>
+                                    <Property icon={MapPin} label={t("location")}>
+                                        {event.location}
+                                    </Property>
+                                    {event.organizerName && (
+                                        <Property icon={UserIcon} label={t("organizer")}>
+                                            {event.organizerName}
+                                        </Property>
+                                    )}
+                                    <Property icon={Tag} label={t("price")}>
+                                        {formatMoney(event.ticketPrice, event.currency)}
+                                    </Property>
+                                    <div className="space-y-2 py-3">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="flex items-center gap-2 text-muted-foreground">
+                                                <Users className="size-4" />
+                                                {t("availability")}
+                                            </span>
+                                            {soldOut ? (
+                                                <Badge variant="destructive">{t("soldOut")}</Badge>
+                                            ) : (
+                                                <span className={cn("font-medium tabular-nums", lowStock && "text-warning")}>
+                                                    {availableSeats} / {event.capacity}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <Progress
+                                            value={ratio * 100}
+                                            aria-label={t("availability")}
+                                            indicatorClassName={cn(soldOut ? "bg-destructive" : lowStock ? "bg-warning" : "bg-success")}
+                                        />
+                                    </div>
+                                </dl>
+                            </CardContent>
+                        </Card>
 
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("email")}
-                                </label>
-                                <input
-                                    id="email"
-                                    type="email"
-                                    required
-                                    {...register("email")}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
+                        {!isAuthenticated && (
+                            <Alert variant="info">
+                                <Info />
+                                <AlertDescription>
+                                    <span className="text-foreground">
+                                        {t.rich("loginPrompt", {
+                                            link: chunks => (
+                                                <Link href="/login" className="font-medium underline underline-offset-4">
+                                                    {chunks}
+                                                </Link>
+                                            ),
+                                        })}
+                                    </span>
+                                </AlertDescription>
+                            </Alert>
+                        )}
 
-                            <div>
-                                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("quantity")}
-                                </label>
-                                <input
-                                    id="quantity"
-                                    type="number"
-                                    min="1"
-                                    max={maxTicketQuantity}
-                                    required
-                                    {...register("quantity", { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
+                        {canPurchase && (
+                            <Card className="gap-0 py-0">
+                                <CardHeader className="border-b py-3">
+                                    <CardTitle className="text-xs font-medium text-muted-foreground">{t("reserve")}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="py-4">
+                                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Field>
+                                                <FieldLabel htmlFor="firstName">{t("firstName")}</FieldLabel>
+                                                <Input id="firstName" type="text" required {...register("firstName")} />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel htmlFor="lastName">{t("lastName")}</FieldLabel>
+                                                <Input id="lastName" type="text" required {...register("lastName")} />
+                                            </Field>
+                                        </div>
 
-                            <div>
-                                <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("couponCode")}
-                                </label>
-                                <input
-                                    id="couponCode"
-                                    type="text"
-                                    {...register("couponCode")}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder={t("couponPlaceholder")}
-                                />
-                            </div>
+                                        <Field>
+                                            <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
+                                            <Input id="email" type="email" required {...register("email")} />
+                                        </Field>
 
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-lg font-semibold text-gray-700">{t("total")}</span>
-                                    <span className="text-3xl font-bold text-indigo-600">{formattedTotalPrice}</span>
-                                </div>
-                            </div>
+                                        <div className="grid grid-cols-[96px_1fr] gap-3">
+                                            <Field>
+                                                <FieldLabel htmlFor="quantity">{t("quantity")}</FieldLabel>
+                                                <Input
+                                                    id="quantity"
+                                                    type="number"
+                                                    min="1"
+                                                    max={maxTicketQuantity}
+                                                    required
+                                                    className="tabular-nums"
+                                                    {...register("quantity", { valueAsNumber: true })}
+                                                />
+                                            </Field>
+                                            <Field>
+                                                <FieldLabel htmlFor="couponCode">{t("couponCode")}</FieldLabel>
+                                                <Input
+                                                    id="couponCode"
+                                                    type="text"
+                                                    className="font-mono uppercase placeholder:normal-case"
+                                                    placeholder={t("couponPlaceholder")}
+                                                    {...register("couponCode")}
+                                                />
+                                            </Field>
+                                        </div>
 
-                            <button
-                                type="submit"
-                                disabled={isSubmitButtonDisabled}
-                                className="w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg font-semibold"
-                            >
-                                {createBookingMutation.isPending ? t("processing") : t("proceed")}
-                            </button>
-                        </form>
-                    )}
+                                        <Separator />
+
+                                        <div className="flex items-baseline justify-between">
+                                            <span className="text-sm text-muted-foreground">{t("total")}</span>
+                                            <span className="text-xl font-semibold tracking-tight tabular-nums">
+                                                {formattedTotalPrice}
+                                            </span>
+                                        </div>
+
+                                        <Button type="submit" disabled={isSubmitButtonDisabled} className="w-full" size="lg">
+                                            {createBookingMutation.isPending && <Spinner />}
+                                            {createBookingMutation.isPending ? t("processing") : t("proceed")}
+                                        </Button>
+                                    </form>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </aside>
                 </div>
-            </div>
-        </div>
+            </PageContent>
+        </>
     );
 }

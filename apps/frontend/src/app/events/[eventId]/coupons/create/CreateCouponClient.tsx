@@ -13,6 +13,13 @@ import { useMoney } from "@/i18n/hooks";
 import SpinnerLoader from "@/components/Loader/SpinnerLoader";
 import EmptyList from "@/components/EmptyList";
 import { generateRandomCouponCode } from "./helpers";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 
 export function CreateCouponClient({ eventId }: { eventId: string }) {
     const router = useRouter();
@@ -20,6 +27,7 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
     const queryClient = useQueryClient();
     const t = useTranslations("CreateCoupon");
     const tc = useTranslations("Common");
+    const tNav = useTranslations("Nav");
     const tCoupons = useTranslations("Coupons");
     const formatMoney = useMoney();
 
@@ -97,172 +105,157 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
     const hasMinPurchaseAmount = minPurchaseAmount != null && minPurchaseAmount > 0;
 
     return (
-        <div className="max-w-3xl mx-auto px-4 py-8">
-            <div className="mb-6">
-                <button
-                    onClick={() => router.push(`/events/${eventId}/coupons`)}
-                    className="text-indigo-600 hover:text-indigo-800 flex items-center"
-                >
-                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    {t("back")}
-                </button>
-            </div>
+        <>
+            <PageHeader
+                crumbs={[
+                    { label: tNav("myEvents"), href: "/my-events" },
+                    { label: event.title, href: `/events/${eventId}` },
+                    { label: tCoupons("title"), href: `/events/${eventId}/coupons` },
+                ]}
+                title={t("heading")}
+                titleAsText
+            />
 
-            <div className="bg-white rounded-lg shadow-lg p-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{t("heading")}</h1>
-                <p className="text-gray-600 mb-6">{t("forEvent", { title: event.title })}</p>
+            <PageContent width="wide">
+                <div className="mb-6 space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight">{t("heading")}</h1>
+                    <p className="text-sm text-muted-foreground">{t("forEvent", { title: event.title })}</p>
+                </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div>
-                        <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("code")}
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                id="code"
-                                type="text"
-                                required
-                                maxLength={50}
-                                {...register("code")}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 uppercase"
-                                placeholder={t("codePlaceholder")}
-                            />
-                            <button
-                                type="button"
-                                onClick={setRandomCouponCode}
-                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                            >
-                                {t("generate")}
-                            </button>
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                        <Field>
+                            <FieldLabel htmlFor="code">{t("code")}</FieldLabel>
+                            <div className="flex gap-2">
+                                <Input
+                                    id="code"
+                                    type="text"
+                                    required
+                                    maxLength={50}
+                                    className="flex-1 font-mono uppercase placeholder:normal-case"
+                                    placeholder={t("codePlaceholder")}
+                                    {...register("code")}
+                                />
+                                <Button type="button" variant="outline" onClick={setRandomCouponCode}>
+                                    {t("generate")}
+                                </Button>
+                            </div>
+                            <FieldDescription>{t("codeHelp")}</FieldDescription>
+                        </Field>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field>
+                                <FieldLabel htmlFor="discountType">{t("discountType")}</FieldLabel>
+                                <NativeSelect id="discountType" required {...register("discountType")}>
+                                    <option value="PERCENTAGE">{t("percentage")}</option>
+                                    <option value="FIXED">{t("fixed", { currency })}</option>
+                                </NativeSelect>
+                            </Field>
+
+                            <Field>
+                                <FieldLabel htmlFor="discountValue">{t("discountValue")}</FieldLabel>
+                                <div className="relative">
+                                    <Input
+                                        id="discountValue"
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        className="pr-12 tabular-nums"
+                                        {...register("discountValue", { valueAsNumber: true })}
+                                    />
+                                    <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-muted-foreground">
+                                        {discountUnit}
+                                    </span>
+                                </div>
+                            </Field>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">{t("codeHelp")}</p>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="discountType" className="block text-sm font-medium text-gray-700 mb-1">
-                                {t("discountType")}
-                            </label>
-                            <select
-                                id="discountType"
-                                required
-                                {...register("discountType")}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                <option value="PERCENTAGE">{t("percentage")}</option>
-                                <option value="FIXED">{t("fixed", { currency })}</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label htmlFor="discountValue" className="block text-sm font-medium text-gray-700 mb-1">
-                                {t("discountValue")}
-                            </label>
-                            <div className="relative">
-                                <input
-                                    id="discountValue"
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field>
+                                <FieldLabel htmlFor="maxUsages">{t("maxUses")}</FieldLabel>
+                                <Input
+                                    id="maxUsages"
                                     type="number"
                                     required
+                                    min="1"
+                                    max="10000"
+                                    className="tabular-nums"
+                                    {...register("maxUsages", { valueAsNumber: true })}
+                                />
+                                <FieldDescription>{t("maxUsesHelp")}</FieldDescription>
+                            </Field>
+
+                            <Field>
+                                <FieldLabel htmlFor="expiresAt">{t("expiration")}</FieldLabel>
+                                <Input
+                                    id="expiresAt"
+                                    type="datetime-local"
+                                    required
+                                    {...register("expiresAt", {
+                                        setValueAs: v => (v ? new Date(v).toISOString() : v),
+                                    })}
+                                />
+                            </Field>
+                        </div>
+
+                        <Field>
+                            <FieldLabel htmlFor="minPurchaseAmount">{t("minPurchase")}</FieldLabel>
+                            <div className="relative">
+                                <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-xs text-muted-foreground">
+                                    {currency}
+                                </span>
+                                <Input
+                                    id="minPurchaseAmount"
+                                    type="number"
                                     min="0"
                                     step="0.01"
-                                    {...register("discountValue", { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="pl-12 tabular-nums"
+                                    placeholder="0.00"
+                                    {...register("minPurchaseAmount", { valueAsNumber: true })}
                                 />
-                                <span className="absolute right-3 top-2 text-gray-500">{discountUnit}</span>
                             </div>
+                            <FieldDescription>{t("minPurchaseHelp")}</FieldDescription>
+                        </Field>
+
+                        <div className="flex items-center justify-end gap-2 border-t pt-5">
+                            <Button type="button" variant="ghost" onClick={() => router.push(`/events/${eventId}/coupons`)}>
+                                {tc("cancel")}
+                            </Button>
+                            <Button type="submit" disabled={createCouponMutation.isPending}>
+                                {createCouponMutation.isPending && <Spinner />}
+                                {createCouponMutation.isPending ? t("creating") : t("submit")}
+                            </Button>
                         </div>
-                    </div>
+                    </form>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="maxUsages" className="block text-sm font-medium text-gray-700 mb-1">
-                                {t("maxUses")}
-                            </label>
-                            <input
-                                id="maxUsages"
-                                type="number"
-                                required
-                                min="1"
-                                max="10000"
-                                {...register("maxUsages", { valueAsNumber: true })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">{t("maxUsesHelp")}</p>
-                        </div>
-
-                        <div>
-                            <label htmlFor="expiresAt" className="block text-sm font-medium text-gray-700 mb-1">
-                                {t("expiration")}
-                            </label>
-                            <input
-                                id="expiresAt"
-                                type="datetime-local"
-                                required
-                                {...register("expiresAt", {
-                                    setValueAs: v => (v ? new Date(v).toISOString() : v),
-                                })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label htmlFor="minPurchaseAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("minPurchase")}
-                        </label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-2 text-gray-500">{currency}</span>
-                            <input
-                                id="minPurchaseAmount"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                {...register("minPurchaseAmount", { valueAsNumber: true })}
-                                className="w-full pl-14 pr-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">{t("minPurchaseHelp")}</p>
-                    </div>
-
-                    <div className="bg-indigo-50 rounded-lg p-4">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2">{t("preview")}</h3>
-                        <div className="space-y-1 text-sm text-gray-700">
-                            <p>
-                                {t("previewCode")} <span className="font-mono font-bold">{couponCode || "XXXXX"}</span>
-                            </p>
-                            <p>
-                                {t("previewDiscount")}{" "}
-                                <span className="font-semibold text-green-600">{formattedDiscountText}</span>
-                            </p>
-                            <p>{t("previewUses", { count: maxUsages })}</p>
-                            {hasMinPurchaseAmount && (
-                                <p>{t("previewMin", { amount: formatMoney(minPurchaseAmount, currency) })}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                        <button
-                            type="submit"
-                            disabled={createCouponMutation.isPending}
-                            className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-semibold"
-                        >
-                            {createCouponMutation.isPending ? t("creating") : t("submit")}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => router.push(`/events/${eventId}/coupons`)}
-                            className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-md hover:bg-gray-300 transition-colors font-semibold"
-                        >
-                            {tc("cancel")}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                    <aside className="lg:sticky lg:top-17 lg:self-start">
+                        <Card className="gap-0 py-0">
+                            <CardHeader className="border-b py-3">
+                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("preview")}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 py-4 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">{t("previewCode")}</span>
+                                    <code className="rounded border bg-muted px-1.5 py-0.5 font-mono font-medium tracking-wide">
+                                        {couponCode || "XXXXX"}
+                                    </code>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">{t("previewDiscount")}</span>
+                                    <span className="font-medium text-success">{formattedDiscountText}</span>
+                                </div>
+                                <p className="text-muted-foreground">{t("previewUses", { count: maxUsages })}</p>
+                                {hasMinPurchaseAmount && (
+                                    <p className="text-muted-foreground">
+                                        {t("previewMin", { amount: formatMoney(minPurchaseAmount, currency) })}
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </aside>
+                </div>
+            </PageContent>
+        </>
     );
 }

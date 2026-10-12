@@ -10,7 +10,7 @@ import { requireRoles } from "../common/middleware/require-roles.middleware";
 import { Public } from "../auth/decorators/public.decorator";
 import { TicketsService } from "./tickets.service";
 
-@Controller("tickets")
+@Controller()
 export class TicketsController {
     constructor(private readonly ticketsService: TicketsService) {}
 

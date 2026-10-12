@@ -28,7 +28,7 @@ test.describe("login and logout", () => {
 
         // The mocked 401 uses the API's real error shape ({ defined, code, message }), so the UI shows
         // an error toast. We pin the behaviour (toast + stay on /login), not the exact copy.
-        await expect(page.locator(".bg-red-500")).toBeVisible();
+        await expect(page.locator('[data-sonner-toast][data-type="error"]')).toBeVisible();
         await expect(page).toHaveURL("/login");
     });
 
@@ -44,7 +44,7 @@ test.describe("login and logout", () => {
         await expect(page).toHaveURL("/");
 
         await page.getByRole("button", { name: "Account menu" }).click();
-        await page.getByRole("button", { name: "Sign out" }).click();
+        await page.getByRole("menuitem", { name: "Sign out" }).click();
 
         await expect(page).toHaveURL("/login");
         const cookies = await context.cookies();

@@ -1,13 +1,18 @@
+import { ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 export function AccessDenied() {
     const t = useTranslations("AccessDenied");
     return (
-        <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("title")}</h2>
-                <p className="text-gray-600">{t("body")}</p>
-            </div>
-        </div>
+        <Empty className="min-h-[60vh]">
+            <EmptyMedia>
+                <ShieldAlert />
+            </EmptyMedia>
+            <EmptyHeader>
+                <EmptyTitle>{t("title")}</EmptyTitle>
+                <EmptyDescription>{t("body")}</EmptyDescription>
+            </EmptyHeader>
+        </Empty>
     );
 }

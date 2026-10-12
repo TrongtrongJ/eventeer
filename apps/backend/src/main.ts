@@ -7,6 +7,7 @@ import { AppModule } from "./app.module";
 import { configureApp } from "./app.setup";
 import { RedisIoAdapter } from "./websocket/redis-io.adapter";
 import type { EnvConfig } from "./env.validation";
+import { bootstrapAppWithOpenAPI } from "./config/openapi.config";
 
 async function bootstrap() {
     // bodyParser is off: oRPC consumes the raw request stream itself.
@@ -19,6 +20,7 @@ async function bootstrap() {
     ioAdapter.connectToRedis(config.get("REDIS_HOST", { infer: true }), config.get("REDIS_PORT", { infer: true }));
     app.useWebSocketAdapter(ioAdapter);
 
+    bootstrapAppWithOpenAPI(app);
     const port = config.get("PORT", { infer: true });
     await app.listen(port);
     console.log(`API listening on http://localhost:${port}`);

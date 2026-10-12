@@ -4,8 +4,10 @@ import { useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { setLocale } from "@/actions/locale-actions";
 import { locales, type Locale } from "@/i18n/helper";
+import { cn } from "@/lib/utils";
 
-export function LocaleSwitcher() {
+/** Compact segmented control for the interface language. */
+export function LocaleSwitcher({ className }: { className?: string }) {
     const t = useTranslations("Locale");
     const current = useLocale();
     const [isPending, startTransition] = useTransition();
@@ -21,28 +23,25 @@ export function LocaleSwitcher() {
         <div
             role="group"
             aria-label={t("label")}
-            className={`flex items-center text-sm ${isPending ? "opacity-60" : ""}`}
+            className={cn("inline-flex items-center rounded-md border bg-card/50 p-0.5 text-xs", isPending && "opacity-60", className)}
         >
-            {locales.map((locale, index) => (
-                <span key={locale} className="flex items-center">
-                    {index > 0 && (
-                        <span aria-hidden="true" className="text-gray-300">
-                            |
-                        </span>
+            {locales.map(locale => (
+                <button
+                    key={locale}
+                    type="button"
+                    lang={locale}
+                    aria-pressed={locale === current}
+                    disabled={isPending}
+                    onClick={() => choose(locale)}
+                    className={cn(
+                        "rounded-[5px] px-2 py-0.5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        locale === current
+                            ? "bg-accent text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground",
                     )}
-                    <button
-                        type="button"
-                        lang={locale}
-                        aria-pressed={locale === current}
-                        disabled={isPending}
-                        onClick={() => choose(locale)}
-                        className={`px-2 py-1 rounded ${
-                            locale === current ? "font-semibold text-indigo-600" : "text-gray-600 hover:text-indigo-600"
-                        }`}
-                    >
-                        {t(`names.${locale}`)}
-                    </button>
-                </span>
+                >
+                    {t(`names.${locale}`)}
+                </button>
             ))}
         </div>
     );

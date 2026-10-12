@@ -3,11 +3,21 @@
 import { useMoney } from "@/i18n/hooks";
 import { type NamespaceKeys, useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
+import { ChevronRight, Ticket, TriangleAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
+import { cn } from "@/lib/utils";
 import { getBookingStatusClass, formatBookingDate } from "./helpers";
+import EmptyList from "@/components/EmptyList";
+import { ListSkeleton } from "@/components/Loader/ListSkeleton";
+import { BookingStatusIcon } from "@/components/StatusIcons";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type BookingStatusMessageKey = NamespaceKeys<"Enums", "bookingStatus">;
+
 export function MyBookingsClient() {
     const t = useTranslations("Bookings");
     const tc = useTranslations("Common");
@@ -17,84 +27,101 @@ export function MyBookingsClient() {
     const { data, isLoading, isError, error } = useQuery(orpc.bookings.getMyBookings.queryOptions());
     const bookings = data?.data;
 
+    const header = <PageHeader title={t("title")} />;
+
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-            </div>
+            <>
+                {header}
+                <ListSkeleton rows={6} />
+            </>
         );
     }
 
     if (isError) {
         return (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {(error as any)?.message || tc("somethingWrong")}
-            </div>
+            <>
+                {header}
+                <div className="p-4">
+                    <Alert variant="destructive">
+                        <TriangleAlert />
+                        <AlertDescription>{(error as any)?.message || tc("somethingWrong")}</AlertDescription>
+                    </Alert>
+                </div>
+            </>
         );
     }
 
     if (!bookings || bookings.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-                <p className="text-gray-600 mb-4">{t("empty")}</p>
-                <Link
-                    href="/"
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 inline-block"
-                >
-                    {t("browse")}
-                </Link>
-            </div>
+            <>
+                {header}
+                <EmptyList
+                    icon={<Ticket />}
+                    message={t("empty")}
+                    action={
+                        <Button asChild size="sm">
+                            <Link href="/">{t("browse")}</Link>
+                        </Button>
+                    }
+                />
+            </>
         );
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">{t("title")}</h1>
-            <div className="space-y-4">
-                {bookings.map(booking => (
-                    <div
-                        key={booking.id}
-                        className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-                    >
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <>
+            {header}
+            <Table>
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        <TableHead>{t("colBooking")}</TableHead>
+                        <TableHead>{t("colStatus")}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t("colTickets")}</TableHead>
+                        <TableHead className="text-right">{t("colTotal")}</TableHead>
+                        <TableHead className="hidden text-right md:table-cell">{t("colDate")}</TableHead>
+                        <TableHead className="w-10">
+                            <span className="sr-only">{t("viewDetails")}</span>
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {bookings.map(booking => (
+                        <TableRow key={booking.id} className="group relative">
+                            <TableCell className="font-medium">
+                                {/* The first cell's link stretches over the whole row, so the row is one big target. */}
+                                <Link
+                                    href={`/booking/${booking.id}`}
+                                    className="font-mono text-[13px] outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset"
+                                >
                                     {t("bookingNumber", { id: booking.id.slice(0, 8) })}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                    <div>
-                                        <span className="font-medium">{t("quantity")}</span>{" "}
-                                        {tc("ticketCount", { count: booking.quantity })}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">{t("total")}</span>{" "}
-                                        {formatMoney(booking.finalAmount, booking.currency)}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">{t("status")}</span>{" "}
-                                        <span
-                                            className={`px-2 py-1 rounded text-xs font-medium ${getBookingStatusClass(booking.status)}`}
-                                        >
-                                            {tStatus(booking.status as BookingStatusMessageKey)}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">{t("date")}</span>{" "}
-                                        {formatBookingDate(format, booking.createdAt)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <Link
-                                href={`/booking/${booking.id}`}
-                                className="ml-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-                            >
-                                {t("viewDetails")}
-                            </Link>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
+                                </Link>
+                            </TableCell>
+                            <TableCell>
+                                <span className={cn("inline-flex items-center gap-2", getBookingStatusClass(booking.status))}>
+                                    <BookingStatusIcon status={booking.status} />
+                                    <span className="text-foreground">{tStatus(booking.status as BookingStatusMessageKey)}</span>
+                                </span>
+                            </TableCell>
+                            <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">
+                                {tc("ticketCount", { count: booking.quantity })}
+                            </TableCell>
+                            <TableCell className="text-right font-medium tabular-nums">
+                                {formatMoney(booking.finalAmount, booking.currency)}
+                            </TableCell>
+                            <TableCell className="hidden text-right text-muted-foreground md:table-cell">
+                                {formatBookingDate(format, booking.createdAt)}
+                            </TableCell>
+                            <TableCell>
+                                <ChevronRight
+                                    aria-hidden="true"
+                                    className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground"
+                                />
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </>
     );
 }

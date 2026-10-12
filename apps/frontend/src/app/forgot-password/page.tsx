@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
 import { useToast } from "@/lib/toast/toast-context";
+import { MailCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { AuthLayout } from "@/components/shell/AuthLayout";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function ForgotPasswordPage() {
     const { addToast } = useToast();
@@ -31,73 +38,49 @@ export default function ForgotPasswordPage() {
 
     if (submitted) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-md w-full">
-                    <div className="bg-white shadow-md rounded-lg p-8 text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                            <svg
-                                className="w-8 h-8 text-green-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("sentTitle")}</h2>
-                        <p className="text-gray-600 mb-6">
-                            {t.rich("sentBody", { email, strong: chunks => <strong>{chunks}</strong> })}
-                        </p>
-                        <Link href="/login" className="text-indigo-600 hover:text-indigo-500 font-medium">
-                            {t("backToLogin")}
-                        </Link>
-                    </div>
+            <AuthLayout
+                title={t("sentTitle")}
+                description={t.rich("sentBody", { email, strong: chunks => <strong className="text-foreground">{chunks}</strong> })}
+            >
+                <div className="flex flex-col items-center gap-5">
+                    <span className="grid size-10 place-items-center rounded-full bg-success/15 text-success">
+                        <MailCheck className="size-5" />
+                    </span>
+                    <Button asChild variant="outline" className="w-full">
+                        <Link href="/login">{t("backToLogin")}</Link>
+                    </Button>
                 </div>
-            </div>
+            </AuthLayout>
         );
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{t("title")}</h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">{t("intro")}</p>
+        <AuthLayout title={t("title")} description={t("intro")}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+                <Field>
+                    <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
+                    <Input
+                        id="email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder={t("emailPlaceholder")}
+                    />
+                </Field>
+
+                <Button type="submit" size="lg" disabled={forgotPasswordMutation.isPending} className="w-full">
+                    {forgotPasswordMutation.isPending && <Spinner />}
+                    {forgotPasswordMutation.isPending ? t("submitting") : t("submit")}
+                </Button>
+
+                <div className="text-center">
+                    <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground">
+                        {t("backToLogin")}
+                    </Link>
                 </div>
-
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                            {t("email")}
-                        </label>
-                        <input
-                            id="email"
-                            type="email"
-                            required
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder={t("emailPlaceholder")}
-                        />
-                    </div>
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={forgotPasswordMutation.isPending}
-                            className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {forgotPasswordMutation.isPending ? t("submitting") : t("submit")}
-                        </button>
-                    </div>
-
-                    <div className="text-center">
-                        <Link href="/login" className="text-sm text-indigo-600 hover:text-indigo-500">
-                            {t("backToLogin")}
-                        </Link>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </AuthLayout>
     );
 }

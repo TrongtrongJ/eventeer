@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import { SubmitEvent, useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,14 +11,20 @@ import { orpc } from "@/lib/orpc/query";
 import { stripePublishableKey } from "@/lib/orpc/config";
 import { useMoney } from "@/i18n/hooks";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { Clock, FlaskConical, ShieldAlert } from "lucide-react";
 import { useToast } from "@/lib/toast/toast-context";
 import FullScreenLoader from "@/components/Loader/FullScreenLoader";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyActions, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 
 // No publishable key = demo mode (the API is in mock-payments mode too): no Stripe.js at all.
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
-
-const PAY_BUTTON =
-    "w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg font-semibold";
 
 /** Shared "payment finished, now let the API verify and issue tickets" step. */
 function useFinalizeBooking(bookingId: string) {
@@ -47,7 +53,7 @@ function StripeCheckoutForm({ booking }: { booking: BookingDto }) {
     const finalize = useFinalizeBooking(booking.id);
 
     const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
+        async (e: SubmitEvent<HTMLFormElement>) => {
             e.preventDefault();
             if (!stripe || !elements) return;
             setIsProcessing(true);
@@ -73,16 +79,21 @@ function StripeCheckoutForm({ booking }: { booking: BookingDto }) {
     );
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">{t("paymentDetails")}</h3>
-                <PaymentElement />
-            </div>
-            <button type="submit" disabled={!stripe || isProcessing} className={PAY_BUTTON}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <Card className="gap-4">
+                <CardHeader>
+                    <CardTitle>{t("paymentDetails")}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <PaymentElement />
+                </CardContent>
+            </Card>
+            <Button type="submit" size="lg" disabled={!stripe || isProcessing} className="w-full">
+                {isProcessing && <Spinner />}
                 {isProcessing
                     ? t("processing")
                     : t("pay", { amount: formatMoney(booking.finalAmount, booking.currency) })}
-            </button>
+            </Button>
         </form>
     );
 }
@@ -106,18 +117,26 @@ function DemoCheckoutForm({ booking }: { booking: BookingDto }) {
     }, [finalize, addToast, t]);
 
     return (
-        <div className="space-y-6">
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-lg text-sm">
-                {t.rich("demoNotice", {
-                    strong: chunks => <strong>{chunks}</strong>,
-                    code: chunks => <code className="mx-1">{chunks}</code>,
-                })}
-            </div>
-            <button type="button" onClick={handlePay} disabled={isProcessing} className={PAY_BUTTON}>
+        <div className="space-y-4">
+            <Alert variant="warning">
+                <FlaskConical />
+                <AlertDescription>
+                    <p className="text-foreground">
+                        {t.rich("demoNotice", {
+                            strong: chunks => <strong>{chunks}</strong>,
+                            code: chunks => (
+                                <code className="mx-0.5 rounded bg-muted px-1 py-0.5 font-mono text-xs">{chunks}</code>
+                            ),
+                        })}
+                    </p>
+                </AlertDescription>
+            </Alert>
+            <Button type="button" size="lg" onClick={handlePay} disabled={isProcessing} className="w-full">
+                {isProcessing && <Spinner />}
                 {isProcessing
                     ? t("processing")
                     : t("payDemo", { amount: formatMoney(booking.finalAmount, booking.currency) })}
-            </button>
+            </Button>
         </div>
     );
 }
@@ -127,12 +146,17 @@ function SeatHoldNotice({ expiresAt }: { expiresAt?: string | null }) {
     const format = useFormatter();
     if (!expiresAt) return null;
     return (
-        <p className="text-sm text-gray-500 mb-4">
-            {t.rich("seatHold", {
-                when: format.dateTime(new Date(expiresAt), { hour: "2-digit", minute: "2-digit" }),
-                time: chunks => <span className="font-medium">{chunks}</span>,
-            })}
-        </p>
+        <Alert variant="info">
+            <Clock />
+            <AlertDescription>
+                <p className="text-foreground">
+                    {t.rich("seatHold", {
+                        when: format.dateTime(new Date(expiresAt), { hour: "2-digit", minute: "2-digit" }),
+                        time: chunks => <span className="font-medium tabular-nums">{chunks}</span>,
+                    })}
+                </p>
+            </AlertDescription>
+        </Alert>
     );
 }
 
@@ -140,7 +164,9 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
     const router = useRouter();
     const t = useTranslations("Checkout");
     const tc = useTranslations("Common");
+    const tNav = useTranslations("Nav");
     const locale = useLocale();
+    const { resolvedTheme } = useTheme();
     const formatMoney = useMoney();
     const { data, isLoading } = useQuery(orpc.bookings.findOne.queryOptions({ input: { id: bookingId } }));
     const booking = data?.data;
@@ -157,59 +183,92 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
     // Hold lapsed / cancelled: the seats are gone, so there is nothing left to pay for.
     if (booking.status !== "PENDING") {
         return (
-            <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("inactiveTitle")}</h2>
-                <p className="text-gray-600 mb-6">{t("inactiveBody", { status: booking.status })}</p>
-                <Link href={`/events/${booking.eventId}`} className="text-indigo-600 font-medium hover:text-indigo-500">
-                    {t("backToEvent")}
-                </Link>
-            </div>
+            <>
+                <PageHeader title={t("title")} />
+                <Empty className="min-h-[50vh]">
+                    <EmptyMedia>
+                        <ShieldAlert />
+                    </EmptyMedia>
+                    <EmptyHeader>
+                        <EmptyTitle>{t("inactiveTitle")}</EmptyTitle>
+                        <EmptyDescription>{t("inactiveBody", { status: booking.status })}</EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyActions>
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/events/${booking.eventId}`}>{t("backToEvent")}</Link>
+                        </Button>
+                    </EmptyActions>
+                </Empty>
+            </>
         );
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 py-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">{t("title")}</h2>
-            <SeatHoldNotice expiresAt={booking.expiresAt} />
+        <>
+            <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("title")} />
 
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h3 className="text-xl font-semibold mb-4">{t("orderSummary")}</h3>
-                <div className="space-y-3 text-gray-600">
-                    <div className="flex justify-between">
-                        <span>{t("quantity")}</span>
-                        <span className="font-semibold">{tc("ticketCount", { count: booking.quantity })}</span>
+            <PageContent width="wide">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="min-w-0 space-y-4">
+                        <h1 className="sr-only">{t("title")}</h1>
+                        <SeatHoldNotice expiresAt={booking.expiresAt} />
+
+                        {stripePromise && booking.clientSecret ? (
+                            <Elements
+                                stripe={stripePromise}
+                                options={{
+                                    locale, // Stripe's own UI + card error messages follow the app language
+                                    clientSecret: booking.clientSecret,
+                                    appearance: {
+                                        // Match the app theme so the card form does not glow white on the dark UI.
+                                        theme: resolvedTheme === "light" ? "stripe" : "night",
+                                        variables: {
+                                            colorPrimary: "#5e6ad2",
+                                            borderRadius: "6px",
+                                            fontFamily: "Inter, system-ui, sans-serif",
+                                        },
+                                    },
+                                }}
+                            >
+                                <StripeCheckoutForm booking={booking} />
+                            </Elements>
+                        ) : (
+                            <DemoCheckoutForm booking={booking} />
+                        )}
                     </div>
-                    <div className="flex justify-between">
-                        <span>{t("subtotal")}</span>
-                        <span>{formatMoney(booking.totalAmount, booking.currency)}</span>
-                    </div>
-                    {booking.discount > 0 && (
-                        <div className="flex justify-between text-green-600">
-                            <span>{t("discount", { code: booking.couponCode ?? "" })}</span>
-                            <span>-{formatMoney(booking.discount, booking.currency)}</span>
-                        </div>
-                    )}
-                    <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
-                        <span>{t("total")}</span>
-                        <span className="text-indigo-600">{formatMoney(booking.finalAmount, booking.currency)}</span>
-                    </div>
+
+                    <aside className="lg:sticky lg:top-17 lg:self-start">
+                        <Card className="gap-0 py-0">
+                            <CardHeader className="border-b py-3">
+                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("orderSummary")}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 py-4 text-sm">
+                                <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">{t("quantity")}</span>
+                                    <span className="font-medium tabular-nums">{tc("ticketCount", { count: booking.quantity })}</span>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">{t("subtotal")}</span>
+                                    <span className="tabular-nums">{formatMoney(booking.totalAmount, booking.currency)}</span>
+                                </div>
+                                {booking.discount > 0 && (
+                                    <div className="flex justify-between gap-4 text-success">
+                                        <span>{t("discount", { code: booking.couponCode ?? "" })}</span>
+                                        <span className="tabular-nums">-{formatMoney(booking.discount, booking.currency)}</span>
+                                    </div>
+                                )}
+                                <Separator />
+                                <div className="flex items-baseline justify-between gap-4">
+                                    <span className="font-medium">{t("total")}</span>
+                                    <span className="text-lg font-semibold tracking-tight tabular-nums">
+                                        {formatMoney(booking.finalAmount, booking.currency)}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </aside>
                 </div>
-            </div>
-
-            {stripePromise && booking.clientSecret ? (
-                <Elements
-                    stripe={stripePromise}
-                    options={{
-                        locale, // Stripe's own UI + card error messages follow the app language
-                        clientSecret: booking.clientSecret,
-                        appearance: { theme: "stripe", variables: { colorPrimary: "#4F46E5" } },
-                    }}
-                >
-                    <StripeCheckoutForm booking={booking} />
-                </Elements>
-            ) : (
-                <DemoCheckoutForm booking={booking} />
-            )}
-        </div>
+            </PageContent>
+        </>
     );
 }

@@ -10,7 +10,7 @@ import { withCurrentUser } from "../common/middleware/current-user.middleware";
 import { requireRoles } from "../common/middleware/require-roles.middleware";
 import { Public } from "../auth/decorators/public.decorator";
 
-@Controller("coupons")
+@Controller()
 export class CouponsController {
     constructor(private readonly couponsService: CouponsService) {}
 

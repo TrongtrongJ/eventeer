@@ -1,39 +1,26 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo } from "react";
+import { toast } from "sonner";
 
 export type ToastType = "success" | "error" | "info";
 
-export interface ToastState {
-    id: string;
-    message: string;
-    type: ToastType;
-}
-
 interface ToastContextValue {
-    toasts: ToastState[];
     addToast: (toast: { message: string; type: ToastType }) => void;
-    removeToast: (id: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-function generateToastId() {
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
+/**
+ * Thin adapter over Sonner so existing `addToast({ message, type })` call sites keep working.
+ * Rendering is done by <Toaster /> (see components/ToastContainer).
+ */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-    const [toasts, setToasts] = useState<ToastState[]>([]);
-
-    const addToast = useCallback((toast: { message: string; type: ToastType }) => {
-        setToasts(prev => [...prev, { id: generateToastId(), ...toast }]);
+    const addToast = useCallback(({ message, type }: { message: string; type: ToastType }) => {
+        toast[type](message);
     }, []);
 
-    const removeToast = useCallback((id: string) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-    }, []);
-
-    const value = useMemo(() => ({ toasts, addToast, removeToast }), [toasts, addToast, removeToast]);
+    const value = useMemo(() => ({ addToast }), [addToast]);
 
     return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }

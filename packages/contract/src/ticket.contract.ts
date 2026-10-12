@@ -10,8 +10,9 @@ export const ticketContract = oc.router({
         .meta(
             openapi({
                 method: "POST",
-                path: "/validate",
+                path: "/tickets/validate",
                 description: "Validate ticket with QR code",
+                tags: ["Ticket"],
             }),
         ),
     lookup: oc
@@ -20,8 +21,9 @@ export const ticketContract = oc.router({
         .meta(
             openapi({
                 method: "GET",
-                path: "/lookup",
+                path: "/tickets/lookup",
                 description: "Lookup ticket data with QR code",
+                tags: ["Ticket"],
             }),
         ),
 });

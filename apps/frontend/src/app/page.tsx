@@ -1,10 +1,11 @@
+import { Suspense } from 'react';
 import { createServerOrpc } from "@/lib/orpc/server-client";
 import { EventsListClient } from "./EventsListClient";
 
 const PAGE_SIZE = 12;
 
-export default async function EventsListPage() {
-    const orpc = createServerOrpc();
+async function EventsListPage() {
+  const orpc = createServerOrpc();
 
     let initialData;
     try {
@@ -13,9 +14,9 @@ export default async function EventsListPage() {
         initialData = undefined;
     }
 
-    return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <EventsListClient initialData={initialData} pageSize={PAGE_SIZE} />
-        </div>
-    );
+    return <EventsListClient initialData={initialData} pageSize={PAGE_SIZE} />;
+}
+export default async function EventsListPageWrapper() {
+
+    return <Suspense><EventsListPage /></Suspense>;
 }

@@ -46,7 +46,25 @@
         "signOut": "Sign out",
         "signIn": "Sign in",
         "signUp": "Sign up",
-        "loggedOut": "Logged out successfully"
+        "loggedOut": "Logged out successfully",
+        "myBookings": "My Bookings",
+        "myEvents": "My Events",
+        "metrics": "Metrics",
+        "groupTickets": "Tickets",
+        "groupOrganize": "Organize",
+        "groupAdmin": "Admin",
+        "openMenu": "Open navigation",
+        "navigation": "Navigation",
+        "search": "Search or jump to…",
+        "commandPlaceholder": "Type a command or search…",
+        "commandEmpty": "No results found.",
+        "commandGoTo": "Go to",
+        "commandPreferences": "Preferences",
+        "commandAccount": "Account",
+        "theme": "Theme",
+        "themeLight": "Light",
+        "themeDark": "Dark",
+        "themeSystem": "System"
     },
     "AccessDenied": {
         "title": "Access Denied",
@@ -59,7 +77,8 @@
         "soldOut": "Sold Out",
         "previous": "Previous",
         "next": "Next",
-        "pageOf": "Page {page} of {total}"
+        "pageOf": "Page {page} of {total}",
+        "count": "{count, plural, one {# event} other {# events}}"
     },
     "EventDetails": {
         "backToEvents": "Back to Events",
@@ -75,7 +94,16 @@
         "total": "Total:",
         "proceed": "Proceed to Payment",
         "processing": "Processing...",
-        "bookingFailed": "Failed to create booking"
+        "bookingFailed": "Failed to create booking",
+        "details": "Details",
+        "date": "Date",
+        "location": "Location",
+        "organizer": "Organizer",
+        "price": "Price",
+        "availability": "Availability",
+        "seatsOf": "{available} of {capacity} seats left",
+        "reserve": "Reserve tickets",
+        "soldOut": "Sold out"
     },
     "CreateEvent": {
         "heading": "Create New Event",
@@ -106,13 +134,21 @@
         "couponInvalidFallback": "invalid",
         "couponCreated": "Coupon {code} created",
         "couponFailed": "Event created, but the coupon failed: {error}",
-        "unknownError": "unknown error"
+        "unknownError": "unknown error",
+        "sectionBasics": "Basics",
+        "sectionBasicsHelp": "What attendees see first.",
+        "sectionSchedule": "When and where",
+        "sectionScheduleHelp": "Set the start, end and venue.",
+        "sectionTickets": "Tickets",
+        "sectionTicketsHelp": "Capacity and price per ticket.",
+        "sectionPromotion": "Promotion",
+        "sectionPromotionHelp": "Optionally launch with a discount code."
     },
     "Coupons": {
         "backToEvent": "Back to Event",
         "title": "Coupons",
         "forEvent": "For: {title}",
-        "createCoupon": "+ Create Coupon",
+        "createCoupon": "Create Coupon",
         "eventNotFound": "Failed to find an event with specified eventId!",
         "emptyTitle": "No coupons yet",
         "emptyBody": "Create your first coupon to offer discounts to your attendees",
@@ -125,7 +161,13 @@
         "deactivate": "Deactivate",
         "copy": "Copy",
         "copied": "Coupon Code copied!",
-        "discountOff": "{type, select, PERCENTAGE {{value}% off} other {{amount} off}}"
+        "discountOff": "{type, select, PERCENTAGE {{value}% off} other {{amount} off}}",
+        "colCode": "Code",
+        "colDiscount": "Discount",
+        "colUsage": "Usage",
+        "colExpires": "Expires",
+        "colStatus": "Status",
+        "active": "Active"
     },
     "CreateCoupon": {
         "back": "Back to Coupons",
@@ -239,7 +281,12 @@
         "total": "Total:",
         "status": "Status:",
         "date": "Date:",
-        "viewDetails": "View Details"
+        "viewDetails": "View Details",
+        "colBooking": "Booking",
+        "colStatus": "Status",
+        "colTickets": "Tickets",
+        "colTotal": "Total",
+        "colDate": "Date"
     },
     "BookingConfirmation": {
         "title": "Booking Confirmed!",
@@ -280,17 +327,21 @@
         "title": "My Events",
         "empty": "You haven't created any events yet.",
         "createFirst": "Create Your First Event",
-        "createEvent": "+ Create Event",
+        "createEvent": "Create Event",
         "available": "Available:",
         "price": "Price:",
         "view": "View",
-        "coupons": "Coupons"
+        "coupons": "Coupons",
+        "colEvent": "Event",
+        "colDate": "Date",
+        "colSeats": "Seats",
+        "colPrice": "Price"
     },
     "Metrics": {
         "title": "System Metrics",
         "loadFailed": "Failed to load metrics",
-        "autoRefreshOn": "🔄 Auto-refresh ON",
-        "autoRefreshOff": "⏸ Auto-refresh OFF",
+        "autoRefreshOn": "Auto-refresh on",
+        "autoRefreshOff": "Auto-refresh off",
         "refreshNow": "Refresh Now",
         "status": "Status",
         "statusValues": {
@@ -343,5 +394,9 @@
             "discountAmountZero": "Discount amount cannot be 0",
             "discountExceedsPrice": "Discount amount cannot exceed ticket price"
         }
+    },
+    "NotFound": {
+        "title": "Page not found",
+        "body": "The page you're looking for doesn't exist or has moved."
     }
 }

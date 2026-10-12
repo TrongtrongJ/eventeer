@@ -1,106 +1,130 @@
 "use client";
 
 import { useMoney } from "@/i18n/hooks";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { CalendarCheck, Plus, TicketPercent } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
+import { cn } from "@/lib/utils";
+import EmptyList from "@/components/EmptyList";
+import { ListSkeleton } from "@/components/Loader/ListSkeleton";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { seatsRemainingRatio } from "../events/[eventId]/helpers";
 
 export function MyEventsClient() {
-    const router = useRouter();
     const t = useTranslations("MyEvents");
+    const tEvents = useTranslations("EventsList");
     const formatMoney = useMoney();
+    const format = useFormatter();
     const { data, isLoading } = useQuery(orpc.events.getMyEvents.queryOptions());
     const events = data?.data;
 
+    const createButton = (
+        <Button asChild size="sm">
+            <Link href="/create">
+                <Plus />
+                {t("createEvent")}
+            </Link>
+        </Button>
+    );
+
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-            </div>
+            <>
+                <PageHeader title={t("title")} />
+                <ListSkeleton rows={5} />
+            </>
         );
     }
 
     if (!events || events.length === 0) {
         return (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-                <p className="text-gray-600 mb-4">{t("empty")}</p>
-                <button
-                    onClick={() => router.push("/create")}
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
-                >
-                    {t("createFirst")}
-                </button>
-            </div>
+            <>
+                <PageHeader title={t("title")} />
+                <EmptyList icon={<CalendarCheck />} message={t("empty")} action={createButton} />
+            </>
         );
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">{t("title")}</h1>
-                <Link href="/create" className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700">
-                    {t("createEvent")}
-                </Link>
-            </div>
+        <>
+            <PageHeader
+                title={t("title")}
+                meta={
+                    <Badge variant="outline" className="ml-1 tabular-nums">
+                        {tEvents("count", { count: events.length })}
+                    </Badge>
+                }
+                actions={createButton}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map(event => (
-                    <div key={event.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                        {event.imageUrl && (
-                            <img
-                                src={event.imageUrl}
-                                alt={event.title}
-                                className="w-full h-48 object-cover rounded-t-lg"
-                            />
-                        )}
-
-                        <div className="p-6">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">{event.title}</h3>
-                            <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
-
-                            <div className="space-y-2 text-sm text-gray-500 mb-4">
-                                <div className="flex justify-between">
-                                    <span>{t("available")}</span>
-                                    <span className="font-semibold">
-                                        {event.availableSeats} / {event.capacity}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>{t("price")}</span>
-                                    <span className="font-semibold">
-                                        {formatMoney(event.ticketPrice, event.currency)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <Link
-                                    href={`/events/${event.id}`}
-                                    className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 text-center"
-                                >
-                                    {t("view")}
-                                </Link>
-                                <Link
-                                    href={`/events/${event.id}/coupons`}
-                                    className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center"
-                                >
-                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+            <Table>
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        <TableHead>{t("colEvent")}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t("colDate")}</TableHead>
+                        <TableHead className="hidden w-48 sm:table-cell">{t("colSeats")}</TableHead>
+                        <TableHead className="hidden text-right lg:table-cell">{t("colPrice")}</TableHead>
+                        <TableHead className="w-px" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {events.map(event => {
+                        const sold = event.capacity - event.availableSeats;
+                        const soldRatio = 1 - seatsRemainingRatio(event.availableSeats, event.capacity);
+                        return (
+                            <TableRow key={event.id}>
+                                <TableCell className="max-w-72 whitespace-normal">
+                                    <Link
+                                        href={`/events/${event.id}`}
+                                        className="block truncate font-medium outline-none hover:underline focus-visible:underline"
+                                    >
+                                        {event.title}
+                                    </Link>
+                                    <span className="block truncate text-xs text-muted-foreground">{event.location}</span>
+                                </TableCell>
+                                <TableCell className="hidden text-muted-foreground md:table-cell">
+                                    {format.dateTime(new Date(event.startDate), { dateStyle: "medium" })}
+                                </TableCell>
+                                <TableCell className="hidden sm:table-cell">
+                                    <div className="flex items-center gap-2.5">
+                                        <Progress
+                                            value={soldRatio * 100}
+                                            aria-label={t("colSeats")}
+                                            className="w-24"
+                                            indicatorClassName={cn(soldRatio >= 1 ? "bg-destructive" : "bg-primary")}
                                         />
-                                    </svg>
-                                    {t("coupons")}
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                            {sold} / {event.capacity}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="hidden text-right font-medium tabular-nums lg:table-cell">
+                                    {formatMoney(event.ticketPrice, event.currency)}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex justify-end gap-1.5">
+                                        <Button asChild variant="ghost" size="sm">
+                                            <Link href={`/events/${event.id}`}>{t("view")}</Link>
+                                        </Button>
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link href={`/events/${event.id}/coupons`}>
+                                                <TicketPercent />
+                                                {t("coupons")}
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </>
     );
 }

@@ -1,3 +1,162 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens - a Linear-inspired palette.
+ * Dark is the primary theme: near-black canvas, a slightly lifted content panel, hairline borders
+ * and a single indigo accent. Light mode mirrors the same structure.
+ */
+:root {
+    --radius: 0.5rem;
+
+    --background: #ffffff;
+    --foreground: #1c1d20;
+    --card: #ffffff;
+    --card-foreground: #1c1d20;
+    --popover: #ffffff;
+    --popover-foreground: #1c1d20;
+
+    --primary: #5e6ad2;
+    --primary-foreground: #ffffff;
+    --secondary: #f3f4f6;
+    --secondary-foreground: #1c1d20;
+    --muted: #f6f7f9;
+    --muted-foreground: #6c7078;
+    --accent: #eff0f3;
+    --accent-foreground: #1c1d20;
+
+    --destructive: #d94a4a;
+    --success: #1f9d63;
+    --warning: #b7791f;
+    --info: #3b78e0;
+
+    --border: #e6e7eb;
+    --input: #d9dbe1;
+    --ring: #5e6ad2;
+
+    --sidebar: #f5f6f8;
+    --sidebar-foreground: #3b3d43;
+    --sidebar-accent: #e9eaee;
+    --sidebar-border: #e6e7eb;
+}
+
+.dark {
+    color-scheme: dark;
+
+    --background: #101114;
+    --foreground: #eceef1;
+    --card: #14151a;
+    --card-foreground: #eceef1;
+    --popover: #17181d;
+    --popover-foreground: #eceef1;
+
+    --primary: #5e6ad2;
+    --primary-foreground: #ffffff;
+    --secondary: #1b1c21;
+    --secondary-foreground: #eceef1;
+    --muted: #15161a;
+    --muted-foreground: #8a8f98;
+    --accent: #1b1c21;
+    --accent-foreground: #eceef1;
+
+    --destructive: #eb5757;
+    --success: #4cb782;
+    --warning: #f2c94c;
+    --info: #5ea7ff;
+
+    --border: #24262c;
+    --input: #2c2e35;
+    --ring: #7782e0;
+
+    --sidebar: #0b0b0e;
+    --sidebar-foreground: #c3c7ce;
+    --sidebar-accent: #1a1b20;
+    --sidebar-border: #1c1d22;
+}
+
+@theme inline {
+    --font-sans: var(--font-inter), var(--font-thai), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    /* Linear's UI is dense: 13px is the working size, not 14px. */
+    --text-sm: 0.8125rem;
+    --text-sm--line-height: 1.25rem;
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-border: var(--sidebar-border);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-sidebar text-foreground antialiased;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        letter-spacing: -0.006em;
+        font-feature-settings:
+            "cv11",
+            "ss01";
+        text-rendering: optimizeLegibility;
+    }
+
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+        cursor: pointer;
+    }
+
+    ::selection {
+        background: color-mix(in oklab, var(--primary) 35%, transparent);
+    }
+}
+
+/* Slim scrollbars that stay out of the way in the dark theme. */
+@layer utilities {
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+}
+
+@media print {
+    body {
+        background: #fff;
+        color: #000;
+    }
+}

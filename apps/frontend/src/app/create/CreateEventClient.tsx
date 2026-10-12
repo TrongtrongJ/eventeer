@@ -10,6 +10,15 @@ import { orpc } from "@/lib/orpc/query";
 import { useToast } from "@/lib/toast/toast-context";
 import { useTranslations } from "next-intl";
 import { useValidationMessage } from "@/i18n/validation";
+import { PageContent, PageHeader } from "@/components/shell/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 
 const initialFormData: CreateEventDto = {
     title: "",
@@ -22,8 +31,6 @@ const initialFormData: CreateEventDto = {
     currency: "THB",
     imageUrl: "",
 };
-
-const INPUT = "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500";
 
 interface CouponForm {
     enabled: boolean;
@@ -49,6 +56,7 @@ export function CreateEventClient() {
     const queryClient = useQueryClient();
     const t = useTranslations("CreateEvent");
     const tc = useTranslations("Common");
+    const tNav = useTranslations("Nav");
     const localizeMessage = useValidationMessage();
 
     const {
@@ -125,234 +133,189 @@ export function CreateEventClient() {
 
     const isSubmitButtonDisabled = createEventMutation.isPending || createCouponMutation.isPending || !isValid;
 
+    const isPending = createEventMutation.isPending || createCouponMutation.isPending;
+
     return (
-        <div className="max-w-3xl mx-auto px-4 py-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">{t("heading")}</h2>
+        <>
+            <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("heading")} titleAsText />
 
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
-                <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t("title")}
-                    </label>
-                    <input
-                        id="title"
-                        type="text"
-                        required
-                        minLength={3}
-                        maxLength={200}
-                        {...register("title")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder={t("titlePlaceholder")}
-                    />
-                </div>
+            <PageContent width="default">
+                <h1 className="mb-2 text-2xl font-semibold tracking-tight">{t("heading")}</h1>
 
-                <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t("description")}
-                    </label>
-                    <textarea
-                        id="description"
-                        required
-                        minLength={10}
-                        maxLength={5000}
-                        rows={5}
-                        {...register("description")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder={t("descriptionPlaceholder")}
-                    />
-                </div>
+                <form onSubmit={handleSubmit(onSubmit)} className="divide-y">
+                    <FieldSet title={t("sectionBasics")} description={t("sectionBasicsHelp")}>
+                        <Field>
+                            <FieldLabel htmlFor="title">{t("title")}</FieldLabel>
+                            <Input
+                                id="title"
+                                type="text"
+                                required
+                                minLength={3}
+                                maxLength={200}
+                                placeholder={t("titlePlaceholder")}
+                                {...register("title")}
+                            />
+                        </Field>
+                        <Field>
+                            <FieldLabel htmlFor="description">{t("description")}</FieldLabel>
+                            <Textarea
+                                id="description"
+                                required
+                                minLength={10}
+                                maxLength={5000}
+                                rows={5}
+                                placeholder={t("descriptionPlaceholder")}
+                                {...register("description")}
+                            />
+                        </Field>
+                    </FieldSet>
 
-                <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t("location")}
-                    </label>
-                    <input
-                        id="location"
-                        type="text"
-                        required
-                        minLength={3}
-                        maxLength={500}
-                        {...register("location")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder={t("locationPlaceholder")}
-                    />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("startDate")}
-                        </label>
-                        <input
-                            id="startDate"
-                            type="datetime-local"
-                            required
-                            {...register("startDate")}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("endDate")}
-                        </label>
-                        <input
-                            id="endDate"
-                            type="datetime-local"
-                            required
-                            {...register("endDate")}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="capacity" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("capacity")}
-                        </label>
-                        <input
-                            id="capacity"
-                            type="number"
-                            required
-                            min={1}
-                            step={1}
-                            max={100000}
-                            {...register("capacity", { valueAsNumber: true })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="ticketPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                            {t("ticketPrice")}
-                        </label>
-                        <input
-                            id="ticketPrice"
-                            type="number"
-                            required
-                            min={0}
-                            step={0.1}
-                            {...register("ticketPrice", { valueAsNumber: true })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">
-                        {t("imageUrl")}
-                    </label>
-                    <input
-                        id="imageUrl"
-                        type="url"
-                        {...register("imageUrl")}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="https://example.com/image.jpg"
-                    />
-                </div>
-
-                <div className="border-t pt-6">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input
-                            type="checkbox"
-                            checked={coupon.enabled}
-                            onChange={e => patchCoupon({ enabled: e.target.checked })}
-                        />
-                        {t("addCoupon")}
-                    </label>
-
-                    {coupon.enabled && (
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("couponCode")}
-                                </label>
-                                <input
-                                    id="couponCode"
-                                    type="text"
-                                    value={coupon.code}
-                                    onChange={e => patchCoupon({ code: e.target.value })}
-                                    className={`${INPUT} uppercase`}
-                                    placeholder="EARLY20"
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="couponType" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("discountType")}
-                                </label>
-                                <select
-                                    id="couponType"
-                                    value={coupon.discountType}
-                                    onChange={e =>
-                                        patchCoupon({ discountType: e.target.value as CouponForm["discountType"] })
-                                    }
-                                    className={INPUT}
-                                >
-                                    <option value="PERCENTAGE">{t("percentage")}</option>
-                                    <option value="FIXED">{t("fixed")}</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="couponValue" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("discountValue", { type: coupon.discountType })}
-                                </label>
-                                <input
-                                    id="couponValue"
-                                    type="number"
-                                    min={1}
-                                    value={coupon.discountValue}
-                                    onChange={e => patchCoupon({ discountValue: Number(e.target.value) })}
-                                    className={INPUT}
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="couponMax" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("maxUses")}
-                                </label>
-                                <input
-                                    id="couponMax"
-                                    type="number"
-                                    min={1}
-                                    value={coupon.maxUsages}
-                                    onChange={e => patchCoupon({ maxUsages: Number(e.target.value) })}
-                                    className={INPUT}
-                                />
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label htmlFor="couponExpires" className="block text-sm font-medium text-gray-700 mb-1">
-                                    {t("expires")}
-                                </label>
-                                <input
-                                    id="couponExpires"
-                                    type="datetime-local"
-                                    value={coupon.expiresAt}
-                                    onChange={e => patchCoupon({ expiresAt: e.target.value })}
-                                    className={INPUT}
-                                />
-                            </div>
+                    <FieldSet title={t("sectionSchedule")} description={t("sectionScheduleHelp")}>
+                        <Field>
+                            <FieldLabel htmlFor="location">{t("location")}</FieldLabel>
+                            <Input
+                                id="location"
+                                type="text"
+                                required
+                                minLength={3}
+                                maxLength={500}
+                                placeholder={t("locationPlaceholder")}
+                                {...register("location")}
+                            />
+                        </Field>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field>
+                                <FieldLabel htmlFor="startDate">{t("startDate")}</FieldLabel>
+                                <Input id="startDate" type="datetime-local" required {...register("startDate")} />
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="endDate">{t("endDate")}</FieldLabel>
+                                <Input id="endDate" type="datetime-local" required {...register("endDate")} />
+                            </Field>
                         </div>
-                    )}
-                </div>
+                    </FieldSet>
 
-                <div className="flex gap-4">
-                    <button
-                        type="submit"
-                        disabled={isSubmitButtonDisabled}
-                        className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-semibold"
-                    >
-                        {createEventMutation.isPending ? t("creating") : t("submit")}
-                    </button>
+                    <FieldSet title={t("sectionTickets")} description={t("sectionTicketsHelp")}>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field>
+                                <FieldLabel htmlFor="capacity">{t("capacity")}</FieldLabel>
+                                <Input
+                                    id="capacity"
+                                    type="number"
+                                    required
+                                    min={1}
+                                    step={1}
+                                    max={100000}
+                                    className="tabular-nums"
+                                    {...register("capacity", { valueAsNumber: true })}
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="ticketPrice">{t("ticketPrice")}</FieldLabel>
+                                <Input
+                                    id="ticketPrice"
+                                    type="number"
+                                    required
+                                    min={0}
+                                    step={0.1}
+                                    className="tabular-nums"
+                                    {...register("ticketPrice", { valueAsNumber: true })}
+                                />
+                            </Field>
+                        </div>
+                        <Field>
+                            <FieldLabel htmlFor="imageUrl">{t("imageUrl")}</FieldLabel>
+                            <Input
+                                id="imageUrl"
+                                type="url"
+                                placeholder="https://example.com/image.jpg"
+                                {...register("imageUrl")}
+                            />
+                        </Field>
+                    </FieldSet>
 
-                    <button
-                        type="button"
-                        onClick={() => router.push("/")}
-                        className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-md hover:bg-gray-300 transition-colors font-semibold"
-                    >
-                        {tc("cancel")}
-                    </button>
-                </div>
-            </form>
-        </div>
+                    <FieldSet title={t("sectionPromotion")} description={t("sectionPromotionHelp")}>
+                        <div className="flex items-center gap-2.5">
+                            <Checkbox
+                                id="addCoupon"
+                                checked={coupon.enabled}
+                                onCheckedChange={checked => patchCoupon({ enabled: checked === true })}
+                            />
+                            <Label htmlFor="addCoupon" className="font-normal">
+                                {t("addCoupon")}
+                            </Label>
+                        </div>
+
+                        {coupon.enabled && (
+                            <div className="grid gap-4 rounded-lg border bg-muted/40 p-4 sm:grid-cols-2">
+                                <Field>
+                                    <FieldLabel htmlFor="couponCode">{t("couponCode")}</FieldLabel>
+                                    <Input
+                                        id="couponCode"
+                                        type="text"
+                                        value={coupon.code}
+                                        onChange={e => patchCoupon({ code: e.target.value })}
+                                        className="font-mono uppercase placeholder:normal-case"
+                                        placeholder="EARLY20"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="couponType">{t("discountType")}</FieldLabel>
+                                    <NativeSelect
+                                        id="couponType"
+                                        value={coupon.discountType}
+                                        onChange={e => patchCoupon({ discountType: e.target.value as CouponForm["discountType"] })}
+                                    >
+                                        <option value="PERCENTAGE">{t("percentage")}</option>
+                                        <option value="FIXED">{t("fixed")}</option>
+                                    </NativeSelect>
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="couponValue">{t("discountValue", { type: coupon.discountType })}</FieldLabel>
+                                    <Input
+                                        id="couponValue"
+                                        type="number"
+                                        min={1}
+                                        className="tabular-nums"
+                                        value={coupon.discountValue}
+                                        onChange={e => patchCoupon({ discountValue: Number(e.target.value) })}
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="couponMax">{t("maxUses")}</FieldLabel>
+                                    <Input
+                                        id="couponMax"
+                                        type="number"
+                                        min={1}
+                                        className="tabular-nums"
+                                        value={coupon.maxUsages}
+                                        onChange={e => patchCoupon({ maxUsages: Number(e.target.value) })}
+                                    />
+                                </Field>
+                                <Field className="sm:col-span-2">
+                                    <FieldLabel htmlFor="couponExpires">{t("expires")}</FieldLabel>
+                                    <Input
+                                        id="couponExpires"
+                                        type="datetime-local"
+                                        value={coupon.expiresAt}
+                                        onChange={e => patchCoupon({ expiresAt: e.target.value })}
+                                    />
+                                </Field>
+                            </div>
+                        )}
+                    </FieldSet>
+
+                    <div className="flex items-center justify-end gap-2 pt-6">
+                        <Button type="button" variant="ghost" onClick={() => router.push("/")}>
+                            {tc("cancel")}
+                        </Button>
+                        <Button type="submit" disabled={isSubmitButtonDisabled}>
+                            {isPending && <Spinner />}
+                            {createEventMutation.isPending ? t("creating") : t("submit")}
+                        </Button>
+                    </div>
+                </form>
+            </PageContent>
+        </>
     );
 }

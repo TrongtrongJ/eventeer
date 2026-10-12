@@ -72,7 +72,7 @@ Follow the best practices to fully leverage React compiler integration, ease the
 
 ### 6. Code Sanitary
 
-Cleaner than Claude standard, every depreciation was througroughly studied and fixed.
+Cleaner than Claude standard, every depreciation was studied and fixed.
 
 ---
 
@@ -88,7 +88,6 @@ Cleaner than Claude standard, every depreciation was througroughly studied and f
 
 ### Event Management
 
-- 📅 **CRUD Operations** for events with rich details
 - 🎫 **Dynamic Pricing** and capacity management
 - 📊 **Real-time Seat Availability** via WebSockets
 - 🏷️ **Coupon System** with percentage and fixed discounts
@@ -110,7 +109,6 @@ Cleaner than Claude standard, every depreciation was througroughly studied and f
 - 🎯 **Correlation IDs** for distributed tracing
 - 🏥 **Health Checks** for monitoring
 - 🐳 **Docker & Kubernetes**
-- 🔄 **Automated Cache Sync and Request Mutax**
 
 ---
 
@@ -118,9 +116,10 @@ Cleaner than Claude standard, every depreciation was througroughly studied and f
 
 - [x] Complete application architecture & Design documentation
 - [x] Complete application cloud architecture (AWS) & documentation
+- [ ] [Partial] Update readme and docs
 - [x] Zod 4 and oRPC contract pattern integration
 - [x] Fullstack support CJS and ESM
-- [x] Complete initial k8s & terraform template
+- [x] Complete minimal k8s & terraform template
 - [x] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
 - [ ] [Partial] Migrate NestJS and tests to the new oRPC error paradism
 - [ ] [Partial] Edge cases handling
@@ -128,14 +127,14 @@ Cleaner than Claude standard, every depreciation was througroughly studied and f
     - [x] Coupon race condition
     - [x] Token corruption
     - [ ] ...
-- [ ] [Partial] Ensure secondary workflows functionality
-- [ ] Flesh out API documentation with Scalar
+- [X] Ensure secondary workflows functionality
+- [X] Flesh out API documentation with Scalar
 - [x] finalize dependency-cruiser
 - [ ] [Partial] Complete dockerization support
 - [x] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
     - [x] Major flow frontend tests
     - [x] Major flow backend tests
-    - [x] Full suite integration test (auth and booking)
+    - [x] Full suite e2e test (auth and booking)
     - [x] Github Actions CI/CD
     - [x] Bitbucket pipeline
 
@@ -217,8 +216,8 @@ event-management-monorepo/
 
 - **NextJS 16** - UI library
 - **Tanstack Query** - Query and state management
-- **React Router** - Navigation
-- **TailwindCSS** - Styling
+- **App Router** - Navigation
+- **Shadcn & TailwindCSS** - Styling
 - **Stripe Elements** - Payment UI
 - **Socket.io Client** - Real-time updates
 
@@ -229,10 +228,8 @@ event-management-monorepo/
 - **PostgreSQL 15** - Primary database
 - **Redis 7** - Caching & message queue
 - **Bull** - Queue management
-- **Passport.js** - Authentication
 - **Stripe SDK** - Payment processing
 - **Socket.io** - WebSocket server
-- **Zod** - Schema validation
 
 ### DevOps & Tools
 
@@ -240,7 +237,7 @@ event-management-monorepo/
 - **Docker** - Containerization
 - **Kubernetes** - Orchestration
 - **GitHub Actions** - CI/CD
-- **pnpm** - Package manager
+- **yarn 4** - Package manager
 - **TypeScript** - Type safety
 - **ESLint & Prettier** - Code quality
 
@@ -252,7 +249,7 @@ event-management-monorepo/
 
 ```bash
 # Required
-- Node.js 20+
+- Node.js 22+
 - Docker & Docker Compose
 - PostgreSQL 15
 - Redis 7
@@ -319,7 +316,7 @@ npm run dev
 
 #### 5. Access the Application
 
-- **Frontend:** http://localhost:5173
+- **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:4000
 
 ### Seed Demo Data (Optional)
@@ -531,19 +528,19 @@ kubectl get hpa -n event-management
 
 ```bash
 # All tests
-pnpm test
+yarn test
 
 # Backend unit tests
-cd apps/backend && pnpm test
+cd apps/backend && yarn test
 
-# Backend integration tests
-cd apps/backend && pnpm test:integration
+# Backend e2e tests
+cd apps/backend && yarn test:e2e
 
 # Frontend tests
-cd apps/frontend && pnpm test
+cd apps/frontend && yarn test
 
 # With coverage
-pnpm test:cov
+yarn test:e2e
 ```
 
 ### Testing Strategy
