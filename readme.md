@@ -34,7 +34,11 @@ To ensure 100% synchronization between the React frontend and NestJS backend, we
 - **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
 - **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.
 
-### 2. High-Concurrency Integrity (Race Condition Mitigation)
+### 2. Opague Duo-token Cookies-only Authentication
+- **Modern Security-first Auth** Prevent PID leaks, token forging/tempering.
+- **Cookies-only As NextJS Native** Ensures SEO & Server component compatability.
+
+### 3. High-Concurrency Integrity (Race Condition Mitigation)
 
 Ticketing systems face unique challenges during "hot" event drops. This platform implements:
 

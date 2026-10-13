@@ -1,4 +1,3 @@
-import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "@node-rs/bcrypt";
 import { AuthService } from "./auth.service";
 import { hashToken } from "./utils/token.util";
@@ -79,9 +78,10 @@ describe("AuthService", () => {
 
         it("gates ADMIN sign-up behind the flag, and creates nothing when refused", async () => {
             allowAdminSignup = false;
-            await expect(service.register({ ...dto, role: "ADMIN" }, meta, "cid")).rejects.toBeInstanceOf(
-                ForbiddenException,
-            );
+            const err = await service.register({ ...dto, role: "ADMIN" }, meta, "cid").catch(e => e)
+            expect(err).toBeInstanceOf(ORPCError);
+            expect(err.code).toBe("FORBIDDEN");
+            expect(err.message).toBe("Admin sign-up is disabled");
             expect(users.save).not.toHaveBeenCalled();
 
             allowAdminSignup = true;
@@ -100,7 +100,10 @@ describe("AuthService", () => {
 
         it("maps a unique-violation (concurrent/duplicate signup) to 409", async () => {
             users.save.mockRejectedValue({ driverError: { code: "23505" } });
-            await expect(service.register(dto, meta, "cid")).rejects.toBeInstanceOf(ConflictException);
+            const err = await service.register(dto, meta, "cid").catch(e => e);
+            expect(err).toBeInstanceOf(ORPCError);
+            expect(err.code).toBe("CONFLICT");
+            expect(err.message).toBe("An account with that email already exists");
             expect(sessions.create).not.toHaveBeenCalled();
         });
 
@@ -150,7 +153,11 @@ describe("AuthService", () => {
 
     describe("refresh / logout", () => {
         it("rejects a missing refresh token before touching the session store", async () => {
-            await expect(service.refresh(undefined)).rejects.toBeInstanceOf(UnauthorizedException);
+            const err = await service.refresh(undefined).catch(e => e);
+            expect(err).toBeInstanceOf(ORPCError);
+            expect(err.code).toBe("UNAUTHORIZED");
+            expect(err.message).toBe("Missing refresh token");
+
             expect(sessions.rotate).not.toHaveBeenCalled();
         });
 
@@ -182,7 +189,10 @@ describe("AuthService", () => {
 
         it("rejects an unknown or expired token", async () => {
             users.findOne.mockResolvedValue(null);
-            await expect(service.verifyEmail({ token: "nope" })).rejects.toBeInstanceOf(BadRequestException);
+            const err = await service.verifyEmail({ token: "nope" }).catch(e => e);
+            expect(err).toBeInstanceOf(ORPCError);
+            expect(err.code).toBe("BAD_REQUEST");
+            expect(err.message).toBe("Invalid or expired verification token");
         });
     });
 
@@ -227,9 +237,11 @@ describe("AuthService", () => {
 
         it("rejects an invalid token without changing anything", async () => {
             users.findOne.mockResolvedValue(null);
-            await expect(service.resetPassword({ token: "bad", newPassword: "Brandnew123" })).rejects.toBeInstanceOf(
-                BadRequestException,
-            );
+            const err = await service.resetPassword({ token: "bad", newPassword: "Brandnew123" }).catch(e => e);
+            expect(err).toBeInstanceOf(ORPCError);
+            expect(err.code).toBe("BAD_REQUEST");
+            expect(err.message).toBe("Invalid or expired reset token");
+
             expect(users.update).not.toHaveBeenCalled();
             expect(sessions.revokeAllForUser).not.toHaveBeenCalled();
         });

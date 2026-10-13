@@ -46,7 +46,9 @@ export class AuthService {
     async register(dto: RegisterDto, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
         const role = (dto.role as UserRole | undefined) ?? UserRole.CUSTOMER;
         if (role === UserRole.ADMIN && !this.config.get("allowAdminSignup", { infer: true })) {
-            throw new ForbiddenException("Admin sign-up is disabled");
+            throw new ORPCError("FORBIDDEN", {
+              message: "Admin sign-up is disabled"
+            });
         }
 
         const rawVerifyToken = generateToken();
@@ -69,7 +71,9 @@ export class AuthService {
         } catch (err: any) {
             // The unique index is the source of truth; this also covers concurrent signups.
             if (err?.driverError?.code === "23505")
-                throw new ConflictException("An account with that email already exists");
+                throw new ORPCError("CONFLICT", {
+                  message: "An account with that email already exists"
+                });
             throw err;
         }
 
@@ -112,7 +116,9 @@ export class AuthService {
     }
 
     async refresh(rawRefreshToken: string | undefined): Promise<{ user: UserDto; tokens: IssuedTokens | null }> {
-        if (!rawRefreshToken) throw new UnauthorizedException("Missing refresh token");
+        if (!rawRefreshToken) throw new ORPCError("UNAUTHORIZED", {
+          message: "Missing refresh token"
+        });
         const { user, tokens } = await this.sessions.rotate(rawRefreshToken);
         return { user: toUserDto(user), tokens };
     }
@@ -123,7 +129,9 @@ export class AuthService {
 
     async getMe(userId: string): Promise<UserDto> {
         const user = await this.users.findOne({ where: { id: userId } });
-        if (!user) throw new NotFoundException("User not found");
+        if (!user) throw new ORPCError("NOT_FOUND", {
+          message: "User not found"
+        });
         return toUserDto(user);
     }
 
@@ -131,7 +139,9 @@ export class AuthService {
         const user = await this.users.findOne({
             where: { emailVerificationToken: hashToken(token), emailVerificationExpires: MoreThan(new Date()) },
         });
-        if (!user) throw new BadRequestException("Invalid or expired verification token");
+        if (!user) throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid or expired verification token"
+        });
 
         await this.users.update(user.id, {
             isEmailVerified: true,
@@ -163,7 +173,9 @@ export class AuthService {
         const user = await this.users.findOne({
             where: { passwordResetToken: hashToken(token), passwordResetExpires: MoreThan(new Date()) },
         });
-        if (!user) throw new BadRequestException("Invalid or expired reset token");
+        if (!user) throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid or expired reset token"
+        });
 
         await this.users.update(user.id, {
             passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS),

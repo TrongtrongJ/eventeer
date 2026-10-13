@@ -16,12 +16,20 @@ export const authContract = oc.router({
     register: oc
         .input(RegisterSchema)
         .output(responseWithAuthSchema)
+        .errors({
+          FORBIDDEN: {
+            message: "Admin sign-up is disabled"
+          },
+          CONFLICT: {
+            message: "An account with that email already exists"
+          },
+        })
         .meta(
             openapi({
                 method: "POST",
                 path: "/auth/register",
                 description: "Register user",
-                tags: ['Auth']
+                tags: ['Auth'],
             }),
         ),
     login: oc
@@ -43,22 +51,35 @@ export const authContract = oc.router({
                 tags: ['Auth']
             }),
         ),
-    me: oc.output(createBaseResponse(UserSchema)).meta(
-        openapi({
-            method: "GET",
-            path: "/auth/me",
-            description: "Get me",
-            tags: ['Auth']
-        }),
-    ),
-    refresh: oc.output(createBaseResponse(UserSchema)).meta(
-        openapi({
-            method: "POST",
-            path: "/auth/refresh",
-            description: "Refresh user auth",
-            tags: ['Auth']
-        }),
-    ),
+    me: oc.output(createBaseResponse(UserSchema))
+        .errors({
+          NOT_FOUND: {
+            message: "User not found"
+          }
+        })
+        .meta(
+          openapi({
+              method: "GET",
+              path: "/auth/me",
+              description: "Get me",
+              tags: ['Auth']
+          }),
+        ),
+    refresh: oc
+        .output(createBaseResponse(UserSchema))
+        .errors({
+          UNAUTHORIZED: {
+            message: "Missing refresh token"
+          }
+        })
+        .meta(
+          openapi({
+              method: "POST",
+              path: "/auth/refresh",
+              description: "Refresh user auth",
+              tags: ['Auth']
+          }),
+        ),
     logout: oc.output(responseWithNullData).meta(
         openapi({
             method: "POST",
@@ -70,6 +91,11 @@ export const authContract = oc.router({
     verifyEmail: oc
         .input(VerifyEmailSchema)
         .output(responseWithMessage)
+        .errors({
+          BAD_REQUEST: {
+            message: "Invalid or expired verification token"
+          }
+        })
         .meta(
             openapi({
                 method: "POST",
@@ -92,6 +118,11 @@ export const authContract = oc.router({
     resetPassword: oc
         .input(ResetPasswordSchema)
         .output(responseWithMessage)
+        .errors({
+          BAD_REQUEST: {
+            message: "Invalid or expired reset token"
+          }
+        })
         .meta(
             openapi({
                 method: "POST",

@@ -35,6 +35,11 @@ export const eventContract = oc.router({
             }),
         )
         .output(createBaseResponse(EventSchema))
+        .errors({
+          NOT_FOUND: {
+            message: `Event with ID '{id}' not found`,
+          }
+        })
         .meta(
             openapi({
                 method: "GET",
@@ -59,6 +64,14 @@ export const eventContract = oc.router({
             }),
         )
         .output(createBaseResponse(EventSchema))
+        .errors({
+          NOT_FOUND: {
+            message: `Event with ID '{id}' not found`,
+          },
+          BAD_REQUEST: {
+            message: `Capacity cannot be lower than the {sold} seats already booked`
+          }
+        })
         .meta(
             openapi({
                 method: "PUT",
@@ -75,6 +88,14 @@ export const eventContract = oc.router({
             }),
         )
         .output(createBaseResponse(z.null()))
+        .errors({
+          NOT_FOUND: {
+            message: `Event with ID '{id}' not found`,
+          },
+          CONFLICT: {
+            message: "This event has bookings and cannot be deleted"
+          }
+        })
         .meta(
             openapi({
                 method: "DELETE",

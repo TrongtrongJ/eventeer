@@ -1,8 +1,6 @@
 import { ExecutionContext, HttpException } from "@nestjs/common";
 import { ORPCModule } from "@orpc/nest";
 import { ORPCError } from "@orpc/server";
-//import { OpenAPIGenerator, populateRouterContractOpenAPIPaths } from '@orpc/openapi';
-//import { OpenAPIReferenceHandlerPlugin } from '@orpc/openapi/plugins';
 import {
     ResponseHeadersHandlerPlugin,
     RequestHeadersHandlerPlugin,
@@ -10,7 +8,6 @@ import {
     RequestHeadersHandlerPluginContext,
 } from "@orpc/server/plugins";
 import { Request } from "express";
-import { baseContract } from "@packages/contract";
 
 declare module "@orpc/server" {
     interface DefaultInitialContext extends RequestHeadersHandlerPluginContext, ResponseHeadersHandlerPluginContext {
@@ -72,27 +69,7 @@ export function registerORPC() {
         plugins: [
           new RequestHeadersHandlerPlugin(), 
           new ResponseHeadersHandlerPlugin(),
-          /* new OpenAPIReferenceHandlerPlugin({
-          provider: 'scalar', // Explicitly set to Scalar (it is also the default)
-          docsPath: '/docs', // The URL where the UI will be served
-          specPath: '/docs/spec.json', // The URL serving the raw OpenAPI JSON
-          spec: () => generator.generate(rootContract, {
-            base: {
-              info: { 
-                title: 'Platform API', 
-                version: '1.0.0',
-                description: 'API documentation for Auth and Ticket modules'
-              },
-            },
-          }),
-          // Optional: You can pass Scalar-specific UI configurations here
-          providerConfig: {
-            theme: 'deepSpace',
-            layout: 'modern',
-            showSidebar: true,
-          }
-        }),*/
         ],
-        clientInterceptors: [translateNestExceptions as any],
+        clientInterceptors: [translateNestExceptions],
     });
 }
