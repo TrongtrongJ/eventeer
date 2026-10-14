@@ -28,7 +28,7 @@ export class User {
     @Column({ type: "varchar", length: 255 })
     email: string;
 
-    /** bcrypt hash; null for OAuth-only accounts. */
+    /** argon2 hash; null for OAuth-only accounts. */
     @Column({ type: "varchar", name: "password_hash", nullable: true })
     passwordHash: string | null;
 

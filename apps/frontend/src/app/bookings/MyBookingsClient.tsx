@@ -9,7 +9,7 @@ import { orpc } from "@/lib/orpc/query";
 import { cn } from "@/lib/utils";
 import { getBookingStatusClass, formatBookingDate } from "./helpers";
 import EmptyList from "@/components/EmptyList";
-import { ListSkeleton } from "@/components/Loader/ListSkeleton";
+import { TableSkeleton, bookingsColumns } from "@/components/Loader/PageSkeletons";
 import { BookingStatusIcon } from "@/components/StatusIcons";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,7 +33,7 @@ export function MyBookingsClient() {
         return (
             <>
                 {header}
-                <ListSkeleton rows={6} />
+                <TableSkeleton columns={bookingsColumns} rows={6} />
             </>
         );
     }

@@ -1,16 +1,10 @@
 import {
-    ForbiddenException,
-    ConflictException,
     Injectable,
     Logger,
-    NotFoundException,
-    UnauthorizedException,
-    BadRequestException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { MoreThan, Repository } from "typeorm";
-import bcrypt from "@node-rs/bcrypt";
 import type { LoginDto, RegisterDto, ResetPasswordDto, UserDto, VerifyEmailDto } from "@packages/shared-schemas";
 import { AuthProvider, User, UserRole } from "../entities/user.entity";
 import { EmailService } from "../email/email.service";
@@ -19,8 +13,8 @@ import { generateToken, hashToken } from "./utils/token.util";
 import { toUserDto } from "./user.mapper";
 import type { EnvConfig } from "../env.validation";
 import { ORPCError } from "@orpc/server";
+import { hashPassword, verifyPassword } from "../libs/argon2/hash";
 
-const BCRYPT_ROUNDS = 12;
 const VERIFY_TTL_MS = 24 * 3600 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 
@@ -54,7 +48,7 @@ export class AuthService {
         const rawVerifyToken = generateToken();
         const user = this.users.create({
             email: dto.email,
-            passwordHash: await bcrypt.hash(dto.password, BCRYPT_ROUNDS),
+            passwordHash: await hashPassword(dto.password),
             firstName: dto.firstName,
             lastName: dto.lastName,
             role,
@@ -91,10 +85,7 @@ export class AuthService {
         const user = await this.users.findOne({ where: { email: dto.email } });
 
         const hash = user?.passwordHash ?? (await this.getDummyHash());
-        const valid = await bcrypt.compare(dto.password, hash);
-
-        //if (!user || !user.passwordHash || !valid) throw new UnauthorizedException('Invalid email or password');
-        //if (!user.isActive) throw new UnauthorizedException('This account has been disabled');
+        const valid = await verifyPassword(hash, dto.password);
 
         if (!user || !user.passwordHash || !valid)
             throw new ORPCError("UNAUTHORIZED", {
@@ -178,7 +169,7 @@ export class AuthService {
         });
 
         await this.users.update(user.id, {
-            passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS),
+            passwordHash: await hashPassword(newPassword),
             passwordResetToken: null,
             passwordResetExpires: null,
             isEmailVerified: true, // they just proved control of the mailbox
@@ -189,7 +180,7 @@ export class AuthService {
     }
 
     private async getDummyHash(): Promise<string> {
-        this.dummyHash ??= await bcrypt.hash("timing-equaliser", BCRYPT_ROUNDS);
+        this.dummyHash ??= await hashPassword("timing-equaliser");
         return this.dummyHash;
     }
 

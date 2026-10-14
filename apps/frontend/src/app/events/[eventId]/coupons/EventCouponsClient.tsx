@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
-import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { TableSkeleton, couponsColumns } from "@/components/Loader/PageSkeletons";
 import EmptyList from "@/components/EmptyList";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,12 @@ export function EventCouponsClient({ eventId }: { eventId: string }) {
     const coupons = couponsData?.data;
 
     if (isEventLoading) {
-        return <SpinnerLoader />;
+        return (
+            <>
+                <PageHeader crumbs={[{ label: tNav("myEvents"), href: "/my-events" }]} title={t("title")} />
+                <TableSkeleton columns={couponsColumns} rows={4} />
+            </>
+        );
     }
 
     if (isEventError || !event) {

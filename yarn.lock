@@ -1305,7 +1305,7 @@ __metadata:
     "@nestjs/throttler": "npm:^6.5.0"
     "@nestjs/typeorm": "npm:^12.0.0"
     "@nestjs/websockets": "npm:^12.0.0"
-    "@node-rs/bcrypt": "npm:^1.10.9"
+    "@node-rs/argon2": "npm:^2.2.2"
     "@orpc/nest": "npm:^2.0.0-beta.32"
     "@orpc/server": "npm:^2.0.0-beta.32"
     "@packages/contract": "workspace:*"
@@ -2947,142 +2947,142 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-android-arm-eabi@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-android-arm-eabi@npm:1.10.9"
+"@node-rs/argon2-android-arm-eabi@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-android-arm-eabi@npm:2.2.2"
   conditions: os=android & cpu=arm
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-android-arm64@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-android-arm64@npm:1.10.9"
+"@node-rs/argon2-android-arm64@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-android-arm64@npm:2.2.2"
   conditions: os=android & cpu=arm64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-darwin-arm64@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-darwin-arm64@npm:1.10.9"
+"@node-rs/argon2-darwin-arm64@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-darwin-arm64@npm:2.2.2"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-darwin-x64@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-darwin-x64@npm:1.10.9"
+"@node-rs/argon2-darwin-x64@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-darwin-x64@npm:2.2.2"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-freebsd-x64@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-freebsd-x64@npm:1.10.9"
+"@node-rs/argon2-freebsd-x64@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-freebsd-x64@npm:2.2.2"
   conditions: os=freebsd & cpu=x64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-linux-arm-gnueabihf@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-linux-arm-gnueabihf@npm:1.10.9"
+"@node-rs/argon2-linux-arm-gnueabihf@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-linux-arm-gnueabihf@npm:2.2.2"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-linux-arm64-gnu@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-linux-arm64-gnu@npm:1.10.9"
+"@node-rs/argon2-linux-arm64-gnu@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-linux-arm64-gnu@npm:2.2.2"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-linux-arm64-musl@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-linux-arm64-musl@npm:1.10.9"
+"@node-rs/argon2-linux-arm64-musl@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-linux-arm64-musl@npm:2.2.2"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-linux-x64-gnu@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-linux-x64-gnu@npm:1.10.9"
+"@node-rs/argon2-linux-x64-gnu@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-linux-x64-gnu@npm:2.2.2"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-linux-x64-musl@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-linux-x64-musl@npm:1.10.9"
+"@node-rs/argon2-linux-x64-musl@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-linux-x64-musl@npm:2.2.2"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-win32-arm64-msvc@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-win32-arm64-msvc@npm:1.10.9"
+"@node-rs/argon2-win32-arm64-msvc@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-win32-arm64-msvc@npm:2.2.2"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-win32-ia32-msvc@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-win32-ia32-msvc@npm:1.10.9"
+"@node-rs/argon2-win32-ia32-msvc@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-win32-ia32-msvc@npm:2.2.2"
   conditions: os=win32 & cpu=ia32
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt-win32-x64-msvc@npm:1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt-win32-x64-msvc@npm:1.10.9"
+"@node-rs/argon2-win32-x64-msvc@npm:2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2-win32-x64-msvc@npm:2.2.2"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"@node-rs/bcrypt@npm:^1.10.9":
-  version: 1.10.9
-  resolution: "@node-rs/bcrypt@npm:1.10.9"
+"@node-rs/argon2@npm:^2.2.2":
+  version: 2.2.2
+  resolution: "@node-rs/argon2@npm:2.2.2"
   dependencies:
-    "@node-rs/bcrypt-android-arm-eabi": "npm:1.10.9"
-    "@node-rs/bcrypt-android-arm64": "npm:1.10.9"
-    "@node-rs/bcrypt-darwin-arm64": "npm:1.10.9"
-    "@node-rs/bcrypt-darwin-x64": "npm:1.10.9"
-    "@node-rs/bcrypt-freebsd-x64": "npm:1.10.9"
-    "@node-rs/bcrypt-linux-arm-gnueabihf": "npm:1.10.9"
-    "@node-rs/bcrypt-linux-arm64-gnu": "npm:1.10.9"
-    "@node-rs/bcrypt-linux-arm64-musl": "npm:1.10.9"
-    "@node-rs/bcrypt-linux-x64-gnu": "npm:1.10.9"
-    "@node-rs/bcrypt-linux-x64-musl": "npm:1.10.9"
-    "@node-rs/bcrypt-win32-arm64-msvc": "npm:1.10.9"
-    "@node-rs/bcrypt-win32-ia32-msvc": "npm:1.10.9"
-    "@node-rs/bcrypt-win32-x64-msvc": "npm:1.10.9"
+    "@node-rs/argon2-android-arm-eabi": "npm:2.2.2"
+    "@node-rs/argon2-android-arm64": "npm:2.2.2"
+    "@node-rs/argon2-darwin-arm64": "npm:2.2.2"
+    "@node-rs/argon2-darwin-x64": "npm:2.2.2"
+    "@node-rs/argon2-freebsd-x64": "npm:2.2.2"
+    "@node-rs/argon2-linux-arm-gnueabihf": "npm:2.2.2"
+    "@node-rs/argon2-linux-arm64-gnu": "npm:2.2.2"
+    "@node-rs/argon2-linux-arm64-musl": "npm:2.2.2"
+    "@node-rs/argon2-linux-x64-gnu": "npm:2.2.2"
+    "@node-rs/argon2-linux-x64-musl": "npm:2.2.2"
+    "@node-rs/argon2-win32-arm64-msvc": "npm:2.2.2"
+    "@node-rs/argon2-win32-ia32-msvc": "npm:2.2.2"
+    "@node-rs/argon2-win32-x64-msvc": "npm:2.2.2"
   dependenciesMeta:
-    "@node-rs/bcrypt-android-arm-eabi":
+    "@node-rs/argon2-android-arm-eabi":
       optional: true
-    "@node-rs/bcrypt-android-arm64":
+    "@node-rs/argon2-android-arm64":
       optional: true
-    "@node-rs/bcrypt-darwin-arm64":
+    "@node-rs/argon2-darwin-arm64":
       optional: true
-    "@node-rs/bcrypt-darwin-x64":
+    "@node-rs/argon2-darwin-x64":
       optional: true
-    "@node-rs/bcrypt-freebsd-x64":
+    "@node-rs/argon2-freebsd-x64":
       optional: true
-    "@node-rs/bcrypt-linux-arm-gnueabihf":
+    "@node-rs/argon2-linux-arm-gnueabihf":
       optional: true
-    "@node-rs/bcrypt-linux-arm64-gnu":
+    "@node-rs/argon2-linux-arm64-gnu":
       optional: true
-    "@node-rs/bcrypt-linux-arm64-musl":
+    "@node-rs/argon2-linux-arm64-musl":
       optional: true
-    "@node-rs/bcrypt-linux-x64-gnu":
+    "@node-rs/argon2-linux-x64-gnu":
       optional: true
-    "@node-rs/bcrypt-linux-x64-musl":
+    "@node-rs/argon2-linux-x64-musl":
       optional: true
-    "@node-rs/bcrypt-win32-arm64-msvc":
+    "@node-rs/argon2-win32-arm64-msvc":
       optional: true
-    "@node-rs/bcrypt-win32-ia32-msvc":
+    "@node-rs/argon2-win32-ia32-msvc":
       optional: true
-    "@node-rs/bcrypt-win32-x64-msvc":
+    "@node-rs/argon2-win32-x64-msvc":
       optional: true
-  checksum: 10c0/e787d4cee0c8d4ee499fdb080d2439ed5851c40757384d370035b3c8cfbd91fe58d6e79f4828613544f00fdba500a28cbb7b33bbb61449ba2eb44d1876513ef2
+  checksum: 10c0/afa772d7021b9ae2895d870ed47b838d24f11f65386e84771230da065f66febd17c81ea116c7f14c6eadd779c511eeafafb71361a63abf4b6a06a20a1ae46e8f
   languageName: node
   linkType: hard
 

@@ -4,7 +4,7 @@ import { BaseEntity } from "../common/base-entity/base-entity";
 
 @Entity("refresh_tokens")
 export class RefreshToken extends BaseEntity {
-    /** bcrypt hash of the raw refresh token JWT */
+    @Index()
     @Column({ type: "varchar", name: "token_hash" })
     tokenHash: string;
 

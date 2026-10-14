@@ -36,6 +36,7 @@ To ensure 100% synchronization between the React frontend and NestJS backend, we
 
 ### 2. Opague Duo-token Cookies-only Authentication
 - **Modern Security-first Auth** Prevent PID leaks, token forging/tempering.
+- **Argon2 as A New Default** Safer than bcrypt, hinders brute force attacks.
 - **Cookies-only As NextJS Native** Ensures SEO & Server component compatability.
 
 ### 3. High-Concurrency Integrity (Race Condition Mitigation)

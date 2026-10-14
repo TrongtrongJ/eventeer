@@ -2,7 +2,12 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test-utils/server";
 import { apiUrl } from "../config";
-import { bookingsClient, SESSION_EXPIRED_EVENT } from "../browser-client";
+import {
+    bookingsClient,
+    LAST_REFRESH_STORAGE_KEY,
+    REFRESH_LOCK_NAME,
+    SESSION_EXPIRED_EVENT,
+} from "../browser-client";
 import { wrapResponse, apiError } from "@/test-utils/response-envelope";
 
 const PROTECTED = `${apiUrl}/bookings/booking/me`;
@@ -29,7 +34,12 @@ function expiredThenRenewed() {
     return calls;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+    vi.restoreAllMocks();
+    Reflect.deleteProperty(navigator, "locks");
+});
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 describe("browser client: silent session renewal", () => {
     it("on a 401, refreshes once and transparently replays the request", async () => {
@@ -85,5 +95,67 @@ describe("browser client: silent session renewal", () => {
             code: "UNAUTHORIZED",
         });
         expect(refreshCalls).toBe(0);
+    });
+
+    it("does not refresh again for a stale 401 (request sent before a refresh that already finished)", async () => {
+        const calls = { protected: 0, refresh: 0 };
+        let renewed = false;
+        server.use(
+            http.get(PROTECTED, async () => {
+                const n = ++calls.protected;
+                if (renewed) return HttpResponse.json(wrapResponse([]), { status: 200 });
+                // The first request is slow: its 401 lands AFTER the second request's refresh completed.
+                if (n === 1) await sleep(80);
+                return HttpResponse.json(apiError("UNAUTHORIZED", "Authentication required"), { status: 401 });
+            }),
+            http.post(REFRESH, async () => {
+                calls.refresh++;
+                await sleep(10);
+                renewed = true;
+                return HttpResponse.json(wrapResponse({}), { status: 200 });
+            }),
+        );
+
+        const slow = bookingsClient.getMyBookings();
+        await sleep(10);
+        const fast = bookingsClient.getMyBookings();
+
+        await expect(Promise.all([slow, fast])).resolves.toHaveLength(2);
+        expect(calls.refresh).toBe(1);
+    });
+
+    it("skips the refresh when another tab renewed the session while the request was in flight", async () => {
+        let refreshCalls = 0;
+        let renewed = false;
+        server.use(
+            http.get(PROTECTED, () => {
+                if (renewed) return HttpResponse.json(wrapResponse([]), { status: 200 });
+                // "Another tab" finishes its refresh while this request is on the wire.
+                renewed = true;
+                window.localStorage.setItem(LAST_REFRESH_STORAGE_KEY, String(Date.now() + 1));
+                return HttpResponse.json(apiError("UNAUTHORIZED", "Authentication required"), { status: 401 });
+            }),
+            http.post(REFRESH, () => {
+                refreshCalls++;
+                return HttpResponse.json(wrapResponse({}), { status: 200 });
+            }),
+        );
+
+        const result = await bookingsClient.getMyBookings();
+
+        expect(result.data).toEqual([]);
+        expect(refreshCalls).toBe(0);
+    });
+
+    it("takes the cross-tab Web Lock once for parallel 401s", async () => {
+        const request = vi.fn((_name: string, task: () => Promise<unknown>) => task());
+        Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+        const calls = expiredThenRenewed();
+
+        await Promise.all([bookingsClient.getMyBookings(), bookingsClient.getMyBookings()]);
+
+        expect(calls.refresh).toBe(1);
+        expect(request).toHaveBeenCalledTimes(1);
+        expect(request).toHaveBeenCalledWith(REFRESH_LOCK_NAME, expect.any(Function));
     });
 });

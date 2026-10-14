@@ -27,7 +27,7 @@ export const serverApiUrl = env.API_INTERNAL_URL ?? env.NEXT_PUBLIC_API_URL;
 
 const domains = ["auth", "events", "bookings", "coupons", "tickets"] as const;
 const withBase = (base: string) =>
-    Object.fromEntries(domains.map(d => [d, `${base}/${d}`])) as Record<(typeof domains)[number], string>;
+    Object.fromEntries(domains.map(d => [d, `${base}`])) as Record<(typeof domains)[number], string>;
 
 /**
  * Each oRPC contract maps 1:1 to a NestJS controller prefix

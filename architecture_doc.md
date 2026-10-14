@@ -353,7 +353,7 @@ X-Correlation-ID: req-123
 ### Security Measures
 
 1. **Password Security**
-    - bcrypt hashing (12 rounds)
+    - argon2 hashing
     - Password strength validation
     - No plaintext storage
 
