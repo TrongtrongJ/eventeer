@@ -131,6 +131,7 @@ Cleaner than Claude standard, every depreciation was studied and fixed.
 - [ ] [Partial] Edge cases handling
     - [x] Request thundering herd problems
     - [x] Coupon race condition
+    - [X] Frontend cookies race condition
     - [x] Token corruption
     - [ ] ...
 - [X] Ensure secondary workflows functionality
