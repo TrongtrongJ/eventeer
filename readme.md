@@ -1,566 +1,197 @@
-# Event Management Platform
+# Eventeer
 
-> A production-grade, full-stack event management system built with React, NestJS, PostgreSQL, and Redis. Features real-time updates, secure authentication, payment processing, and comprehensive booking management.
+Event ticketing platform: organizers publish events and coupons, customers book and pay, tickets are checked in by QR code. A TypeScript monorepo (NestJS API + Next.js web app) built as a portfolio project. Most of the effort went into the parts that tend to go wrong in ticketing systems (seat inventory under concurrency, payment/ticket consistency, session security) rather than feature breadth.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
-[![NestJS](https://img.shields.io/badge/NestJS-12.0-red.svg)](https://nestjs.com/)
-[![NextJS](https://img.shields.io/badge/NextJS-16.4-61dafb.svg)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-12-red.svg)](https://nestjs.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
 [![oRPC](https://img.shields.io/badge/oRPC-2.beta-pink.svg)](https://orpc.dev/)
 
-## 📋 Table of Contents
+## Contents
 
-- [Engineering Highlights](#engineering-highlights)
-- [DX Highlights](#dx-highlights)
-- [Key Features](#key-features)
-- [Roadmap](#roadmap)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Authentication & Authorization](#authentication--authorization)
-- [Payment System](#payment-system)
-- [Real-time Features](#real-time-features)
-- [Deployment](#deployment)
+- [Engineering highlights](#engineering-highlights)
+- [DX highlights](#dx-highlights)
+- [Stack](#stack)
+- [Getting started](#getting-started)
 - [Testing](#testing)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Status](#status)
 
 ---
 
-## 🛠 Engineering Highlights
+## Engineering highlights
 
-### 1. Contract-First Architecture (E2E Type Safety)
+### 1. Contract-first, end to end
 
-To ensure 100% synchronization between the React frontend and NestJS backend, we utilize a shared workspace package (`@event-mgmt/contract`).
+Every endpoint is declared once in [`packages/contract`](packages/contract) (oRPC + Zod 4 schemas from [`packages/shared-schemas`](packages/shared-schemas)).
 
-- **Single Source of Truth:** Zod schemas define the API boundary.
-- **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
-- **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.
+- The API implements the contract (`@Implement(...)` on Nest controllers). The web app consumes the same contract through a typed client and TanStack Query option builders. Renaming a field fails compilation on whichever side did not follow.
+- The same Zod schemas validate forms, GraphQL resolver input and WebSocket payload types.
+- The OpenAPI document is generated from the contract at boot and served with Scalar at `/docs`. There are no hand-written annotations to drift.
+- Services throw plain Nest exceptions; one oRPC interceptor and a global filter map them to the oRPC error shape, so the client always receives a typed `{ code, message }`.
 
-### 2. Seemless Opague Duo-token Cookies-only Authentication
-- **Modern Security-first Auth** Prevent PID leaks, token forging/tempering.
-- **Seemless Integration** Cookies race condition and background refresh lock (No UI/UX pitfall).
-- **Argon2 as A New Default** Safer than bcrypt, hinders brute force attacks.
-- **Cookies-only As NextJS Native** Ensures SEO & Server component compatability.
+### 2. Opaque, cookie-only, dual-token sessions
 
-### 3. High-Concurrency Integrity (Race Condition Mitigation)
+No JWTs. Tokens are 256-bit random values with no claims, stored as SHA-256 hashes in `auth_sessions` (one row per device) and delivered only in `httpOnly`, `SameSite=Lax` cookies. Nothing auth-related is readable from JavaScript.
 
-Ticketing systems face unique challenges during "hot" event drops. This platform implements:
+- **Rotation with replay detection:** refresh is a compare-and-swap on the stored hash, so exactly one of N concurrent refreshes wins. Replaying an already-rotated token outside a 10 s grace window revokes the whole session.
+- **Cheap, revocable lookups:** a 30 s Redis read-through cache sits in front of the session lookup; revocation evicts explicitly, and the TTL is the staleness ceiling. If Redis is down, authentication falls back to Postgres.
+- **Bounded lifetime:** 15 min access, 7 d refresh, 30 d hard cap per session, 5 sessions per user. A password reset revokes every session.
+- **No refresh stampede in the browser:** single-flight per tab, a Web Locks lock across tabs, and a "refreshed since this request was sent" check that replays stale 401s instead of refreshing again. For server-rendered pages, `proxy.ts` renews an expired access cookie before any Server Component renders.
+- **Other:** Argon2id (`@node-rs/argon2`), equalised login timing for unknown emails, an `Origin` check on state-changing requests on top of `SameSite`, OAuth (Google, GitHub, Facebook) with a state cookie and no linking on unverified provider emails.
 
-- **Pessimistic Locking:** Uses PostgreSQL `SELECT FOR UPDATE` to lock seat availability rows during the transaction window, ensuring zero over-selling.
-- **Distributed Locking:** Redis-based locks for coupon redemptions to prevent multiple users from exhausting a single-use code simultaneously.
+### 3. Inventory and payment integrity
 
-### 3. Service Resilience & Observability
+- **Seats and coupons use one conditional `UPDATE ... WHERE availableSeats >= :n ... RETURNING` inside the booking transaction** instead of read-then-write or application-level locks. Concurrent buyers serialise on the row; losers get a clean "sold out". `CHECK` constraints on `events` and `coupons` are the backstop if application logic ever regresses.
+- **No network I/O while holding row locks.** The booking commits first, then the payment intent is created. If that fails, the booking is compensated (`FAILED`, seats and coupon usage returned).
+- **Pay-later holds:** a `PENDING` booking holds its seats for 15 min; a repeatable Bull job releases abandoned holds, but first asks Stripe whether the customer paid just in time.
+- **One confirmation path:** the Stripe webhook and the client-triggered confirm both end in the same `PENDING -> CONFIRMED` conditional update, so tickets and email happen exactly once. The client path verifies status and amount with Stripe and never trusts the browser. A payment arriving after the hold lapsed is refunded.
+- **Fail closed:** no mock fallback when Stripe is down; mock payments are refused in production by env validation. Intent creation and refunds carry Stripe idempotency keys. Money is handled in integer cents.
+- **Check-in:** ticket validation is an atomic claim (`WHERE isValidated = false`), so two simultaneous scans cannot both succeed.
 
-- **Circuit Breaker Pattern:** Protects the core API from cascading failures by monitoring Stripe and SMTP health; opens the circuit if external latency exceeds 5s.
-- **Distributed Tracing:** Implements Correlation IDs propagated via NestJS Interceptors for unified logging across the request lifecycle.
-- **Horizontal Scalability:** Stateless design optimized for Kubernetes HPA, utilizing Redis for shared session/queue state.
+### 4. Resilience and operability
 
----
+- **Circuit breaker** around Stripe and SMTP calls (failure-count based, per process).
+- **Email** is queued on Bull with retries and exponential backoff; a mail failure never fails or rolls back a booking.
+- **Correlation IDs** are accepted (if well-formed) or generated per request, returned in a header and attached to log entries.
+- **Live seat counts** over Socket.IO with the Redis adapter, so an update from any API replica reaches clients on every replica. Broadcasts happen after commit.
+- **Config is validated at boot** (Zod). Production additionally requires an HTTPS frontend URL and, with payments enabled, Stripe keys; it refuses to start without them.
+- **Schema is owned by migrations.** Dev and test run them on boot; production runs them as a separate Job so replicas do not race.
 
-## 🚀 DX Highlights
-
-### 1. Fullstack ESM & CJS Compatability
-
-Solving NestJS persistent ESM compatability problem, esm-only packages work in NestJS!!.
-
-### 2. No node-gyp Dependencies
-
-Effortless deployment regardless of pipeline environment, no more bcrypt or node-gyp error.
-
-### 3. Monorepo
-
-Monorepo integration, where every changes, e2e tests, could be built with the full repo present.
-
-### 4. Cutting Edge Contract-first Integration
-
-The very first production-ready monorepo on the github with full Typescript NestJS 12, oRPC 2, Zod 4, NextJS 16, Redis 7, and BullMQ.
-
-### 5. React Compiler
-
-Follow the best practices to fully leverage React compiler integration, ease the overhead of useCallback and useMemo hooks.
-
-### 6. Code Sanitary
-
-Cleaner than Claude standard, every depreciation was studied and fixed.
+Design rationale and trade-offs are in [`architecture_doc.md`](architecture_doc.md).
 
 ---
 
-## ✨ Key Features
+## DX highlights
 
-### User Management & Authentication
-
-- 🔐 **Opaque Duo Token Authentication** with access and refresh tokens
-- 🌐 **OAuth 2.0 Integration** (Google, GitHub, Facebook)
-- 👥 **Role-Based Access Control** (Admin, Organizer, Customer)
-- ✉️ **Email Verification** and password reset flows
-- 🔄 **Session Management** with device tracking
-
-### Event Management
-
-- 🎫 **Dynamic Pricing** and capacity management
-- 📊 **Real-time Seat Availability** via WebSockets
-- 🏷️ **Coupon System** with percentage and fixed discounts
-- 🔒 **Race Condition Prevention** using distributed locks
-
-### Booking & Ticketing
-
-- 🎟️ **QR Code Generation** for each ticket
-- 💳 **Payment Processing** (Stripe integration + mock mode)
-- 📧 **Email Confirmations** with ticket details
-- 🔍 **Ticket Validation** system for entry
-- 📱 **Booking Management** (view, cancel, refund)
-
-### Technical Features
-
-- ⚡ **Real-time Updates** with WebSocket
-- 🔀 **Circuit Breaker Pattern** for service resilience
-- 📬 **Message Queue** (Bull + Redis) for async operations
-- 🎯 **Correlation IDs** for distributed tracing
-- 🏥 **Health Checks** for monitoring
-- 🐳 **Docker & Kubernetes**
+- **ESM-only dependencies in a CommonJS Nest API.** oRPC 2 and `uuid` are ESM-only; the API compiles to CommonJS on Node 22 and consumes them through `require(esm)`.
+- **No node-gyp.** Argon2 uses prebuilt N-API binaries, so installs and image builds do not need a compiler toolchain.
+- **Architecture rules in CI.** `dependency-cruiser` forbids import cycles, the web app importing the API, and `shared-schemas` importing apps. Lint, typecheck and these rules gate every PR.
+- **Monorepo that builds as one.** Turborepo orders `shared-schemas -> contract -> apps`; a contract change is type-checked against both apps in the same run.
+- **React Compiler** is enabled, with Next.js 16 `cacheComponents`.
+- **Tests that need no setup:** the web e2e suite runs against mocked API responses (MSW); the API e2e suite creates its own `*_test` database and refuses to run against any other name.
+- **Local loop:** `make infra` starts Postgres and Redis; `make up` runs everything in containers. Husky runs lint-staged and typecheck on commit, a build on push, and commitlint on messages.
 
 ---
 
-## 🗺️ Roadmap
+## Stack
 
-- [x] Complete application architecture & Design documentation
-- [x] Complete application cloud architecture (AWS) & documentation
-- [ ] [Partial] Update readme and docs
-- [x] Zod 4 and oRPC contract pattern integration
-- [x] Fullstack support CJS and ESM
-- [x] Complete minimal k8s & terraform template
-- [x] Ensure major workflows functionality (Auth & Event listing and creation & Booking)
-- [ ] [Partial] Migrate NestJS and tests to the new oRPC error paradism
-- [ ] [Partial] Edge cases handling
-    - [x] Request thundering herd problems
-    - [x] Coupon race condition
-    - [X] Frontend cookies race condition
-    - [x] Token corruption
-    - [ ] ...
-- [X] Ensure secondary workflows functionality
-- [X] Flesh out API documentation with Scalar
-- [x] finalize dependency-cruiser
-- [ ] [Partial] Complete dockerization support
-- [x] Better test coverage & Github Actions CI/CD & Bitbucket pipeline
-    - [x] Major flow frontend tests
-    - [x] Major flow backend tests
-    - [x] Full suite e2e test (auth and booking)
-    - [x] Github Actions CI/CD
-    - [x] Bitbucket pipeline
+| Layer    | Technology                                                                                                                                   |
+| :------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web      | Next.js 16 (App Router), React 19, TanStack Query, oRPC client, shadcn/ui + Tailwind 4, next-intl (en/th), Socket.IO client, Stripe Elements |
+| API      | NestJS 12 (Express 5), TypeORM, oRPC, Apollo GraphQL (secondary surface), Bull, Socket.IO, Stripe SDK, Nodemailer                            |
+| Data     | PostgreSQL 16, Redis 7 (session cache, Bull queues, Socket.IO fan-out)                                                                       |
+| Shared   | Zod 4 schemas, oRPC contract, ESLint/Prettier configs                                                                                        |
+| Tooling  | Yarn 4, Turborepo, Vitest, Playwright, MSW, dependency-cruiser, Husky, commitlint                                                            |
+| Delivery | Docker, Docker Compose, Kubernetes manifests, GitHub Actions and Bitbucket Pipelines, Terraform (AWS baseline)                               |
 
----
-
-## 🏗️ Architecture
-
-### System Architecture
-
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        Web[React Web App]
-        Mobile[Mobile App]
-    end
-
-    subgraph "API Gateway"
-        Gateway[NestJS API Server]
-    end
-
-    subgraph "Application Services"
-        Auth[Auth Service]
-        Events[Events Service]
-        Bookings[Bookings Service]
-        Payment[Payment Service]
-        Email[Email Service]
-    end
-
-    subgraph "Data Layer"
-        PG[(PostgreSQL)]
-        Redis[(Redis Cache/Queue)]
-    end
-
-    subgraph "External Services"
-        Stripe[Stripe API]
-        OAuth[OAuth Providers]
-        SMTP[Email SMTP]
-    end
-
-    Web --> Gateway
-    Mobile --> Gateway
-    Gateway --> Auth
-    Gateway --> Events
-    Gateway --> Bookings
-    Gateway --> Payment
-    Gateway --> Email
-
-    Auth --> PG
-    Events --> PG
-    Bookings --> PG
-    Payment --> PG
-    Email --> Redis
-
-    Auth --> OAuth
-    Payment --> Stripe
-    Email --> SMTP
-
-    Events --> Redis
-    Bookings --> Redis
-```
-
-### Monorepo Structure
+### Repository layout
 
 ```
-event-management-monorepo/
-├── apps/
-│   ├── backend/           # NestJS API
-│   └── frontend/          # React SPA
-├── packages/
-│   └── shared-schemas/    # Shared Zod schemas
-└── k8s/                   # Kubernetes manifests
+apps/
+  backend/            @eventeer/api   NestJS API (REST via oRPC, GraphQL, Socket.IO, Bull workers)
+  frontend/           @eventeer/web   Next.js app
+packages/
+  contract/           @packages/contract        oRPC contracts (consumed by both apps)
+  shared-schemas/     @packages/shared-schemas  Zod schemas, cookie constants
+  eslint-config/ prettier-config/
+k8s/  terraform/  .github/  bitbucket-pipelines.yml  docker-compose.yml  Makefile
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Getting started
 
-### Frontend
-
-- **NextJS 16** - UI library
-- **Tanstack Query** - Query and state management
-- **App Router** - Navigation
-- **Shadcn & TailwindCSS** - Styling
-- **Stripe Elements** - Payment UI
-- **Socket.io Client** - Real-time updates
-
-### Backend
-
-- **NestJS 12** - Node.js framework
-- **TypeORM** - ORM for PostgreSQL
-- **PostgreSQL 15** - Primary database
-- **Redis 7** - Caching & message queue
-- **Bull** - Queue management
-- **Stripe SDK** - Payment processing
-- **Socket.io** - WebSocket server
-
-### DevOps & Tools
-
-- **Turborepo** - Monorepo management
-- **Docker** - Containerization
-- **Kubernetes** - Orchestration
-- **GitHub Actions** - CI/CD
-- **yarn 4** - Package manager
-- **TypeScript** - Type safety
-- **ESLint & Prettier** - Code quality
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
+Requires Node.js 22, Docker, and Corepack (ships with Node) for Yarn 4.
 
 ```bash
-# Required
-- Node.js 22+
-- Docker & Docker Compose
-- PostgreSQL 15
-- Redis 7
+corepack enable && yarn install
 
-# Optional (for production features)
-- Stripe account
-- OAuth provider credentials
-- SMTP server
-```
-
-### Quick Start (5 minutes)
-
-#### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourusername/event-management.git
-cd event-management
-```
-
-#### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-#### 3. Configure Environment
-
-```bash
-# Backend
+cp .env.example .env                                  # variables for docker compose
 cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env.local   # optional: defaults work locally
 
-# Frontend
-cp apps/frontend/.env.example apps/frontend/.env
+make infra          # Postgres + Redis in Docker
+yarn dev            # API :4000 and web :3000, with package watchers
+yarn seed:demo      # demo users, events, coupons (use --reset to wipe first)
 ```
 
-**Minimum required configuration** (apps/backend/.env):
+Or run everything in containers: `make up` (Compose profile `app`).
 
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_NAME=event_management
+- Web: http://localhost:3000
+- API reference (Scalar): http://localhost:4000/docs
+- GraphiQL: http://localhost:4000/graphql (non-production only)
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+With the Stripe keys left empty, payments run in mock mode (the checkout "Pay" button confirms the booking). With email disabled, verification and reset links are written to the API log in development.
 
-# JWT Secrets (use strong random strings in production)
-JWT_ACCESS_SECRET=your-super-secret-access-key
-JWT_REFRESH_SECRET=your-super-secret-refresh-key
+Demo accounts created by `seed:demo`:
 
-# Feature Flags (mock mode - no external services needed)
-FEATURE_PAYMENT_ENABLED=false
-FEATURE_EMAIL_ENABLED=false
-```
+| Role      | Email                | Password        |
+| :-------- | :------------------- | :-------------- |
+| Admin     | `admin@demo.com`     | `Admin123!`     |
+| Organizer | `organizer@demo.com` | `Organizer123!` |
+| Customer  | `customer@demo.com`  | `Customer123!`  |
 
-#### 4. Start Development Servers
+A second organizer (`organizer2@demo.com`) and customer (`customer2@demo.com`) use the same passwords as their roles.
 
-```bash
-npm run dev
-```
-
-#### 5. Access the Application
-
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:4000
-
-### Seed Demo Data (Optional)
-
-```bash
-npm run seed:demo
-```
-
-This creates:
-
-- Admin user: `admin@demo.com` / `Admin123!`
-- Organizer user: `organizer@demo.com` / `Organizer123!`
-- Customer user: `customer@demo.com` / `Customer123!`
-- Sample events
+To use real services, set `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` (and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` for the web app), SMTP, and OAuth credentials; see `apps/backend/.env.example`. The webhook endpoint is `POST /payment/webhook`.
 
 ---
 
-### Core Endpoints
+## Testing
 
-#### Authentication
-
-```http
-POST   /auth/register              # Register new user
-POST   /auth/login                 # Login with credentials
-POST   /auth/logout                # Logout current session
-POST   /auth/refresh               # Refresh access token
-GET    /auth/me                    # Get current user
-POST   /auth/verify-email          # Verify email address
-POST   /auth/forgot-password       # Request password reset
-POST   /auth/reset-password        # Reset password
-
-# OAuth
-GET    /auth/oauth/google          # Google OAuth flow
-GET    /auth/oauth/github          # GitHub OAuth flow
-GET    /auth/oauth/facebook        # Facebook OAuth flow
+```bash
+yarn test            # unit tests (Vitest), both apps
+make infra && yarn test:e2e     # API integration tests: real Postgres + Redis
+yarn test:e2e:web    # Playwright against mocked API responses
 ```
 
-#### Events
+The API e2e suite asserts the invariants above against a real database, for example:
 
-```http
-GET    /events                     # List all events (public)
-GET    /events/:id                 # Get event details (public)
-POST   /events                     # Create event (ORGANIZER/ADMIN)
-PUT    /events/:id                 # Update event (owner/ADMIN)
-DELETE /events/:id                 # Delete event (owner/ADMIN)
-GET    /events/my/events           # Get user's events (ORGANIZER)
-```
+- 8 concurrent buyers for 3 seats: exactly 3 succeed.
+- Coupon usage caps hold under contention, roll back with a failed booking, and are returned on cancel.
+- Tickets exist only after payment; the client secret is visible only to the booking's owner.
+- Two simultaneous scans of one ticket: exactly one is accepted.
+- Refresh-token replay is detected; password reset revokes all sessions; cross-origin state-changing requests are rejected.
+- Abandoned holds expire and return their seats; capacity cannot drop below seats sold; events with bookings cannot be deleted.
 
-#### Bookings
+Unit tests cover the booking, coupon, event and auth services (including payment-provider failure and webhook duplicate delivery), env validation, the origin guard and money handling. The web app has Vitest tests for the oRPC layer, query invalidation, session handling and access control, plus Playwright flows for auth, booking, role gating, OAuth callback and route protection.
 
-```http
-POST   /bookings                   # Create booking (authenticated)
-GET    /bookings/:id               # Get booking (owner/ADMIN)
-POST   /bookings/:id/confirm       # Confirm booking payment
-DELETE /bookings/:id               # Cancel booking
-GET    /bookings/my/bookings       # Get user's bookings
-GET    /bookings/event/:id/bookings # Get event bookings (ORGANIZER)
-GET    /bookings/admin/all         # Get all bookings (ADMIN)
-```
-
-#### Coupons
-
-```http
-POST   /coupons                    # Create coupon (ORGANIZER/ADMIN)
-GET    /coupons/:code              # Get coupon details
-```
-
-#### Tickets
-
-```http
-POST   /tickets/validate           # Validate ticket QR code
-GET    /tickets/lookup             # Lookup ticket by QR
-```
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + dependency rules, unit tests and build run in parallel; both e2e suites run only if those pass; on `main`, API and web images are published to GHCR. Nothing is deployed automatically.
 
 ---
 
-## 💳 Payment System
+## Deployment
 
-### Dual Payment Mode
-
-The platform supports both **real Stripe payments** and **mock payments**:
-
-#### Mock Payment Mode (Default)
-
-- Perfect for demos and portfolios
-- No Stripe account required
-- Auto-succeeds after 2 seconds
-- Full booking flow works
-- Clear "Demo Mode" indicators
-
-**Configuration:**
-
-```env
-FEATURE_PAYMENT_ENABLED=true
-# Don't set STRIPE_SECRET_KEY
-```
-
-#### Real Stripe Mode
-
-- Production-ready payments
-- Actual credit card processing
-- Webhook support
-
-**Configuration:**
-
-```env
-FEATURE_PAYMENT_ENABLED=true
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-### Coupon System
-
-**Discount Types:**
-
-- **Percentage:** 10%, 20%, 50% off
-- **Fixed Amount:** $10, $25, $50 off
-
-**Features:**
-
-- Usage limits (max redemptions)
-- Expiration dates
-- Minimum purchase amounts
-- Race condition prevention via distributed locks
+- **Images:** multi-stage Dockerfiles for the API and the web app (Next.js `standalone` output). `NEXT_PUBLIC_*` values are build arguments.
+- **Kubernetes** ([`k8s/`](k8s)): API 3-10 replicas and web 2-5 replicas behind HPAs, a migration Job, and a single-host Ingress that serves web, `/api/*` and `/socket.io/*` from one origin (required for first-party auth cookies). Postgres and Redis manifests are for demo clusters; use managed services otherwise.
+- **AWS:** design and trade-offs in [`aws_architecture_doc.md`](aws_architecture_doc.md); [`terraform/`](terraform) is a baseline that lags that design (see the doc).
 
 ---
 
-## ⚡ Real-time Features
+## Documentation
 
-### WebSocket Integration
-
-### Real-time Updates
-
-- **Seat Availability:** Instant updates when bookings are made
-- **Event Changes:** Organizers see changes immediately
-- **Booking Status:** Payment confirmations in real-time
+- [`architecture_doc.md`](architecture_doc.md): decisions, data model, booking/payment and session flows, failure modes, known limitations
+- [`aws_architecture_doc.md`](aws_architecture_doc.md): AWS deployment design
 
 ---
 
-## 🚢 Deployment
+## Status
 
-### Docker Deployment
-
-#### Build Images
-
-```bash
-# Backend
-docker build -f apps/backend/Dockerfile -t event-mgmt-backend:latest .
-
-# Frontend
-docker build -f apps/frontend/Dockerfile -t event-mgmt-frontend:latest .
-```
-
-#### Run with Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### Kubernetes Deployment
-
-#### Prerequisites
-
-- Kubernetes cluster (minikube, EKS, GKE, AKS)
-- kubectl configured
-- nginx-ingress-controller
-
-#### Deploy
-
-```bash
-# Create namespace
-kubectl create namespace event-management
-
-# Create secrets
-kubectl create secret generic postgres-secret \
-  --from-literal=username=postgres \
-  --from-literal=password=<strong-password> \
-  -n event-management
-
-kubectl create secret generic stripe-secret \
-  --from-literal=secret-key=<stripe-key> \
-  --from-literal=webhook-secret=<webhook-secret> \
-  -n event-management
-
-# Apply manifests
-kubectl apply -f k8s/
-
-# Verify deployment
-kubectl get pods -n event-management
-kubectl get services -n event-management
-kubectl get ingress -n event-management
-```
-
-#### Scale
-
-```bash
-# Manual scaling
-kubectl scale deployment backend --replicas=5 -n event-management
-
-# Auto-scaling (HPA already configured)
-kubectl get hpa -n event-management
-```
-
----
-
-## 🧪 Testing
-
-### Running Tests
-
-```bash
-# All tests
-yarn test
-
-# Backend unit tests
-cd apps/backend && yarn test
-
-# Backend e2e tests
-cd apps/backend && yarn test:e2e
-
-# Frontend tests
-cd apps/frontend && yarn test
-
-# With coverage
-yarn test:e2e
-```
-
-### Testing Strategy
-
-**Unit Tests:**
-
-- Services: Business logic validation
-- Guards: Authorization checks
-- Utilities: Helper functions
-
-**Integration Tests:**
-
-- API endpoints: Request/response validation
-- Database interactions: CRUD operations
-- Authentication flows: Login, registration
+- [x] Contract-first API (oRPC + Zod 4), OpenAPI via Scalar
+- [x] Opaque cookie-only session auth with rotation and replay detection
+- [x] Seat, coupon and check-in concurrency, with e2e coverage
+- [x] Next.js App Router frontend, TanStack Query, i18n (en/th)
+- [x] Architecture and AWS design documentation
+- [x] Unit, API e2e and web e2e suites; GitHub Actions and Bitbucket Pipelines
+- [x] Kubernetes manifests
+- [ ] Migrate remaining Nest exceptions to the oRPC error pattern (partial)
+- [ ] Edge cases (partial)
+    - [x] Concurrent token refresh (thundering herd), including across tabs
+    - [x] Coupon and seat races, double-scan, late payment after hold expiry
+    - [ ] ...
+- [ ] Complete dockerization (partial)
+- [ ] Redis-backed rate limiting (limits are per replica today)
+- [ ] Metrics and tracing export (correlation IDs and health checks only for now)
+- [ ] Terraform brought in line with the Next.js server and opaque sessions

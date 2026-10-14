@@ -1,609 +1,209 @@
-# AWS Cloud Architecture for Event Management Platform
+# AWS Deployment Design
 
-## 🏗️ Architecture Overview
+Target design for running Eventeer on AWS, and the reasoning behind it. It is a design document: nothing here is deployed, and [`terraform/`](terraform) is a baseline that lags it (see [Terraform baseline](#terraform-baseline)). For application behaviour see [`architecture_doc.md`](architecture_doc.md).
+
+## Contents
+
+- [Constraints from the application](#constraints-from-the-application)
+- [Topology](#topology)
+- [Service choices](#service-choices)
+- [Configuration and secrets](#configuration-and-secrets)
+- [Scaling and availability](#scaling-and-availability)
+- [Security](#security)
+- [Observability](#observability)
+- [Delivery](#delivery)
+- [Alternatives considered](#alternatives-considered)
+- [Cost](#cost)
+- [Gaps to close before deploying](#gaps-to-close-before-deploying)
+- [Terraform baseline](#terraform-baseline)
+
+---
+
+## Constraints from the application
+
+These drive most of the choices below.
+
+1. **Two runtimes.** The web app is a Next.js server (Server Components, `proxy.ts`), not static files. It needs a Node runtime, so S3 + CloudFront alone is not enough.
+2. **One origin.** Auth is `httpOnly`, `SameSite=Lax` cookies that both the browser's API calls and the Next.js server rely on. Web, API and WebSocket traffic must therefore share one host: `https://<host>/` for pages, `/api/*` for the API, `/socket.io/*` for live seat updates.
+3. **Long-lived connections.** Socket.IO runs over WebSocket (the client forces the `websocket` transport, so no sticky sessions are needed).
+4. **Stateless API replicas** with Redis for fan-out and queues. Redis is accessed through single-node clients (no cluster mode, no TLS option today).
+5. **Migrations run as a separate step**, not on boot (`migrationsRun` is off in production).
+6. **Opaque sessions.** There are no signing secrets to manage.
+
+---
+
+## Topology
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CloudFront (CDN)                        │
-│                  • Static assets caching                        │
-│                  • SSL/TLS termination                          │
-│                  • DDoS protection                              │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │
-        ┌───────────────┴───────────────┐
-        │                               │
-        ▼                               ▼
-┌───────────────┐              ┌─────────────────┐
-│   S3 Bucket   │              │  Application    │
-│  (Frontend)   │              │  Load Balancer  │
-│               │              │      (ALB)      │
-└───────────────┘              └────────┬────────┘
-                                        │
-                        ┌───────────────┼───────────────┐
-                        │               │               │
-                        ▼               ▼               ▼
-                ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-                │     ECS      │ │     ECS      │ │     ECS      │
-                │   Fargate    │ │   Fargate    │ │   Fargate    │
-                │  (Backend)   │ │  (Backend)   │ │  (Backend)   │
-                │  Container   │ │  Container   │ │  Container   │
-                └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-                       │                │                │
-                       └────────────────┼────────────────┘
-                                        │
-                        ┌───────────────┼───────────────┐
-                        │               │               │
-                        ▼               ▼               ▼
-                ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-                │     RDS      │ │  ElastiCache │ │     SQS      │
-                │  PostgreSQL  │ │    Redis     │ │   Queue      │
-                │  (Primary)   │ │              │ │              │
-                │      +       │ │              │ │              │
-                │  (Read       │ │              │ │              │
-                │  Replica)    │ │              │ │              │
-                └──────────────┘ └──────────────┘ └──────────────┘
-                        │
-                        ▼
-                ┌──────────────┐
-                │   S3 Backup  │
-                │   Automated  │
-                │   Daily      │
-                └──────────────┘
+                         Route 53  ->  CloudFront (ACM certificate, optional WAF)
+                                            |
+        +-----------------------------------+------------------------------------+
+        | default (*)                       | /api/*   /socket.io/*              |
+        | /_next/static/* (cached)          | (prefix stripped by CloudFront     |
+        |                                   |  Function, caching disabled)       |
+        +-----------------+-----------------+----------------+-------------------+
+                          |   same ALB, listener rule on a custom origin header   |
+                          v                                  v
+                 target group: web (:3000)         target group: api (:4000)
+                 ECS Fargate, Next.js standalone   ECS Fargate, NestJS
+                          |                                  |
+                          +---- API_INTERNAL_URL ----------->|   (private, Cloud Map / Service Connect)
+                                                             |
+                                +----------------------------+---------------------------+
+                                v                            v                           v
+                       RDS PostgreSQL 16            ElastiCache Redis 7          Stripe, SES SMTP,
+                       Multi-AZ                     primary + replica            OAuth providers
+                                                    (cluster mode off)           (via NAT or endpoints)
 ```
 
----
+Request routing:
 
-## 📋 Service Selection & Trade-offs
-
-### 1. **Frontend Hosting: S3 + CloudFront**
-
-**Service:** Amazon S3 (Static Website) + CloudFront CDN
-
-**Why Chosen:**
-
-- ✅ Simplest and cheapest for React SPA
-- ✅ CloudFront provides global CDN with low latency
-- ✅ Automatic SSL/TLS with AWS Certificate Manager
-- ✅ Scales infinitely, pay only for what you use
-- ✅ High availability (99.99% SLA)
-
-**Alternatives Considered:**
-
-| Alternative         | Pros                               | Cons                           | Decision                   |
-| ------------------- | ---------------------------------- | ------------------------------ | -------------------------- |
-| **Amplify Hosting** | Easier CI/CD, preview environments | More expensive, vendor lock-in | ❌ Overkill for simple SPA |
-| **EC2 with nginx**  | Full control                       | Manual scaling, maintenance    | ❌ Unnecessary complexity  |
-| **Vercel/Netlify**  | Great DX                           | Not AWS-native                 | ❌ Want full AWS stack     |
-
-**Trade-offs:**
-
-- ⚠️ No server-side rendering (SSR) - Fine for our use case
-- ⚠️ Requires CloudFront invalidation for deployments - Acceptable
-- ✅ Cost: ~$5-20/month depending on traffic
+- CloudFront has two origins pointing at the same ALB. The `api` origin adds a custom header (for example `x-route: api`); an ALB listener rule matching that header forwards to the API target group, and everything else goes to web. A CloudFront Function strips `/api` from the URI on the way in, so the API sees `/auth/login`, exactly as behind the Kubernetes Ingress. (The header is needed because, after stripping, an API path such as `/auth/login` is indistinguishable from a page path at the ALB.)
+- Dynamic behaviours (default, `/api/*`, `/socket.io/*`) use a no-cache policy and forward all cookies, query strings and headers (including `stripe-signature`, since the webhook is `POST /api/payment/webhook`). Only `/_next/static/*` is cached (content-hashed, long TTL).
+- Build the web image with `NEXT_PUBLIC_API_URL=https://<host>/api` and `NEXT_PUBLIC_WS_URL=https://<host>`. Set `FRONTEND_URL=https://<host>` on the API, register OAuth redirect URIs as `https://<host>/api/auth/oauth/<provider>/callback`, and set `API_INTERNAL_URL` on the web service to the API's private address so server-side calls skip the public path.
+- `TRUST_PROXY=2` (CloudFront and the ALB), so rate limiting and session metadata see the real client IP.
 
 ---
 
-### 2. **Backend Hosting: ECS Fargate**
+## Service choices
 
-**Service:** Amazon ECS with Fargate (Serverless containers)
+### Compute: ECS on Fargate, two services
 
-**Why Chosen:**
+| Service | Port | Size to start   | Scaling                                   |
+| :------ | :--- | :-------------- | :---------------------------------------- |
+| `api`   | 4000 | 0.5 vCPU / 1 GB | 2-10 tasks, target 70 % CPU / 80 % memory |
+| `web`   | 3000 | 0.5 vCPU / 1 GB | 2-5 tasks, target 70 % CPU                |
 
-- ✅ No server management (serverless containers)
-- ✅ Auto-scaling based on CPU/memory
-- ✅ Container-based (works with existing Docker setup)
-- ✅ Pay only for running containers
-- ✅ Integrates well with ALB for load balancing
-- ✅ Better cost efficiency than EC2 for variable workloads
+Tasks run in private subnets across two AZs. The ALB health check uses `/health/ready` (process is up), not `/health`: the latter checks Postgres and Redis, and a brief dependency blip would then mark every task unhealthy at once and turn a partial failure into a full outage.
 
-**Alternatives Considered:**
+Fargate fits because the workload is a handful of long-running containers, including WebSocket connections and in-process Bull workers, which rules out a function-per-request model. The same images run unchanged under Kubernetes (manifests are in [`k8s/`](k8s)) if EKS is ever preferred.
 
-| Alternative              | Pros                                      | Cons                                      | Decision                   |
-| ------------------------ | ----------------------------------------- | ----------------------------------------- | -------------------------- |
-| **EKS (Kubernetes)**     | Full K8s compatibility, more features     | $73/month just for control plane, complex | ❌ Overkill, expensive     |
-| **Lambda + API Gateway** | Cheapest for low traffic, true serverless | Cold starts, 15min timeout, stateless     | ❌ WebSocket limitations   |
-| **EC2 + Auto Scaling**   | Full control, cheaper at scale            | Manual management, patching               | ❌ Want serverless         |
-| **App Runner**           | Simplest deployment                       | Limited control, newer service            | ⚠️ Could work, less mature |
+### Database: RDS PostgreSQL 16, Multi-AZ
 
-**Trade-offs:**
+- Start at `db.t3.medium`, encrypted, automated backups with point-in-time recovery, deletion protection.
+- The app does not split reads and writes, so no read replica is part of the baseline. Add one when browse traffic justifies it, together with a read connection in TypeORM.
+- Correctness depends on Postgres features, not on the host: `CHECK` constraints, conditional `UPDATE ... RETURNING`, partial unique indexes. Aurora is not needed for any of that.
 
-- ⚠️ Slightly more expensive than EC2 at very high scale
-- ⚠️ Some AWS-specific configuration (not pure K8s)
-- ✅ Much simpler than EKS
-- ✅ Cost: ~$30-100/month for 2-4 containers
+### Redis: ElastiCache, replication group, cluster mode off
 
-**Why NOT Lambda:**
+Used for the session lookup cache, Bull queues (`email`, `maintenance`) and Socket.IO fan-out. One primary and one replica across AZs with automatic failover. **Cluster mode stays off**: Bull and the Socket.IO adapter assume a single keyspace, and the clients are single-node `ioredis` connections. Redis holds no source-of-truth data, so a failover costs queued jobs at worst and sessions fall back to Postgres.
 
-- WebSocket connections (real-time seat updates) don't work well with Lambda
-- Circuit breaker pattern needs stateful containers
-- Session management easier with long-running containers
+In-transit encryption needs client TLS support first (see [gaps](#gaps-to-close-before-deploying)).
 
----
+### Queue: Bull on Redis (no SQS)
 
-### 3. **Database: RDS PostgreSQL**
+The email queue is Bull. SQS would be more durable, but a queued email is low-stakes (the booking is already confirmed, and the job is retried three times with backoff), and a second queueing system is not justified at this scale. SQS becomes worth it if email volume or delivery guarantees grow.
 
-**Service:** Amazon RDS PostgreSQL with Multi-AZ + Read Replica
+### Email: SES through its SMTP interface
 
-**Why Chosen:**
+The API sends mail with Nodemailer over SMTP, so SES needs only `SMTP_HOST`, `SMTP_PORT=587` and credentials. No code change.
 
-- ✅ Managed service (automatic backups, patching, failover)
-- ✅ Multi-AZ for high availability
-- ✅ Read replica for read-heavy workloads (event browsing)
-- ✅ Point-in-time recovery
-- ✅ Easy to scale vertically
-- ✅ TypeORM compatibility (no code changes)
+### Edge: CloudFront
 
-**Configuration:**
-
-- **Primary Instance:** db.t3.medium (2 vCPU, 4GB RAM)
-- **Multi-AZ:** Enabled (automatic failover)
-- **Read Replica:** 1 replica for read operations
-- **Storage:** 50GB GP3 SSD (auto-scaling enabled)
-- **Backups:** 7-day retention, automated daily
-
-**Alternatives Considered:**
-
-| Alternative             | Pros                             | Cons                       | Decision                           |
-| ----------------------- | -------------------------------- | -------------------------- | ---------------------------------- |
-| **Aurora PostgreSQL**   | Better performance, auto-scaling | 2x cost of RDS             | ❌ Expensive for startup           |
-| **Self-managed on EC2** | Cheapest                         | Manual management, backups | ❌ Not worth the effort            |
-| **DynamoDB**            | Serverless, scales infinitely    | NoSQL, requires rewrite    | ❌ Relational data fits PostgreSQL |
-
-**Trade-offs:**
-
-- ⚠️ More expensive than self-hosted (~$100-200/month)
-- ✅ Zero maintenance, automatic failover
-- ✅ Scales to millions of events
+Terminates TLS (ACM certificate in `us-east-1`), caches hashed static assets, and provides the single origin the cookies need. AWS WAF can be attached for managed rules and IP rate limiting, which also compensates for the API's per-replica rate limiter.
 
 ---
 
-### 4. **Caching & Session: ElastiCache Redis**
+## Configuration and secrets
 
-**Service:** Amazon ElastiCache for Redis (Cluster Mode)
+Secrets Manager entries injected as ECS task secrets:
 
-**Why Chosen:**
+- `DB_USERNAME`, `DB_PASSWORD`
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `SMTP_USER`, `SMTP_PASS`
+- OAuth client secrets (Google, GitHub, Facebook), if enabled
 
-- ✅ Managed Redis (automatic failover, patching)
-- ✅ Used for multiple purposes:
-    - Session storage (JWT refresh tokens)
-    - Distributed locks (coupon race conditions)
-    - Message queue (Bull queue)
-    - Caching (event listings)
-- ✅ Sub-millisecond latency
-- ✅ Cluster mode for high availability
+Plain task environment: `NODE_ENV=production`, `FRONTEND_URL`, `TRUST_PROXY`, `DB_HOST`, `DB_NAME`, `REDIS_HOST`, `FEATURE_*` flags, and the non-secret OAuth settings.
 
-**Configuration:**
+There are no JWT secrets: sessions are opaque and stored hashed in Postgres. The API validates its environment at boot and refuses to start in production without an HTTPS `FRONTEND_URL` and, with payments enabled, Stripe keys.
 
-- **Node Type:** cache.t3.micro (0.5GB RAM) for dev
-- **Cluster Mode:** Enabled with 2 shards
-- **Replicas:** 1 per shard (high availability)
-- **Automatic failover:** Enabled
-
-**Alternatives Considered:**
-
-| Alternative                   | Pros                      | Cons                          | Decision                 |
-| ----------------------------- | ------------------------- | ----------------------------- | ------------------------ |
-| **MemoryDB for Redis**        | Durable, Redis-compatible | More expensive, newer         | ❌ Don't need durability |
-| **Self-managed Redis on EC2** | Cheaper                   | Manual management             | ❌ Want managed          |
-| **DynamoDB for sessions**     | Serverless                | Not suitable for locks/queues | ❌ Redis needed for Bull |
-
-**Trade-offs:**
-
-- ⚠️ Cost: ~$15-30/month
-- ✅ Essential for distributed locking
-- ✅ Reduces database load significantly
+**Migrations** run as a one-off Fargate task from the API image (the same command as [`k8s/migration-job.yaml`](k8s/migration-job.yaml): `node /app/node_modules/typeorm/cli.js -d dist/config/data-source.js migration:run`), before the services are updated.
 
 ---
 
-### 5. **Message Queue: Amazon SQS**
+## Scaling and availability
 
-**Service:** Amazon SQS (Standard Queue)
-
-**Why Chosen:**
-
-- ✅ Fully managed, serverless
-- ✅ Perfect for email queue (decoupled processing)
-- ✅ Automatic scaling
-- ✅ Dead letter queue for failed messages
-- ✅ Pay per request (very cheap)
-
-**Configuration:**
-
-- **Queue Type:** Standard (at-least-once delivery)
-- **Visibility Timeout:** 300 seconds
-- **Dead Letter Queue:** Enabled (max 3 retries)
-- **Message Retention:** 14 days
-
-**Alternatives Considered:**
-
-| Alternative            | Pros                | Cons                   | Decision                                     |
-| ---------------------- | ------------------- | ---------------------- | -------------------------------------------- |
-| **Bull Queue (Redis)** | Already using Redis | Less reliable than SQS | ⚠️ Use both: Bull for jobs, SQS for critical |
-| **SNS + SQS**          | Pub/sub pattern     | More complex           | ❌ Don't need pub/sub                        |
-| **EventBridge**        | Event-driven        | Overkill               | ❌ Simple queue is enough                    |
-
-**Trade-offs:**
-
-- ⚠️ Using both Bull (Redis) and SQS might seem redundant
-- ✅ Bull for internal jobs, SQS for durable email queue
-- ✅ Cost: ~$1/month (nearly free)
-
-**Recommendation:** Start with Bull on Redis, migrate email queue to SQS if needed
+- **API and web** scale on CPU and memory; the API is stateless and Socket.IO events reach every replica through Redis. Rolling deployments drop WebSocket connections; the client reconnects and re-subscribes automatically.
+- **Postgres** scales vertically first. The pressure point for a single hot event is one row being updated per booking, which a larger instance does not fix (see the limitations in [`architecture_doc.md`](architecture_doc.md#known-limitations)).
+- **Availability:** ALB, tasks, RDS (Multi-AZ failover, typically 1-2 minutes) and ElastiCache (replica promotion) all span two AZs. Backups and point-in-time recovery cover data loss; cross-region recovery is not designed.
+- **Background jobs** run inside the API tasks. Repeatable jobs are keyed so that multiple tasks register one schedule.
 
 ---
 
-### 6. **Load Balancing: Application Load Balancer (ALB)**
-
-**Service:** Application Load Balancer
-
-**Why Chosen:**
-
-- ✅ Layer 7 load balancing (HTTP/HTTPS)
-- ✅ WebSocket support (critical for real-time updates)
-- ✅ SSL termination (use AWS Certificate Manager)
-- ✅ Health checks and auto-scaling integration
-- ✅ Path-based routing (can add more services later)
-
-**Configuration:**
-
-- **Type:** Application Load Balancer
-- **Scheme:** Internet-facing
-- **Availability Zones:** Multi-AZ (us-east-1a, us-east-1b)
-- **Target Group:** ECS Fargate tasks
-- **Health Check:** /health endpoint every 30s
-
-**Alternatives Considered:**
-
-| Alternative               | Pros                   | Cons                             | Decision                     |
-| ------------------------- | ---------------------- | -------------------------------- | ---------------------------- |
-| **Network Load Balancer** | Lower latency, cheaper | No WebSocket sticky sessions     | ❌ Need ALB for WebSocket    |
-| **API Gateway**           | Serverless             | Not ideal for WebSocket at scale | ❌ ALB better for containers |
-| **CloudFront only**       | Caching                | Can't handle backend             | ❌ Need both                 |
-
-**Trade-offs:**
-
-- ⚠️ Cost: ~$20-30/month minimum
-- ✅ Essential for high availability
-- ✅ WebSocket support is critical
-
----
-
-### 7. **CDN: CloudFront**
-
-**Service:** Amazon CloudFront
-
-**Why Chosen:**
-
-- ✅ Global edge locations (low latency worldwide)
-- ✅ DDoS protection (AWS Shield Standard included)
-- ✅ Free SSL/TLS certificates (ACM)
-- ✅ Caches static assets (reduces S3 costs)
-- ✅ Can cache API responses (optional)
-
-**Configuration:**
-
-- **Origins:**
-    - S3 (frontend static files)
-    - ALB (API endpoints - no caching)
-- **Price Class:** All edge locations
-- **SSL:** ACM certificate for custom domain
-- **Caching:** Max for static assets, none for API
-
-**Trade-offs:**
-
-- ⚠️ Cache invalidation requires manual action
-- ✅ Significantly improves global performance
-- ✅ Cost: ~$5-15/month
-
----
-
-### 8. **Secrets Management: AWS Secrets Manager**
-
-**Service:** AWS Secrets Manager
-
-**Why Chosen:**
-
-- ✅ Encrypted storage for sensitive data
-- ✅ Automatic rotation support
-- ✅ Fine-grained IAM permissions
-- ✅ Integrates with RDS (auto-rotation)
-
-**What to Store:**
-
-- Database credentials
-- JWT secrets
-- Stripe API keys
-- OAuth client secrets
-- SMTP credentials
-
-**Alternatives Considered:**
-
-| Alternative               | Pros          | Cons                   | Decision                 |
-| ------------------------- | ------------- | ---------------------- | ------------------------ |
-| **Parameter Store**       | Cheaper       | No auto-rotation       | ⚠️ Use for non-sensitive |
-| **Environment Variables** | Simple        | Not encrypted, in logs | ❌ Not secure            |
-| **HashiCorp Vault**       | More features | Self-hosted, complex   | ❌ Overkill              |
-
-**Trade-offs:**
-
-- ⚠️ Cost: $0.40 per secret/month + API calls
-- ✅ Security best practice
-- ✅ Automatic rotation for RDS
-
----
-
-### 9. **Monitoring: CloudWatch + X-Ray**
-
-**Services:**
-
-- CloudWatch (Logs, Metrics, Alarms)
-- X-Ray (Distributed tracing)
-
-**Why Chosen:**
-
-- ✅ Native AWS integration
-- ✅ Centralized logging from all services
-- ✅ Custom metrics from application
-- ✅ Alarms for critical issues
-- ✅ X-Ray for request tracing (correlation IDs)
-
-**Configuration:**
-
-- **Log Groups:** Separate for each ECS service
-- **Retention:** 30 days
-- **Metrics:** CPU, Memory, Request Count, Error Rate
-- **Alarms:**
-    - CPU > 80%
-    - Error rate > 5%
-    - Database connections > 80%
-
-**Alternatives Considered:**
-
-| Alternative   | Pros                     | Cons                        | Decision       |
-| ------------- | ------------------------ | --------------------------- | -------------- |
-| **Datadog**   | Better UI, more features | Expensive (~$15/host/month) | ❌ Cost        |
-| **New Relic** | Great APM                | Expensive                   | ❌ Cost        |
-| **ELK Stack** | Open source              | Self-hosted, complex        | ❌ Maintenance |
-
-**Trade-offs:**
-
-- ⚠️ CloudWatch UI not as nice as Datadog
-- ✅ Much cheaper (nearly free for small apps)
-- ✅ Native AWS integration
-
----
-
-### 10. **CI/CD: GitHub Actions → ECR → ECS**
-
-**Pipeline:**
-
-1. GitHub Actions (build & test)
-2. Push to Amazon ECR (container registry)
-3. Deploy to ECS Fargate (rolling update)
-
-**Why Chosen:**
-
-- ✅ GitHub Actions already in use
-- ✅ ECR integrates seamlessly with ECS
-- ✅ No need for CodePipeline/CodeBuild
-- ✅ Existing workflow, just change deployment target
-
-**Alternative:** AWS-native CI/CD
-
-- CodePipeline + CodeBuild + CodeDeploy
-- More integrated but more complex
-- GitHub Actions is simpler and familiar
-
----
-
-## 💰 Cost Estimation
-
-### Monthly Costs (Low to Medium Traffic)
-
-| Service                       | Configuration                       | Monthly Cost |
-| ----------------------------- | ----------------------------------- | ------------ |
-| **S3 + CloudFront**           | Frontend hosting                    | $5 - $20     |
-| **ECS Fargate**               | 2-4 containers (0.5 vCPU, 1GB each) | $30 - $100   |
-| **RDS PostgreSQL**            | db.t3.medium + Multi-AZ + replica   | $150 - $200  |
-| **ElastiCache Redis**         | cache.t3.micro cluster              | $15 - $30    |
-| **Application Load Balancer** | Standard ALB                        | $20 - $30    |
-| **SQS**                       | Standard queue                      | $1 - $5      |
-| **Secrets Manager**           | 10 secrets                          | $4 - $8      |
-| **CloudWatch**                | Logs + Metrics                      | $10 - $30    |
-| **Route 53**                  | Hosted zone + DNS queries           | $1 - $3      |
-| **Data Transfer**             | Outbound data                       | $10 - $50    |
-| **Backups**                   | S3 + RDS snapshots                  | $5 - $15     |
-
-**Total: $250 - $500/month** for a production-ready setup
-
-**Optimization Options:**
-
-- Use Reserved Instances for RDS (-40%)
-- Use Savings Plan for Fargate (-50%)
-- **Optimized Total: $150 - $300/month**
-
----
-
-## 🚀 Scaling Strategy
-
-### Vertical Scaling (Performance)
-
-- **RDS:** Scale to larger instance types
-- **ElastiCache:** Add more RAM
-- **Fargate:** Increase CPU/memory per task
-
-### Horizontal Scaling (Capacity)
-
-- **Fargate:** Auto-scale from 2-10 tasks based on CPU
-- **RDS:** Add more read replicas
-- **Redis:** Add more shards (cluster mode)
-
-### Auto-Scaling Configuration
-
-```yaml
-ECS Auto Scaling:
-    Min Tasks: 2
-    Max Tasks: 10
-    Target CPU: 70%
-    Target Memory: 80%
-    Scale-out cooldown: 60s
-    Scale-in cooldown: 300s
-
-RDS Read Replicas:
-    Min: 1
-    Max: 3
-    Trigger: CPU > 75% for 5 minutes
-```
-
----
-
-## 🔒 Security Architecture
-
-### Network Security
+## Security
 
 ```
-VPC (10.0.0.0/16)
-├── Public Subnets (10.0.1.0/24, 10.0.2.0/24)
-│   └── ALB (internet-facing)
-├── Private Subnets (10.0.10.0/24, 10.0.11.0/24)
-│   └── ECS Fargate Tasks
-└── Database Subnets (10.0.20.0/24, 10.0.21.0/24)
-    ├── RDS PostgreSQL
-    └── ElastiCache Redis
+VPC 10.0.0.0/16
+  public subnets    (2 AZs)  ALB, NAT gateway
+  private subnets   (2 AZs)  ECS tasks (api, web)
+  database subnets  (2 AZs)  RDS, ElastiCache
 ```
 
-**Security Groups:**
-
-- ALB: Allow 443 from 0.0.0.0/0
-- ECS: Allow traffic only from ALB
-- RDS: Allow 5432 only from ECS security group
-- Redis: Allow 6379 only from ECS security group
-
-**IAM Roles:**
-
-- ECS Task Execution Role (pull images, logs)
-- ECS Task Role (access Secrets Manager, SQS, S3)
-- Minimal permissions (principle of least privilege)
+- **Security groups:** ALB accepts HTTPS only from CloudFront (the managed origin-facing prefix list); tasks accept traffic only from the ALB (and `web` -> `api` internally); RDS accepts 5432 and Redis 6379 only from the task security group.
+- **Origin protection:** the custom origin header is also a shared secret, so requests that reach the ALB directly (bypassing CloudFront and WAF) are rejected.
+- **Egress:** tasks reach Stripe, SES and OAuth providers through a NAT gateway; VPC endpoints for ECR, S3, CloudWatch Logs and Secrets Manager keep AWS traffic off the NAT.
+- **IAM:** the execution role pulls images, writes logs and reads the secrets above. The application calls no AWS APIs, so the task role needs no permissions.
+- **Application layer:** Helmet, a CORS allow-list of one origin, an `Origin` check on state-changing requests, hashed opaque sessions and rate limits are in the app itself (see [`architecture_doc.md`](architecture_doc.md#authentication-and-sessions)).
 
 ---
 
-## 🌍 High Availability
+## Observability
 
-**Multi-AZ Deployment:**
+Containers log to CloudWatch Logs (30-day retention). Request and domain logs carry a correlation ID, which is also returned in the `x-correlation-id` response header, so a user-reported failure can be traced through the logs.
 
-- ✅ ALB across 2+ availability zones
-- ✅ ECS tasks in multiple AZs
-- ✅ RDS Multi-AZ (automatic failover)
-- ✅ ElastiCache with replicas
-- ✅ S3 (11 9's durability)
+Suggested alarms: ALB 5xx rate and target response time, unhealthy host count, ECS CPU/memory, RDS CPU, free storage and connections, ElastiCache memory and evictions.
 
-**Disaster Recovery:**
-
-- **RTO (Recovery Time Objective):** < 5 minutes
-- **RPO (Recovery Point Objective):** < 1 minute
-- Automated daily snapshots
-- Cross-region backup to S3 (optional)
+Application metrics and tracing are not implemented (no exporter, no X-Ray/OpenTelemetry instrumentation), so alarms are infrastructure-level for now.
 
 ---
 
-## 📊 Architecture Decision Summary
+## Delivery
 
-| Requirement   | AWS Service        | Why This Service                         |
-| ------------- | ------------------ | ---------------------------------------- |
-| Frontend      | S3 + CloudFront    | Cheapest, simplest for SPA               |
-| Backend       | ECS Fargate        | Serverless containers, WebSocket support |
-| Database      | RDS PostgreSQL     | Managed, Multi-AZ, read replicas         |
-| Cache/Session | ElastiCache Redis  | Distributed locks, Bull queue, caching   |
-| Queue         | SQS                | Durable email queue                      |
-| Load Balancer | ALB                | WebSocket support, Layer 7               |
-| CDN           | CloudFront         | Global performance                       |
-| Secrets       | Secrets Manager    | Encrypted, auto-rotation                 |
-| Monitoring    | CloudWatch + X-Ray | Native integration, cost-effective       |
-
-**Overall Philosophy:**
-
-- ✅ **Managed services** over self-hosted (reduce ops burden)
-- ✅ **Serverless where possible** (Fargate, SQS, S3)
-- ✅ **Multi-AZ everything** (high availability)
-- ✅ **Cost-optimized** (no expensive services like EKS)
-- ✅ **Production-ready** (monitoring, backups, security)
+CI builds and tests, then publishes API and web images to GHCR on merges to `main`; nothing deploys automatically. For AWS the publish step would target ECR (with GitHub OIDC rather than long-lived keys), followed by the migration task and a forced new deployment of each service. `NEXT_PUBLIC_*` values are baked into the web image at build time, so the image is specific to a host.
 
 ---
 
-## 🎯 Why NOT Alternatives?
+## Alternatives considered
 
-### Why NOT Kubernetes (EKS)?
-
-- ❌ $73/month just for control plane
-- ❌ Complex to manage (nodes, networking)
-- ❌ Overkill for 2-4 containers
-- ✅ Fargate gives 80% of benefits at 30% of cost
-
-### Why NOT Lambda?
-
-- ❌ WebSocket limitations (API Gateway WebSocket expensive)
-- ❌ Stateless (circuit breaker needs state)
-- ❌ Cold starts affect user experience
-- ✅ Good for async jobs, not main API
-
-### Why NOT Aurora?
-
-- ❌ 2x cost of RDS PostgreSQL
-- ❌ Auto-scaling not needed at current scale
-- ✅ RDS is sufficient, can migrate later
-
-### Why NOT EC2?
-
-- ❌ Manual patching and maintenance
-- ❌ Fixed capacity (no auto-scaling benefit)
-- ❌ Need to manage load balancers manually
-- ✅ Fargate is worth the 20% premium
+| Choice                               | Alternative                              | Why not                                                                                                                        |
+| :----------------------------------- | :--------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| Fargate                              | EKS                                      | Control-plane cost and cluster operations for two services. The Kubernetes manifests keep it a viable move later.              |
+| Fargate                              | Lambda + API Gateway                     | Long-lived WebSockets, in-process Bull workers and a long-running Next.js server fit containers better.                        |
+| Next.js on Fargate behind CloudFront | Amplify Hosting / Vercel for the web app | Splits web and API across origins, which breaks first-party cookies unless everything is proxied back through one host anyway. |
+| Single ALB, header-based rule        | Separate API subdomain                   | Cookies would be host-scoped to the wrong origin for `proxy.ts` and Server Components.                                         |
+| RDS PostgreSQL                       | Aurora                                   | Costs more, with no feature the application needs.                                                                             |
+| Bull on Redis                        | SQS                                      | See [Queue](#queue-bull-on-redis-no-sqs).                                                                                      |
 
 ---
 
-## 📈 Migration from Local to AWS
+## Cost
 
-### Phase 1: Initial Setup (Week 1)
-
-1. VPC, subnets, security groups
-2. RDS PostgreSQL + ElastiCache Redis
-3. S3 bucket for frontend
-4. Secrets Manager for credentials
-
-### Phase 2: Backend Deployment (Week 2)
-
-1. Build Docker image
-2. Push to ECR
-3. Create ECS cluster and task definition
-4. Deploy to Fargate
-5. Configure ALB
-
-### Phase 3: Frontend Deployment (Week 3)
-
-1. Build React app
-2. Upload to S3
-3. Configure CloudFront
-4. Set up custom domain (Route 53)
-
-### Phase 4: Production Hardening (Week 4)
-
-1. Enable auto-scaling
-2. Configure monitoring and alarms
-3. Set up automated backups
-4. Load testing
-5. Security review
+Rough baseline in `us-east-1`, before discounts: **about $350-500 per month**. The fixed costs dominate: RDS Multi-AZ, the NAT gateway, the ALB, ElastiCache, and four Fargate tasks. Compute Savings Plans and RDS reservations reduce the bill meaningfully; dropping to single-AZ for a non-production environment reduces it further. These are estimates and should be checked against the AWS pricing calculator before relying on them.
 
 ---
 
-## ✅ Summary
+## Gaps to close before deploying
 
-This architecture provides:
+Small application changes this design depends on:
 
-- ✅ **Scalability** - Auto-scales from 2-10 containers
-- ✅ **High Availability** - Multi-AZ, automatic failover
-- ✅ **Security** - Private subnets, encrypted secrets
-- ✅ **Cost-Effective** - ~$250-500/month for production
-- ✅ **Low Maintenance** - Managed services
-- ✅ **Production-Ready** - Monitoring, backups, CI/CD
+1. **Redis TLS.** The three Redis connections (`RedisModule`, Bull, the Socket.IO adapter) take only host and port. Either add a TLS option or leave ElastiCache in-transit encryption off (private subnets and security groups only).
+2. **Migrations over SSL.** The TypeORM CLI data source (`config/data-source.ts`) ignores `DB_SSL`, and recent RDS PostgreSQL versions enforce SSL by default, so the migration task needs an SSL option there.
+3. **Database certificate verification.** With `DB_SSL=true` the API encrypts the connection but sets `rejectUnauthorized: false`. Bundling the RDS CA and verifying it is a small follow-up.
+4. **Redis-backed rate limiting.** Limits are per task today and scale with replica count.
 
-**Perfect for an international startup or showcase project!** 🚀
+---
+
+## Terraform baseline
+
+`terraform/main.tf` provisions the VPC, subnets, NAT, security groups, RDS (with a replica), ElastiCache, ALB, ECS cluster and a backend service with autoscaling, ECR, Secrets Manager, CloudWatch logs and an SQS queue. It was written before the move to a Next.js server and opaque sessions, so it differs from this design:
+
+| Baseline                                                           | This design                                              |
+| :----------------------------------------------------------------- | :------------------------------------------------------- |
+| S3 static website + CloudFront for the frontend; no web service    | `web` Fargate service; CloudFront with the routing above |
+| One backend target group, HTTP listener only (HTTPS commented out) | Two target groups, header-based listener rule, HTTPS     |
+| SQS email queue and dead-letter queue                              | Bull on Redis; no SQS                                    |
+| JWT secrets in Secrets Manager and `JWT_*` task variables          | No JWT secrets; Stripe, SMTP and OAuth secrets instead   |
+| Redis with in-transit encryption on                                | Off until the clients support TLS                        |
+| PostgreSQL 15.4, read replica provisioned                          | PostgreSQL 16, no replica until reads are split          |
+| ALB health check on `/health`                                      | `/health/ready`                                          |
+| Image tag `:latest`                                                | Immutable tags (commit SHA, as CI publishes)             |
