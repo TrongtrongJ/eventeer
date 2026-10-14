@@ -1,14 +1,13 @@
 import { Injectable, ConflictException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThan, Repository } from "typeorm";
-import bcrypt from "@node-rs/bcrypt";
 import crypto from "crypto";
 import { User } from "../entities/user.entity";
 import { RefreshToken } from "./refresh-token.entity";
 import { EnvConfig } from "../env.validation";
 import { ConfigService } from "@nestjs/config";
+import { hashPassword, verifyPassword } from "../libs/argon2/hash";
 
-const BCRYPT_ROUNDS = 12;
 const MAX_SESSIONS = 5; // max concurrent devices per user
 
 @Injectable()
@@ -35,7 +34,7 @@ export class UsersService {
             throw new ConflictException("An account with that email already exists");
         }
 
-        const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+        const passwordHash = await hashPassword(password);
         const user = this.userRepo.create({ email: normalizedEmail, passwordHash });
         return this.userRepo.save(user);
     }
@@ -52,40 +51,36 @@ export class UsersService {
 
     async validatePassword(user: User, password: string): Promise<boolean> {
         if (user.passwordHash == null) return false;
-        const result = await bcrypt.compare(password, user.passwordHash);
-        console.log({
-            password,
-            passwordHash: user.passwordHash,
-            result,
-        });
+        const result = await verifyPassword(user.passwordHash, password);
         return result;
     }
 
     // ── Refresh token management ──────────────────────────────────────────────
 
     async addRefreshToken(userId: string, rawToken: string): Promise<void> {
-        // Prune expired rows for this user
-        await this.rtRepo.delete({ userId, expiresAt: LessThan(new Date()) });
+      // Prune expired rows for this user
+      await this.rtRepo.delete({ userId, expiresAt: LessThan(new Date()) });
 
-        // Enforce session cap — remove oldest entries if over limit
-        const existing = await this.rtRepo.find({
-            where: { userId },
-            order: { createdAt: "ASC" },
-        });
-        if (existing.length >= MAX_SESSIONS) {
-            const toDelete = existing.slice(0, existing.length - MAX_SESSIONS + 1);
-            await this.rtRepo.remove(toDelete);
-        }
+      // Enforce session cap — remove oldest entries if over limit
+      const existing = await this.rtRepo.find({
+          where: { userId },
+          order: { createdAt: "ASC" },
+      });
+      
+      if (existing.length >= MAX_SESSIONS) {
+          const toDelete = existing.slice(0, existing.length - MAX_SESSIONS + 1);
+          await this.rtRepo.remove(toDelete);
+      }
 
-        const sha256Token = crypto.createHash("sha256").update(rawToken).digest("hex");
+      // 1. Hash the raw token with SHA-256
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
-        const tokenHash = await bcrypt.hash(sha256Token, 12);
+      // Mirror the 7-day JWT expiry so we can prune without parsing tokens
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-        // Mirror the 7-day JWT expiry so we can prune without parsing tokens
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-        const rt = this.rtRepo.create({ userId, tokenHash, expiresAt });
-        await this.rtRepo.save(rt);
+      // 2. Save the SHA-256 hash directly to the database
+      const rt = this.rtRepo.create({ userId, tokenHash, expiresAt });
+      await this.rtRepo.save(rt);
     }
 
     /**
@@ -93,18 +88,17 @@ export class UsersService {
      * Returning the row lets the caller delete it by ID (avoids a second scan).
      */
     async validateRefreshToken(userId: string, rawToken: string): Promise<RefreshToken | null> {
-        const active = await this.rtRepo
-            .createQueryBuilder("rt")
-            .where("rt.user_id = :userId", { userId })
-            .andWhere("rt.expires_at > NOW()")
-            .getMany();
         const sha256Token = crypto.createHash("sha256").update(rawToken).digest("hex");
 
-        for (const rt of active) {
-            const match = await bcrypt.compare(sha256Token, rt.tokenHash);
-            if (match) return rt;
-        }
-        return null;
+        // 2. Query the database directly for that specific hash
+        const activeToken = await this.rtRepo
+            .createQueryBuilder("rt")
+            .where("rt.user_id = :userId", { userId })
+            .andWhere("rt.tokenHash = :sha256Token", { sha256Token })
+            .andWhere("rt.expires_at > NOW()")
+            .getOne(); // Get the exact match, no loops needed
+
+        return activeToken || null;
     }
 
     async removeRefreshTokenById(rtId: string): Promise<void> {

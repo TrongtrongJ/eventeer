@@ -5,11 +5,11 @@
  *   yarn seed:demo          # add demo data
  *   yarn seed:demo --reset  # wipe all data first (development only)
  */
-import bcrypt from "@node-rs/bcrypt";
 import dataSource from "../src/config/data-source";
 import { User, UserRole, AuthProvider } from "../src/entities/user.entity";
 import { Event } from "../src/entities/event.entity";
 import { Coupon, DiscountType } from "../src/entities/coupon.entity";
+import { hashPassword } from "../src/libs/argon2/hash";
 
 const DAY = 24 * 3600 * 1000;
 const inDays = (n: number, hours = 0) => new Date(Date.now() + n * DAY + hours * 3600 * 1000);
@@ -70,7 +70,7 @@ async function main() {
         saved[u.email] = await users.save(
             users.create({
                 email: u.email,
-                passwordHash: await bcrypt.hash(u.password, 12),
+                passwordHash: await hashPassword(u.password),
                 firstName: u.firstName,
                 lastName: u.lastName,
                 role: u.role,

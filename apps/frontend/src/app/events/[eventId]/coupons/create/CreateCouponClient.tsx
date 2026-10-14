@@ -10,7 +10,7 @@ import { orpc } from "@/lib/orpc/query";
 import { useToast } from "@/lib/toast/toast-context";
 import { useTranslations } from "next-intl";
 import { useMoney } from "@/i18n/hooks";
-import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { CouponFormSkeleton } from "@/components/Loader/PageSkeletons";
 import EmptyList from "@/components/EmptyList";
 import { generateRandomCouponCode } from "./helpers";
 import { PageContent, PageHeader } from "@/components/shell/PageHeader";
@@ -83,7 +83,12 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
     );
 
     if (isLoadingEvent) {
-        return <SpinnerLoader />;
+        return (
+            <>
+                <PageHeader crumbs={[{ label: tNav("myEvents"), href: "/my-events" }]} title={t("heading")} titleAsText />
+                <CouponFormSkeleton />
+            </>
+        );
     }
 
     if (!event) {

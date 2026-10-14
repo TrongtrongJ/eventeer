@@ -11,10 +11,6 @@ export const IsoStringDate = z.preprocess(val => (val instanceof Date ? val.toIS
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
 
-/**
- * bcrypt silently truncates input beyond 72 bytes, so cap the length rather
- * than letting two different long passwords hash identically.
- */
 export const passwordField = z
     .string()
     .min(8, "Password must be at least 8 characters")

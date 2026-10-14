@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import QRCode from "react-qr-code";
 import { orpc } from "@/lib/orpc/query";
 import { cn } from "@/lib/utils";
-import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { BookingConfirmationSkeleton } from "@/components/Loader/PageSkeletons";
 import { BookingStatusIcon } from "@/components/StatusIcons";
 import { PageContent, PageHeader } from "@/components/shell/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ export function BookingConfirmationClient({ bookingId }: { bookingId: string }) 
         return (
             <>
                 <PageHeader crumbs={[{ label: tNav("myBookings"), href: "/bookings" }]} title={`#${bookingId.slice(0, 8)}`} titleAsText />
-                <SpinnerLoader />
+                <BookingConfirmationSkeleton />
             </>
         );
     }

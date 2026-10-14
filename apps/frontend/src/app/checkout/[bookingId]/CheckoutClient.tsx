@@ -1,6 +1,6 @@
 "use client";
 
-import { SubmitEvent, useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { Clock, FlaskConical, ShieldAlert } from "lucide-react";
 import { useToast } from "@/lib/toast/toast-context";
-import FullScreenLoader from "@/components/Loader/FullScreenLoader";
+import { CheckoutSkeleton } from "@/components/Loader/PageSkeletons";
 import { PageContent, PageHeader } from "@/components/shell/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ function StripeCheckoutForm({ booking }: { booking: BookingDto }) {
     const finalize = useFinalizeBooking(booking.id);
 
     const handleSubmit = useCallback(
-        async (e: SubmitEvent<HTMLFormElement>) => {
+        async (e: React.FormEvent) => {
             e.preventDefault();
             if (!stripe || !elements) return;
             setIsProcessing(true);
@@ -171,7 +171,14 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
     const { data, isLoading } = useQuery(orpc.bookings.findOne.queryOptions({ input: { id: bookingId } }));
     const booking = data?.data;
 
-    if (isLoading) return <FullScreenLoader message={t("loading")} />;
+    if (isLoading) {
+        return (
+            <>
+                <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("title")} />
+                <CheckoutSkeleton />
+            </>
+        );
+    }
     if (!booking) return null;
 
     // Already paid (e.g. back button after paying): go straight to the tickets.

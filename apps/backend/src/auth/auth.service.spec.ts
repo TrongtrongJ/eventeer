@@ -1,8 +1,8 @@
-import bcrypt from "@node-rs/bcrypt";
 import { AuthService } from "./auth.service";
 import { hashToken } from "./utils/token.util";
 import { AuthProvider, UserRole, type User } from "../entities/user.entity";
 import { ORPCError } from "@orpc/server";
+import { hashPassword, verifyPassword } from "../libs/argon2/hash";
 
 const meta = { ipAddress: "1.2.3.4", userAgent: "vitest" };
 const tokens = { accessToken: "a", refreshToken: "r", accessExpiresAt: new Date(), refreshExpiresAt: new Date() };
@@ -32,7 +32,7 @@ describe("AuthService", () => {
     let passwordHash: string;
 
     beforeAll(async () => {
-        passwordHash = await bcrypt.hash("Secret123", 4); // low cost: this is a unit test
+        passwordHash = await hashPassword("Secret123"); // low cost: this is a unit test
     });
 
     beforeEach(() => {
@@ -62,7 +62,7 @@ describe("AuthService", () => {
 
             const saved = users.create.mock.calls[0][0];
             expect(saved.passwordHash).not.toBe("Secret123");
-            expect(await bcrypt.compare("Secret123", saved.passwordHash)).toBe(true);
+            expect(await verifyPassword(saved.passwordHash, "Secret123")).toBe(true);
             expect(user).not.toHaveProperty("passwordHash");
             expect(issued).toBe(tokens);
             expect(sessions.create).toHaveBeenCalledWith(expect.objectContaining({ id: "u-new" }), meta);
@@ -226,7 +226,7 @@ describe("AuthService", () => {
 
             expect(users.findOne.mock.calls[0][0].where.passwordResetToken).toBe(hashToken("raw-reset"));
             const patch = users.update.mock.calls[0][1];
-            expect(await bcrypt.compare("Brandnew123", patch.passwordHash)).toBe(true);
+            expect(await verifyPassword(patch.passwordHash, "Brandnew123")).toBe(true);
             expect(patch).toMatchObject({
                 passwordResetToken: null,
                 passwordResetExpires: null,

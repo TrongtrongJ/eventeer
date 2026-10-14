@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { orpc } from "@/lib/orpc/query";
 import { cn } from "@/lib/utils";
 import EmptyList from "@/components/EmptyList";
-import { ListSkeleton } from "@/components/Loader/ListSkeleton";
+import { TableSkeleton, myEventsColumns } from "@/components/Loader/PageSkeletons";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ export function MyEventsClient() {
         return (
             <>
                 <PageHeader title={t("title")} />
-                <ListSkeleton rows={5} />
+                <TableSkeleton columns={myEventsColumns} rows={5} />
             </>
         );
     }

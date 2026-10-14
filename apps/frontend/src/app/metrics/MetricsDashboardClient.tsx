@@ -8,7 +8,7 @@ import { getUptimeParts } from "./helpers";
 import type { Metrics } from "./types";
 import { cn } from "@/lib/utils";
 import { PageContent, PageHeader } from "@/components/shell/PageHeader";
-import SpinnerLoader from "@/components/Loader/SpinnerLoader";
+import { MetricsSkeleton } from "@/components/Loader/PageSkeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -101,7 +101,7 @@ export function MetricsDashboardClient() {
         return (
             <>
                 <PageHeader title={t("title")} />
-                <SpinnerLoader />
+                <MetricsSkeleton />
             </>
         );
     }
