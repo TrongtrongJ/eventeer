@@ -34,8 +34,9 @@ To ensure 100% synchronization between the React frontend and NestJS backend, we
 - **Zero Type Drift:** Build-time validation ensures that changing a field in the backend immediately triggers compilation errors in the frontend.
 - **Reduced Integration Overhead:** Standardizes DTOs across the entire stack.
 
-### 2. Opague Duo-token Cookies-only Authentication
+### 2. Seemless Opague Duo-token Cookies-only Authentication
 - **Modern Security-first Auth** Prevent PID leaks, token forging/tempering.
+- **Seemless Integration** Cookies race condition and background refresh lock (No UI/UX pitfall).
 - **Argon2 as A New Default** Safer than bcrypt, hinders brute force attacks.
 - **Cookies-only As NextJS Native** Ensures SEO & Server component compatability.
 
