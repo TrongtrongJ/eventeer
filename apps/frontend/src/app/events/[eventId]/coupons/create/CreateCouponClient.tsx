@@ -127,7 +127,7 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
                     <p className="text-sm text-muted-foreground">{t("forEvent", { title: event.title })}</p>
                 </div>
 
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                         <Field>
                             <FieldLabel htmlFor="code">{t("code")}</FieldLabel>
@@ -234,7 +234,7 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
                         </div>
                     </form>
 
-                    <aside className="lg:sticky lg:top-17 lg:self-start">
+                    <aside className="xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
                                 <CardTitle className="text-xs font-medium text-muted-foreground">{t("preview")}</CardTitle>

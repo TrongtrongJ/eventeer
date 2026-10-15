@@ -107,7 +107,7 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
             <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("details")} titleAsText />
 
             <PageContent width="wide">
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
                     <article className="min-w-0 space-y-6">
                         {event.imageUrl && (
                             <img
@@ -134,7 +134,7 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                         </p>
                     </article>
 
-                    <aside className="space-y-4 lg:sticky lg:top-17 lg:self-start">
+                    <aside className="space-y-4 xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
                                 <CardTitle className="text-xs font-medium text-muted-foreground">{t("details")}</CardTitle>

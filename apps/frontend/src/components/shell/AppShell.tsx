@@ -30,13 +30,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex h-dvh overflow-hidden bg-sidebar print:block print:h-auto print:overflow-visible print:bg-white">
-            <aside className="hidden w-60 shrink-0 md:block print:hidden">
+            <aside className="hidden w-60 shrink-0 lg:block print:hidden">
                 <AppSidebar onOpenCommand={() => setCommandOpen(true)} />
             </aside>
 
-            <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2 print:p-0">
-                <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-sidebar px-2 md:hidden print:hidden">
-                    <Button variant="ghost" size="icon" aria-label={t("openMenu")} onClick={() => setMobileNavOpen(true)}>
+            <div className="flex min-w-0 flex-1 flex-col lg:py-2 lg:pr-2 print:p-0">
+                <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-sidebar px-2 lg:hidden print:hidden">
+                    <Button variant="ghost" size="icon" className="size-9" aria-label={t("openMenu")} onClick={() => setMobileNavOpen(true)}>
                         <Menu />
                     </Button>
                     <BrandMark />
@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         variant="ghost"
                         size="icon"
                         aria-label={t("search")}
-                        className="ml-auto text-muted-foreground"
+                        className="ml-auto size-9 text-muted-foreground"
                         onClick={() => setCommandOpen(true)}
                     >
                         <Search />
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                 <main
                     ref={mainRef}
-                    className="scrollbar-thin relative flex-1 overflow-y-auto bg-background md:rounded-xl md:border md:shadow-sm print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
+                    className="scrollbar-thin relative flex-1 overflow-y-auto bg-background lg:rounded-xl lg:border lg:shadow-sm print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
                 >
                     {children}
                 </main>

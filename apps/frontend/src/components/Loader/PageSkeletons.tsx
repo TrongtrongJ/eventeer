@@ -71,7 +71,7 @@ export const myEventsColumns: SkeletonColumn[] = [
     { bar: "w-44", subline: "w-28" },
     { bar: "w-20", className: "hidden md:table-cell" },
     { bar: "w-32", className: "hidden sm:table-cell" },
-    { bar: "w-14", align: "right", className: "hidden lg:table-cell" },
+    { bar: "w-14", align: "right", className: "hidden xl:table-cell" },
     { bar: "w-28", align: "right" },
 ];
 
@@ -130,7 +130,7 @@ export function BookingConfirmationSkeleton() {
 export function CheckoutSkeleton() {
     return (
         <PageContent width="wide">
-            <div aria-busy="true" role="status" className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div aria-busy="true" role="status" className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="space-y-4">
                     <Skeleton className="h-12 w-full rounded-lg" />
                     <Card className="gap-4">
@@ -214,7 +214,7 @@ export function CouponFormSkeleton() {
                     <Skeleton className="h-7 w-56" />
                     <Skeleton className="h-3.5 w-64" />
                 </div>
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="space-y-5">
                         {[0, 1, 2].map(i => (
                             <div key={i} className="space-y-2">

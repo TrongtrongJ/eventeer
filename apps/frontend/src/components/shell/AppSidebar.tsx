@@ -42,7 +42,7 @@ export function AppSidebar({ onOpenCommand, onNavigate }: AppSidebarProps) {
                     <BrandMark />
                     <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">{t("brand")}</span>
                 </Link>
-                {canCreateEvent && (
+                {canCreateEvent && !onNavigate && (
                     <Button asChild variant="ghost" size="icon-sm" className="ml-auto text-muted-foreground">
                         <Link href="/create" onClick={onNavigate} aria-label={t("createEvent")}>
                             <Plus />
@@ -59,7 +59,7 @@ export function AppSidebar({ onOpenCommand, onNavigate }: AppSidebarProps) {
                 >
                     <Search className="size-3.5" />
                     <span className="flex-1 truncate">{t("search")}</span>
-                    <Kbd className="hidden h-4 min-w-4 text-[10px] md:inline-flex">⌘K</Kbd>
+                    <Kbd className="hidden h-4 min-w-4 text-[10px] lg:inline-flex">⌘K</Kbd>
                 </button>
             </div>
 

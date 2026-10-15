@@ -67,10 +67,14 @@ export function EventCouponItem({ coupon, currency }: EventCouponItemProps) {
                     <Button variant="ghost" size="icon-sm" onClick={couponCodeCopyHandler} aria-label={`${t("copy")} ${code}`}>
                         <Copy />
                     </Button>
-                    {!isActive && <Badge variant="outline">{t("inactive")}</Badge>}
+                    {!isActive && (
+                        <Badge variant="outline" className="max-sm:hidden">
+                            {t("inactive")}
+                        </Badge>
+                    )}
                 </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="whitespace-normal">
                 <span className={cn("font-medium", isActive && "text-success")}>{couponDiscountText}</span>
                 {hasMinPurchaseAmount ? (
                     <span className="block text-xs text-muted-foreground">

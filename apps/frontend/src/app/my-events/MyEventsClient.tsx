@@ -69,7 +69,7 @@ export function MyEventsClient() {
                         <TableHead>{t("colEvent")}</TableHead>
                         <TableHead className="hidden md:table-cell">{t("colDate")}</TableHead>
                         <TableHead className="hidden w-48 sm:table-cell">{t("colSeats")}</TableHead>
-                        <TableHead className="hidden text-right lg:table-cell">{t("colPrice")}</TableHead>
+                        <TableHead className="hidden text-right xl:table-cell">{t("colPrice")}</TableHead>
                         <TableHead className="w-px" />
                     </TableRow>
                 </TableHeader>
@@ -104,12 +104,12 @@ export function MyEventsClient() {
                                         </span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="hidden text-right font-medium tabular-nums lg:table-cell">
+                                <TableCell className="hidden text-right font-medium tabular-nums xl:table-cell">
                                     {formatMoney(event.ticketPrice, event.currency)}
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex justify-end gap-1.5">
-                                        <Button asChild variant="ghost" size="sm">
+                                        <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
                                             <Link href={`/events/${event.id}`}>{t("view")}</Link>
                                         </Button>
                                         <Button asChild variant="outline" size="sm">
