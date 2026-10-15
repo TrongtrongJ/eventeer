@@ -38,8 +38,8 @@ async function DynamicAppShell({ children }: { children: React.ReactNode }) {
 function ShellFallback() {
     return (
         <div className="flex h-dvh bg-sidebar" aria-hidden="true">
-            <div className="hidden w-60 shrink-0 md:block" />
-            <div className="flex-1 bg-background md:my-2 md:mr-2 md:rounded-xl md:border" />
+            <div className="hidden w-60 shrink-0 lg:block" />
+            <div className="flex-1 bg-background lg:my-2 lg:mr-2 lg:rounded-xl lg:border" />
         </div>
     );
 }

@@ -80,7 +80,7 @@ export function MyBookingsClient() {
                         <TableHead className="hidden sm:table-cell">{t("colTickets")}</TableHead>
                         <TableHead className="text-right">{t("colTotal")}</TableHead>
                         <TableHead className="hidden text-right md:table-cell">{t("colDate")}</TableHead>
-                        <TableHead className="w-10">
+                        <TableHead className="w-10 max-sm:hidden">
                             <span className="sr-only">{t("viewDetails")}</span>
                         </TableHead>
                     </TableRow>
@@ -88,7 +88,7 @@ export function MyBookingsClient() {
                 <TableBody>
                     {bookings.map(booking => (
                         <TableRow key={booking.id} className="group relative">
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium whitespace-normal">
                                 {/* The first cell's link stretches over the whole row, so the row is one big target. */}
                                 <Link
                                     href={`/booking/${booking.id}`}
@@ -112,7 +112,7 @@ export function MyBookingsClient() {
                             <TableCell className="hidden text-right text-muted-foreground md:table-cell">
                                 {formatBookingDate(format, booking.createdAt)}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="max-sm:hidden">
                                 <ChevronRight
                                     aria-hidden="true"
                                     className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground"

@@ -215,7 +215,7 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
             <PageHeader crumbs={[{ label: tNav("events"), href: "/" }]} title={t("title")} />
 
             <PageContent width="wide">
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
                     <div className="min-w-0 space-y-4">
                         <h1 className="sr-only">{t("title")}</h1>
                         <SeatHoldNotice expiresAt={booking.expiresAt} />
@@ -244,7 +244,7 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
                         )}
                     </div>
 
-                    <aside className="lg:sticky lg:top-17 lg:self-start">
+                    <aside className="xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
                                 <CardTitle className="text-xs font-medium text-muted-foreground">{t("orderSummary")}</CardTitle>

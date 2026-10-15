@@ -25,24 +25,36 @@ export function PageHeader({ title, crumbs, meta, titleAsText, actions }: PageHe
     const Title = titleAsText ? "span" : "h1";
     return (
         <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70 print:hidden">
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-                {crumbs?.map(crumb => (
-                    <React.Fragment key={crumb.label}>
-                        {crumb.href ? (
-                            <Link
-                                href={crumb.href}
-                                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                            >
-                                {crumb.label}
-                            </Link>
-                        ) : (
-                            <span className="shrink-0 text-muted-foreground">{crumb.label}</span>
-                        )}
-                        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    </React.Fragment>
-                ))}
+            <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+                {crumbs?.map((crumb, index) => {
+                    // Phones only have room for the nearest parent; it doubles as the "back" link.
+                    const visibility = index === crumbs.length - 1 ? "" : "max-sm:hidden";
+                    return (
+                        <React.Fragment key={crumb.label}>
+                            {crumb.href ? (
+                                <Link
+                                    href={crumb.href}
+                                    className={cn(
+                                        "min-w-0 truncate text-muted-foreground transition-colors hover:text-foreground max-sm:max-w-28 sm:max-w-48",
+                                        visibility,
+                                    )}
+                                >
+                                    {crumb.label}
+                                </Link>
+                            ) : (
+                                <span className={cn("min-w-0 truncate text-muted-foreground max-sm:max-w-28 sm:max-w-48", visibility)}>
+                                    {crumb.label}
+                                </span>
+                            )}
+                            <ChevronRight
+                                aria-hidden="true"
+                                className={cn("size-3.5 shrink-0 text-muted-foreground/60", visibility)}
+                            />
+                        </React.Fragment>
+                    );
+                })}
                 {title && <Title className="truncate font-medium">{title}</Title>}
-                {meta}
+                <span className="shrink-0">{meta}</span>
             </nav>
             {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
         </header>

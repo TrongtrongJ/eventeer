@@ -202,15 +202,15 @@ export function MetricsDashboardClient() {
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead>{t("events")}</TableHead>
-                                    <TableHead className="text-right">{t("bookings")}</TableHead>
+                                    <TableHead className="text-right max-sm:hidden">{t("bookings")}</TableHead>
                                     <TableHead className="text-right">{t("totalRevenue")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {metrics.business.events.topEvents.map((event, index) => (
                                     <TableRow key={index}>
-                                        <TableCell className="font-medium">{event.title}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                                        <TableCell className="font-medium whitespace-normal">{event.title}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground tabular-nums max-sm:hidden">
                                             {t("bookingsCount", { count: event.bookings })}
                                         </TableCell>
                                         <TableCell className="text-right font-medium tabular-nums">
