@@ -17,19 +17,19 @@ export const authContract = oc.router({
         .input(RegisterSchema)
         .output(responseWithAuthSchema)
         .errors({
-          FORBIDDEN: {
-            message: "Admin sign-up is disabled"
-          },
-          CONFLICT: {
-            message: "An account with that email already exists"
-          },
+            FORBIDDEN: {
+                message: "Admin sign-up is disabled",
+            },
+            CONFLICT: {
+                message: "An account with that email already exists",
+            },
         })
         .meta(
             openapi({
                 method: "POST",
                 path: "/auth/register",
                 description: "Register user",
-                tags: ['Auth'],
+                tags: ["Auth"],
             }),
         ),
     login: oc
@@ -48,60 +48,61 @@ export const authContract = oc.router({
                 method: "POST",
                 path: "/auth/login",
                 description: "Login user",
-                tags: ['Auth']
+                tags: ["Auth"],
             }),
         ),
-    me: oc.output(createBaseResponse(UserSchema))
+    me: oc
+        .output(createBaseResponse(UserSchema))
         .errors({
-          NOT_FOUND: {
-            message: "User not found"
-          }
+            NOT_FOUND: {
+                message: "User not found",
+            },
         })
         .meta(
-          openapi({
-              method: "GET",
-              path: "/auth/me",
-              description: "Get me",
-              tags: ['Auth']
-          }),
+            openapi({
+                method: "GET",
+                path: "/auth/me",
+                description: "Get me",
+                tags: ["Auth"],
+            }),
         ),
     refresh: oc
         .output(createBaseResponse(UserSchema))
         .errors({
-          UNAUTHORIZED: {
-            message: "Missing refresh token"
-          }
+            UNAUTHORIZED: {
+                message: "Missing refresh token",
+            },
         })
         .meta(
-          openapi({
-              method: "POST",
-              path: "/auth/refresh",
-              description: "Refresh user auth",
-              tags: ['Auth']
-          }),
+            openapi({
+                method: "POST",
+                path: "/auth/refresh",
+                description: "Refresh user auth",
+                tags: ["Auth"],
+            }),
         ),
     logout: oc.output(responseWithNullData).meta(
         openapi({
             method: "POST",
             path: "/auth/logout",
             description: "Logout user",
-            tags: ['Auth']
+            tags: ["Auth"],
         }),
     ),
     verifyEmail: oc
         .input(VerifyEmailSchema)
         .output(responseWithMessage)
         .errors({
-          BAD_REQUEST: {
-            message: "Invalid or expired verification token"
-          }
+            BAD_REQUEST: {
+                message: "Invalid or expired verification token",
+            },
         })
         .meta(
             openapi({
                 method: "POST",
                 path: "/auth/verify-email",
                 description: "Verify user email",
-                tags: ['Auth']
+                tags: ["Auth"],
             }),
         ),
     forgotPassword: oc
@@ -112,23 +113,23 @@ export const authContract = oc.router({
                 method: "POST",
                 path: "/auth/forgot-password",
                 description: "Forgot password",
-                tags: ['Auth']
+                tags: ["Auth"],
             }),
         ),
     resetPassword: oc
         .input(ResetPasswordSchema)
         .output(responseWithMessage)
         .errors({
-          BAD_REQUEST: {
-            message: "Invalid or expired reset token"
-          }
+            BAD_REQUEST: {
+                message: "Invalid or expired reset token",
+            },
         })
         .meta(
             openapi({
                 method: "POST",
                 path: "/auth/reset-password",
                 description: "Reset password",
-                tags: ['Auth']
+                tags: ["Auth"],
             }),
         ),
 });

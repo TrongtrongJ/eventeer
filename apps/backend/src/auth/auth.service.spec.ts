@@ -78,7 +78,7 @@ describe("AuthService", () => {
 
         it("gates ADMIN sign-up behind the flag, and creates nothing when refused", async () => {
             allowAdminSignup = false;
-            const err = await service.register({ ...dto, role: "ADMIN" }, meta, "cid").catch(e => e)
+            const err = await service.register({ ...dto, role: "ADMIN" }, meta, "cid").catch(e => e);
             expect(err).toBeInstanceOf(ORPCError);
             expect(err.code).toBe("FORBIDDEN");
             expect(err.message).toBe("Admin sign-up is disabled");

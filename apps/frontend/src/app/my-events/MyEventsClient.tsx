@@ -86,7 +86,9 @@ export function MyEventsClient() {
                                     >
                                         {event.title}
                                     </Link>
-                                    <span className="block truncate text-xs text-muted-foreground">{event.location}</span>
+                                    <span className="block truncate text-xs text-muted-foreground">
+                                        {event.location}
+                                    </span>
                                 </TableCell>
                                 <TableCell className="hidden text-muted-foreground md:table-cell">
                                     {format.dateTime(new Date(event.startDate), { dateStyle: "medium" })}

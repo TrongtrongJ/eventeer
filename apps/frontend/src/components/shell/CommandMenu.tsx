@@ -58,7 +58,12 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
     const items = visibleNavItems(user);
 
     return (
-        <CommandDialog open={open} onOpenChange={onOpenChange} title={t("search")} description={t("commandPlaceholder")}>
+        <CommandDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            title={t("search")}
+            description={t("commandPlaceholder")}
+        >
             <CommandInput placeholder={t("commandPlaceholder")} />
             <CommandList>
                 <CommandEmpty>{t("commandEmpty")}</CommandEmpty>
@@ -67,7 +72,11 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                     {items.map(item => {
                         const Icon = item.icon;
                         return (
-                            <CommandItem key={item.id} value={t(item.labelKey)} onSelect={() => run(() => router.push(item.href))}>
+                            <CommandItem
+                                key={item.id}
+                                value={t(item.labelKey)}
+                                onSelect={() => run(() => router.push(item.href))}
+                            >
                                 <Icon />
                                 {t(item.labelKey)}
                             </CommandItem>
@@ -84,7 +93,10 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                 <CommandSeparator />
 
                 <CommandGroup heading={t("commandPreferences")}>
-                    <CommandItem value={`${t("theme")} ${t("themeLight")}`} onSelect={() => run(() => setTheme("light"))}>
+                    <CommandItem
+                        value={`${t("theme")} ${t("themeLight")}`}
+                        onSelect={() => run(() => setTheme("light"))}
+                    >
                         <Sun />
                         {t("theme")}: {t("themeLight")}
                     </CommandItem>
@@ -92,7 +104,10 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                         <Moon />
                         {t("theme")}: {t("themeDark")}
                     </CommandItem>
-                    <CommandItem value={`${t("theme")} ${t("themeSystem")}`} onSelect={() => run(() => setTheme("system"))}>
+                    <CommandItem
+                        value={`${t("theme")} ${t("themeSystem")}`}
+                        onSelect={() => run(() => setTheme("system"))}
+                    >
                         <Monitor />
                         {t("theme")}: {t("themeSystem")}
                     </CommandItem>

@@ -2,12 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test-utils/server";
 import { apiUrl } from "../config";
-import {
-    bookingsClient,
-    LAST_REFRESH_STORAGE_KEY,
-    REFRESH_LOCK_NAME,
-    SESSION_EXPIRED_EVENT,
-} from "../browser-client";
+import { bookingsClient, LAST_REFRESH_STORAGE_KEY, REFRESH_LOCK_NAME, SESSION_EXPIRED_EVENT } from "../browser-client";
 import { wrapResponse, apiError } from "@/test-utils/response-envelope";
 
 const PROTECTED = `${apiUrl}/bookings/booking/me`;

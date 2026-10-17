@@ -23,7 +23,11 @@ export function LocaleSwitcher({ className }: { className?: string }) {
         <div
             role="group"
             aria-label={t("label")}
-            className={cn("inline-flex items-center rounded-md border bg-card/50 p-0.5 text-xs", isPending && "opacity-60", className)}
+            className={cn(
+                "inline-flex items-center rounded-md border bg-card/50 p-0.5 text-xs",
+                isPending && "opacity-60",
+                className,
+            )}
         >
             {locales.map(locale => (
                 <button

@@ -2,14 +2,16 @@ import { z } from "zod";
 
 const bookingStatus = ["PENDING", "CONFIRMED", "CANCELLED", "FAILED", "EXPIRED"] as const;
 export type BookingStatus = (typeof bookingStatus)[number];
-export const CreateBookingSchema = z.object({
-    eventId: z.uuid(),
-    quantity: z.number().int().positive().max(20),
-    email: z.email(),
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    couponCode: z.string().trim().max(50).optional(),
-});
+export const CreateBookingSchema = z
+    .object({
+        eventId: z.uuid(),
+        quantity: z.number().int().positive().max(20),
+        email: z.email(),
+        firstName: z.string().min(1).max(100),
+        lastName: z.string().min(1).max(100),
+        couponCode: z.string().trim().max(50).optional(),
+    })
+    .meta({ description: "Create booking schema" });
 
 export const BookingSchema = CreateBookingSchema.extend({
     id: z.uuid(),
@@ -30,7 +32,7 @@ export const BookingSchema = CreateBookingSchema.extend({
             ticketNumber: z.string(),
             qrCode: z.string(),
             isValidated: z.boolean(),
-            validatedAt: z.string().datetime().nullable(),
+            validatedAt: z.iso.datetime().nullable().optional(),
         }),
     ),
     createdAt: z.iso.datetime(),

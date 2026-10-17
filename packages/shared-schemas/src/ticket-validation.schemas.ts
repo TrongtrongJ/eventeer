@@ -5,9 +5,9 @@ export const EventTicketDataSchema = z.object({
     id: z.string(),
     ticketNumber: z.string().optional(),
     isValidated: z.boolean(),
-    validatedAt: z.iso.datetime().optional(),
+    validatedAt: z.iso.datetime().nullable().optional(),
     eventTitle: z.string(),
-    eventDate: z.iso.datetime(),
+    eventDate: z.iso.datetime().optional(),
     holderName: z.string(),
 });
 export const ValidateTicketSchema = z.object({

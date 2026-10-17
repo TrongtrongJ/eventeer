@@ -27,7 +27,13 @@ function EmptyMedia({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
-    return <div data-slot="empty-header" className={cn("flex max-w-sm flex-col items-center gap-1", className)} {...props} />;
+    return (
+        <div
+            data-slot="empty-header"
+            className={cn("flex max-w-sm flex-col items-center gap-1", className)}
+            {...props}
+        />
+    );
 }
 
 function EmptyTitle({ className, ...props }: React.ComponentProps<"h2">) {

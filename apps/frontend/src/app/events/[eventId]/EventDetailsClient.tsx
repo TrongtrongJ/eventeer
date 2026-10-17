@@ -33,7 +33,15 @@ interface EventDetailsClientProps {
 }
 
 /** One row of the Linear-style "properties" panel: icon + label on the left, value on the right. */
-function Property({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
+function Property({
+    icon: Icon,
+    label,
+    children,
+}: {
+    icon: React.ElementType;
+    label: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="flex items-start justify-between gap-4 py-2.5 text-sm">
             <dt className="flex items-center gap-2 text-muted-foreground">
@@ -137,7 +145,9 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                     <aside className="space-y-4 xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
-                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("details")}</CardTitle>
+                                <CardTitle className="text-xs font-medium text-muted-foreground">
+                                    {t("details")}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <dl className="divide-y">
@@ -164,7 +174,12 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                                             {soldOut ? (
                                                 <Badge variant="destructive">{t("soldOut")}</Badge>
                                             ) : (
-                                                <span className={cn("font-medium tabular-nums", lowStock && "text-warning")}>
+                                                <span
+                                                    className={cn(
+                                                        "font-medium tabular-nums",
+                                                        lowStock && "text-warning",
+                                                    )}
+                                                >
                                                     {availableSeats} / {event.capacity}
                                                 </span>
                                             )}
@@ -172,7 +187,9 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                                         <Progress
                                             value={ratio * 100}
                                             aria-label={t("availability")}
-                                            indicatorClassName={cn(soldOut ? "bg-destructive" : lowStock ? "bg-warning" : "bg-success")}
+                                            indicatorClassName={cn(
+                                                soldOut ? "bg-destructive" : lowStock ? "bg-warning" : "bg-success",
+                                            )}
                                         />
                                     </div>
                                 </dl>
@@ -186,7 +203,10 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                                     <span className="text-foreground">
                                         {t.rich("loginPrompt", {
                                             link: chunks => (
-                                                <Link href="/login" className="font-medium underline underline-offset-4">
+                                                <Link
+                                                    href="/login"
+                                                    className="font-medium underline underline-offset-4"
+                                                >
                                                     {chunks}
                                                 </Link>
                                             ),
@@ -199,7 +219,9 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                         {canPurchase && (
                             <Card className="gap-0 py-0">
                                 <CardHeader className="border-b py-3">
-                                    <CardTitle className="text-xs font-medium text-muted-foreground">{t("reserve")}</CardTitle>
+                                    <CardTitle className="text-xs font-medium text-muted-foreground">
+                                        {t("reserve")}
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="py-4">
                                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -253,7 +275,12 @@ export function EventDetailsClient({ event, isAuthenticated, user }: EventDetail
                                             </span>
                                         </div>
 
-                                        <Button type="submit" disabled={isSubmitButtonDisabled} className="w-full" size="lg">
+                                        <Button
+                                            type="submit"
+                                            disabled={isSubmitButtonDisabled}
+                                            className="w-full"
+                                            size="lg"
+                                        >
                                             {createBookingMutation.isPending && <Spinner />}
                                             {createBookingMutation.isPending ? t("processing") : t("proceed")}
                                         </Button>

@@ -247,21 +247,29 @@ export function CheckoutClient({ bookingId }: { bookingId: string }) {
                     <aside className="xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
-                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("orderSummary")}</CardTitle>
+                                <CardTitle className="text-xs font-medium text-muted-foreground">
+                                    {t("orderSummary")}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3 py-4 text-sm">
                                 <div className="flex justify-between gap-4">
                                     <span className="text-muted-foreground">{t("quantity")}</span>
-                                    <span className="font-medium tabular-nums">{tc("ticketCount", { count: booking.quantity })}</span>
+                                    <span className="font-medium tabular-nums">
+                                        {tc("ticketCount", { count: booking.quantity })}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between gap-4">
                                     <span className="text-muted-foreground">{t("subtotal")}</span>
-                                    <span className="tabular-nums">{formatMoney(booking.totalAmount, booking.currency)}</span>
+                                    <span className="tabular-nums">
+                                        {formatMoney(booking.totalAmount, booking.currency)}
+                                    </span>
                                 </div>
                                 {booking.discount > 0 && (
                                     <div className="flex justify-between gap-4 text-success">
                                         <span>{t("discount", { code: booking.couponCode ?? "" })}</span>
-                                        <span className="tabular-nums">-{formatMoney(booking.discount, booking.currency)}</span>
+                                        <span className="tabular-nums">
+                                            -{formatMoney(booking.discount, booking.currency)}
+                                        </span>
                                     </div>
                                 )}
                                 <Separator />

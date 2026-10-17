@@ -27,8 +27,17 @@ async function fetchMetrics(): Promise<Metrics> {
     };
 }
 
-
-function Stat({ label, children, hint, tone }: { label: string; children: React.ReactNode; hint?: React.ReactNode; tone?: "success" | "warning" | "danger" }) {
+function Stat({
+    label,
+    children,
+    hint,
+    tone,
+}: {
+    label: string;
+    children: React.ReactNode;
+    hint?: React.ReactNode;
+    tone?: "success" | "warning" | "danger";
+}) {
     return (
         <Card className="gap-1 py-4">
             <CardHeader className="gap-0">
@@ -62,7 +71,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     );
 }
 
-function Row({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "success" | "warning" | "danger" | "primary" }) {
+function Row({
+    label,
+    value,
+    tone,
+}: {
+    label: string;
+    value: React.ReactNode;
+    tone?: "success" | "warning" | "danger" | "primary";
+}) {
     return (
         <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
             <span className="text-muted-foreground">{label}</span>
@@ -175,7 +192,11 @@ export function MetricsDashboardClient() {
                     <Section title={t("bookings")}>
                         <Row label={t("totalBookings")} value={metrics.business.bookings.total} />
                         <Row label={t("confirmed")} value={metrics.business.bookings.confirmed} tone="success" />
-                        <Row label={t("totalRevenue")} value={formatCurrency(metrics.business.bookings.revenue.total)} tone="primary" />
+                        <Row
+                            label={t("totalRevenue")}
+                            value={formatCurrency(metrics.business.bookings.revenue.total)}
+                            tone="primary"
+                        />
                     </Section>
                     <Section title={t("users")}>
                         <Row label={t("totalUsers")} value={metrics.business.users.total} />

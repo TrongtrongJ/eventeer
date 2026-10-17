@@ -50,9 +50,16 @@ export default function VerifyEmailPage() {
 
     const ok = state === "success";
     return (
-        <AuthLayout title={ok ? t("successTitle") : t("errorTitle")} description={ok ? t("successBody") : t("errorBody")}>
+        <AuthLayout
+            title={ok ? t("successTitle") : t("errorTitle")}
+            description={ok ? t("successBody") : t("errorBody")}
+        >
             <div className="flex flex-col items-center gap-5">
-                {ok ? <CircleCheck className="size-8 text-success" /> : <CircleAlert className="size-8 text-destructive" />}
+                {ok ? (
+                    <CircleCheck className="size-8 text-success" />
+                ) : (
+                    <CircleAlert className="size-8 text-destructive" />
+                )}
                 <Button asChild variant={ok ? "default" : "outline"} className="w-full">
                     <Link href={ok ? "/" : "/login"}>{ok ? t("continue") : t("goToSignIn")}</Link>
                 </Button>

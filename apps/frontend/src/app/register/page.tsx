@@ -72,7 +72,10 @@ export default function RegisterPage() {
             title={t("title")}
             description={t.rich("haveAccount", {
                 link: chunks => (
-                    <Link href="/login" className="font-medium text-foreground underline underline-offset-4 hover:text-primary">
+                    <Link
+                        href="/login"
+                        className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
+                    >
                         {chunks}
                     </Link>
                 ),
@@ -82,12 +85,24 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-3">
                     <Field>
                         <FieldLabel htmlFor="firstName">{t("firstName")}</FieldLabel>
-                        <Input id="firstName" type="text" required aria-invalid={!!errors.firstName} {...register("firstName")} />
+                        <Input
+                            id="firstName"
+                            type="text"
+                            required
+                            aria-invalid={!!errors.firstName}
+                            {...register("firstName")}
+                        />
                         <FieldError>{errors.firstName && localizeMessage(errors.firstName.message)}</FieldError>
                     </Field>
                     <Field>
                         <FieldLabel htmlFor="lastName">{t("lastName")}</FieldLabel>
-                        <Input id="lastName" type="text" required aria-invalid={!!errors.lastName} {...register("lastName")} />
+                        <Input
+                            id="lastName"
+                            type="text"
+                            required
+                            aria-invalid={!!errors.lastName}
+                            {...register("lastName")}
+                        />
                         <FieldError>{errors.lastName && localizeMessage(errors.lastName.message)}</FieldError>
                     </Field>
                 </div>
@@ -103,7 +118,14 @@ export default function RegisterPage() {
 
                 <Field>
                     <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
-                    <Input id="email" type="email" required autoComplete="email" aria-invalid={!!errors.email} {...register("email")} />
+                    <Input
+                        id="email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        aria-invalid={!!errors.email}
+                        {...register("email")}
+                    />
                     <FieldError>{errors.email && localizeMessage(errors.email.message)}</FieldError>
                 </Field>
 

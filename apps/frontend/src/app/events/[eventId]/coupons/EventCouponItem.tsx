@@ -64,7 +64,12 @@ export function EventCouponItem({ coupon, currency }: EventCouponItemProps) {
                     <code className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[13px] font-medium tracking-wide text-foreground">
                         {code}
                     </code>
-                    <Button variant="ghost" size="icon-sm" onClick={couponCodeCopyHandler} aria-label={`${t("copy")} ${code}`}>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={couponCodeCopyHandler}
+                        aria-label={`${t("copy")} ${code}`}
+                    >
                         <Copy />
                     </Button>
                     {!isActive && (

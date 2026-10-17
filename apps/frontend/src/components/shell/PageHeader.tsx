@@ -42,7 +42,12 @@ export function PageHeader({ title, crumbs, meta, titleAsText, actions }: PageHe
                                     {crumb.label}
                                 </Link>
                             ) : (
-                                <span className={cn("min-w-0 truncate text-muted-foreground max-sm:max-w-28 sm:max-w-48", visibility)}>
+                                <span
+                                    className={cn(
+                                        "min-w-0 truncate text-muted-foreground max-sm:max-w-28 sm:max-w-48",
+                                        visibility,
+                                    )}
+                                >
                                     {crumb.label}
                                 </span>
                             )}

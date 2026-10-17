@@ -98,9 +98,16 @@ export function MyBookingsClient() {
                                 </Link>
                             </TableCell>
                             <TableCell>
-                                <span className={cn("inline-flex items-center gap-2", getBookingStatusClass(booking.status))}>
+                                <span
+                                    className={cn(
+                                        "inline-flex items-center gap-2",
+                                        getBookingStatusClass(booking.status),
+                                    )}
+                                >
                                     <BookingStatusIcon status={booking.status} />
-                                    <span className="text-foreground">{tStatus(booking.status as BookingStatusMessageKey)}</span>
+                                    <span className="text-foreground">
+                                        {tStatus(booking.status as BookingStatusMessageKey)}
+                                    </span>
                                 </span>
                             </TableCell>
                             <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">

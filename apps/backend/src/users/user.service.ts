@@ -58,29 +58,29 @@ export class UsersService {
     // ── Refresh token management ──────────────────────────────────────────────
 
     async addRefreshToken(userId: string, rawToken: string): Promise<void> {
-      // Prune expired rows for this user
-      await this.rtRepo.delete({ userId, expiresAt: LessThan(new Date()) });
+        // Prune expired rows for this user
+        await this.rtRepo.delete({ userId, expiresAt: LessThan(new Date()) });
 
-      // Enforce session cap — remove oldest entries if over limit
-      const existing = await this.rtRepo.find({
-          where: { userId },
-          order: { createdAt: "ASC" },
-      });
-      
-      if (existing.length >= MAX_SESSIONS) {
-          const toDelete = existing.slice(0, existing.length - MAX_SESSIONS + 1);
-          await this.rtRepo.remove(toDelete);
-      }
+        // Enforce session cap — remove oldest entries if over limit
+        const existing = await this.rtRepo.find({
+            where: { userId },
+            order: { createdAt: "ASC" },
+        });
 
-      // 1. Hash the raw token with SHA-256
-      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+        if (existing.length >= MAX_SESSIONS) {
+            const toDelete = existing.slice(0, existing.length - MAX_SESSIONS + 1);
+            await this.rtRepo.remove(toDelete);
+        }
 
-      // Mirror the 7-day JWT expiry so we can prune without parsing tokens
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        // 1. Hash the raw token with SHA-256
+        const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
-      // 2. Save the SHA-256 hash directly to the database
-      const rt = this.rtRepo.create({ userId, tokenHash, expiresAt });
-      await this.rtRepo.save(rt);
+        // Mirror the 7-day JWT expiry so we can prune without parsing tokens
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        // 2. Save the SHA-256 hash directly to the database
+        const rt = this.rtRepo.create({ userId, tokenHash, expiresAt });
+        await this.rtRepo.save(rt);
     }
 
     /**

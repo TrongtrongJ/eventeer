@@ -170,7 +170,9 @@ export function EventsListClient({ initialData, pageSize }: EventsListClientProp
                                             )}
 
                                             <div className="min-w-0 flex-1">
-                                                <h2 className="truncate text-sm font-medium text-foreground">{event.title}</h2>
+                                                <h2 className="truncate text-sm font-medium text-foreground">
+                                                    {event.title}
+                                                </h2>
                                                 <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
                                                     <MapPin className="size-3 shrink-0" />
                                                     <span className="truncate">{event.location}</span>

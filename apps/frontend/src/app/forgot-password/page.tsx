@@ -40,7 +40,10 @@ export default function ForgotPasswordPage() {
         return (
             <AuthLayout
                 title={t("sentTitle")}
-                description={t.rich("sentBody", { email, strong: chunks => <strong className="text-foreground">{chunks}</strong> })}
+                description={t.rich("sentBody", {
+                    email,
+                    strong: chunks => <strong className="text-foreground">{chunks}</strong>,
+                })}
             >
                 <div className="flex flex-col items-center gap-5">
                     <span className="grid size-10 place-items-center rounded-full bg-success/15 text-success">

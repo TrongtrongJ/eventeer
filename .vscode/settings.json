@@ -1,0 +1,22 @@
+{
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "apps/**/dist": true,
+        "apps/**/.next": true,
+        "**/.turbo": true,
+        "packages/**/dist": true
+    },
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/.next": true,
+        "**/.turbo": true
+    },
+    "files.watcherExclude": {
+        "**/node_modules/*/**": true,
+        "**/dist/*/**": true
+    },
+    "js/ts.preferences.importModuleSpecifier": "non-relative",
+    "js/ts.tsdk.path": "node_modules\\typescript\\lib"
+}

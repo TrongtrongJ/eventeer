@@ -41,7 +41,12 @@ export function TableSkeleton({ columns, rows = 5 }: { columns: SkeletonColumn[]
                         <TableRow key={r} className="hover:bg-transparent">
                             {columns.map((col, c) => (
                                 <TableCell key={c} className={cn(col.className, "py-3")}>
-                                    <div className={cn("flex items-center gap-2", col.align === "right" && "justify-end")}>
+                                    <div
+                                        className={cn(
+                                            "flex items-center gap-2",
+                                            col.align === "right" && "justify-end",
+                                        )}
+                                    >
                                         {col.icon && <Skeleton className="size-4 shrink-0 rounded-full" />}
                                         <div className="space-y-1.5">
                                             <Skeleton className={cn("h-3.5", col.bar)} />

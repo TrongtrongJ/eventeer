@@ -13,7 +13,7 @@ export const bookingContract = oc.router({
                 method: "POST",
                 path: "/bookings/create",
                 description: "Create booking",
-                tags: ["Booking"]
+                tags: ["Booking"],
             }),
         ),
     confirmBooking: oc
@@ -28,7 +28,7 @@ export const bookingContract = oc.router({
                 method: "POST",
                 path: "/bookings/{id}/confirm",
                 description: "Create booking",
-                tags: ["Booking"]
+                tags: ["Booking"],
             }),
         ),
     findOne: oc
@@ -43,7 +43,7 @@ export const bookingContract = oc.router({
                 method: "GET",
                 path: "/bookings/{id}",
                 description: "Find booking by id",
-                tags: ["Booking"]
+                tags: ["Booking"],
             }),
         ),
     getMyBookings: oc.output(createBaseResponse(z.array(BookingSchema))).meta(
@@ -51,7 +51,7 @@ export const bookingContract = oc.router({
             method: "GET",
             path: "/bookings/booking/me",
             description: "Get user bookings",
-            tags: ["Booking"]
+            tags: ["Booking"],
         }),
     ),
     cancelBooking: oc
@@ -66,7 +66,7 @@ export const bookingContract = oc.router({
                 method: "DELETE",
                 path: "/bookings/{id}",
                 description: "Delete booking",
-                tags: ["Booking"]
+                tags: ["Booking"],
             }),
         ),
     adminListBookings: oc.output(createBaseResponse(z.array(BookingSchema))).meta(
@@ -74,7 +74,7 @@ export const bookingContract = oc.router({
             method: "GET",
             path: "/bookings/admin/all",
             description: "Admin endpoint to view all bookings",
-            tags: ["Booking"]
+            tags: ["Booking"],
         }),
     ),
     getEventBookings: oc
@@ -89,7 +89,7 @@ export const bookingContract = oc.router({
                 method: "GET",
                 path: "/bookings/event/{eventId}/bookings",
                 description: "Organizer endpoint to view bookings for their events",
-                tags: ["Booking"]
+                tags: ["Booking"],
             }),
         ),
 });

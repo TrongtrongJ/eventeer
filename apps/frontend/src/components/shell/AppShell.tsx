@@ -36,7 +36,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex min-w-0 flex-1 flex-col lg:py-2 lg:pr-2 print:p-0">
                 <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-sidebar px-2 lg:hidden print:hidden">
-                    <Button variant="ghost" size="icon" className="size-9" aria-label={t("openMenu")} onClick={() => setMobileNavOpen(true)}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-9"
+                        aria-label={t("openMenu")}
+                        onClick={() => setMobileNavOpen(true)}
+                    >
                         <Menu />
                     </Button>
                     <BrandMark />

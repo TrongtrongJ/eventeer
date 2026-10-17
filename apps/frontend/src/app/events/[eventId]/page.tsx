@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createServerOrpc } from "@/lib/orpc/server-client";
 import { getSession } from "@/lib/auth/session";
@@ -7,7 +8,7 @@ interface EventDetailsPageProps {
     params: Promise<{ eventId: string }>;
 }
 
-export default async function EventDetailsPage({ params }: EventDetailsPageProps) {
+async function EventDetailsInnerWrapper({ params }: EventDetailsPageProps) {
     const { eventId } = await params;
     const orpc = createServerOrpc();
     const session = await getSession();
@@ -21,4 +22,12 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
     }
 
     return <EventDetailsClient event={event} isAuthenticated={session.isAuthenticated} user={session.user} />;
+}
+
+export default async function EventDetailsPage({ params }: EventDetailsPageProps) {
+    return (
+        <Suspense>
+            <EventDetailsInnerWrapper params={params} />
+        </Suspense>
+    );
 }

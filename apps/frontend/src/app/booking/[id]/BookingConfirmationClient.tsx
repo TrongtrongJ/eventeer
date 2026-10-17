@@ -38,7 +38,11 @@ export function BookingConfirmationClient({ bookingId }: { bookingId: string }) 
     if (isLoading || !currentBooking) {
         return (
             <>
-                <PageHeader crumbs={[{ label: tNav("myBookings"), href: "/bookings" }]} title={`#${bookingId.slice(0, 8)}`} titleAsText />
+                <PageHeader
+                    crumbs={[{ label: tNav("myBookings"), href: "/bookings" }]}
+                    title={`#${bookingId.slice(0, 8)}`}
+                    titleAsText
+                />
                 <BookingConfirmationSkeleton />
             </>
         );
@@ -84,7 +88,9 @@ export function BookingConfirmationClient({ bookingId }: { bookingId: string }) 
                     </Detail>
                     <Detail label={t("tickets")}>{currentBooking.quantity}</Detail>
                     <Detail label={t("totalPaid")}>
-                        <span className="tabular-nums">{formatMoney(currentBooking.finalAmount, currentBooking.currency)}</span>
+                        <span className="tabular-nums">
+                            {formatMoney(currentBooking.finalAmount, currentBooking.currency)}
+                        </span>
                     </Detail>
                 </dl>
 
@@ -96,8 +102,12 @@ export function BookingConfirmationClient({ bookingId }: { bookingId: string }) 
                             <Card key={ticket.id} className="gap-0 overflow-hidden py-0 break-inside-avoid">
                                 <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                                     <div className="min-w-0">
-                                        <h3 className="text-sm font-medium">{t("ticketNumber", { number: index + 1 })}</h3>
-                                        <p className="truncate font-mono text-xs text-muted-foreground">{ticket.ticketNumber}</p>
+                                        <h3 className="text-sm font-medium">
+                                            {t("ticketNumber", { number: index + 1 })}
+                                        </h3>
+                                        <p className="truncate font-mono text-xs text-muted-foreground">
+                                            {ticket.ticketNumber}
+                                        </p>
                                     </div>
                                     {ticket.isValidated && <Badge variant="destructive">{t("used")}</Badge>}
                                 </CardContent>

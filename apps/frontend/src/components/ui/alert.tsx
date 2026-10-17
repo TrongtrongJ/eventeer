@@ -25,14 +25,23 @@ function Alert({ className, variant, ...props }: React.ComponentProps<"div"> & V
 }
 
 function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
-    return <div data-slot="alert-title" className={cn("col-start-2 min-h-4 font-medium tracking-tight", className)} {...props} />;
+    return (
+        <div
+            data-slot="alert-title"
+            className={cn("col-start-2 min-h-4 font-medium tracking-tight", className)}
+            {...props}
+        />
+    );
 }
 
 function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
     return (
         <div
             data-slot="alert-description"
-            className={cn("col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground [&_p]:leading-relaxed", className)}
+            className={cn(
+                "col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground [&_p]:leading-relaxed",
+                className,
+            )}
             {...props}
         />
     );

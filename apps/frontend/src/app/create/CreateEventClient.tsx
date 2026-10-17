@@ -264,14 +264,18 @@ export function CreateEventClient() {
                                     <NativeSelect
                                         id="couponType"
                                         value={coupon.discountType}
-                                        onChange={e => patchCoupon({ discountType: e.target.value as CouponForm["discountType"] })}
+                                        onChange={e =>
+                                            patchCoupon({ discountType: e.target.value as CouponForm["discountType"] })
+                                        }
                                     >
                                         <option value="PERCENTAGE">{t("percentage")}</option>
                                         <option value="FIXED">{t("fixed")}</option>
                                     </NativeSelect>
                                 </Field>
                                 <Field>
-                                    <FieldLabel htmlFor="couponValue">{t("discountValue", { type: coupon.discountType })}</FieldLabel>
+                                    <FieldLabel htmlFor="couponValue">
+                                        {t("discountValue", { type: coupon.discountType })}
+                                    </FieldLabel>
                                     <Input
                                         id="couponValue"
                                         type="number"

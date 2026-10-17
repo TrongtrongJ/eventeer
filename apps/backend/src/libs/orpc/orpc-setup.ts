@@ -66,10 +66,7 @@ export function registerORPC() {
         context: (ctx: ExecutionContext) => ({
             request: ctx.switchToHttp().getRequest<Request>(),
         }),
-        plugins: [
-          new RequestHeadersHandlerPlugin(), 
-          new ResponseHeadersHandlerPlugin(),
-        ],
+        plugins: [new RequestHeadersHandlerPlugin(), new ResponseHeadersHandlerPlugin()],
         clientInterceptors: [translateNestExceptions],
     });
 }

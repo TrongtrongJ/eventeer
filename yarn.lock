@@ -1312,6 +1312,7 @@ __metadata:
     "@packages/eslint-config": "workspace:*"
     "@packages/prettier-config": "workspace:*"
     "@packages/shared-schemas": "workspace:*"
+    "@rspack/cli": "npm:^2.2.9"
     "@scalar/nestjs-api-reference": "npm:^1.2.28"
     "@socket.io/redis-adapter": "npm:^8.3.0"
     "@swc/core": "npm:^1.15.8"
@@ -5421,6 +5422,21 @@ __metadata:
   version: 4.64.2
   resolution: "@rollup/rollup-win32-x64-msvc@npm:4.64.2"
   conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@rspack/cli@npm:^2.2.9":
+  version: 2.2.9
+  resolution: "@rspack/cli@npm:2.2.9"
+  peerDependencies:
+    "@rspack/core": ^2.0.0-0
+    "@rspack/dev-server": ^2.0.0-0
+  peerDependenciesMeta:
+    "@rspack/dev-server":
+      optional: true
+  bin:
+    rspack: ./bin/rspack.js
+  checksum: 10c0/85849f9da8156f8fbae528708bc4c37fcef0d1f9582a8b693d405a5b3c8326ec8641f26fefc8cfcc3e888b91879f682b48580582d339e6722a57a47d87a83d31
   languageName: node
   linkType: hard
 

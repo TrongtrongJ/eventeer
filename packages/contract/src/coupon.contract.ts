@@ -13,7 +13,7 @@ export const couponContract = oc.router({
                 method: "POST",
                 path: "/coupons",
                 description: "Create new coupon for an event",
-                tags: ["Coupon"]
+                tags: ["Coupon"],
             }),
         ),
     getEventCoupons: oc
@@ -28,7 +28,7 @@ export const couponContract = oc.router({
                 method: "GET",
                 path: "/coupons/event/{eventId}",
                 description: "Get all coupons of an event",
-                tags: ["Coupon"]
+                tags: ["Coupon"],
             }),
         ),
     getCoupon: oc
@@ -49,7 +49,7 @@ export const couponContract = oc.router({
                 path: "/coupons/{code}",
                 description: "Get coupon by coupon code",
                 inputStructure: "detailed",
-                tags: ["Coupon"]
+                tags: ["Coupon"],
             }),
         ),
     updateCoupon: oc
@@ -68,7 +68,7 @@ export const couponContract = oc.router({
                 path: "/coupons/{id}",
                 description: "Update coupon by id",
                 inputStructure: "detailed",
-                tags: ["Coupon"]
+                tags: ["Coupon"],
             }),
         ),
 });

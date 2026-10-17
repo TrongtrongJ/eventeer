@@ -27,7 +27,7 @@ export class Ticket {
     isValidated: boolean;
 
     @Column({ type: "timestamptz", nullable: true })
-    validatedAt?: Date;
+    validatedAt?: Date | null;
 
     @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;

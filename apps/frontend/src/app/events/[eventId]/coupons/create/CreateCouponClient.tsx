@@ -85,7 +85,11 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
     if (isLoadingEvent) {
         return (
             <>
-                <PageHeader crumbs={[{ label: tNav("myEvents"), href: "/my-events" }]} title={t("heading")} titleAsText />
+                <PageHeader
+                    crumbs={[{ label: tNav("myEvents"), href: "/my-events" }]}
+                    title={t("heading")}
+                    titleAsText
+                />
                 <CouponFormSkeleton />
             </>
         );
@@ -224,7 +228,11 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
                         </Field>
 
                         <div className="flex items-center justify-end gap-2 border-t pt-5">
-                            <Button type="button" variant="ghost" onClick={() => router.push(`/events/${eventId}/coupons`)}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => router.push(`/events/${eventId}/coupons`)}
+                            >
                                 {tc("cancel")}
                             </Button>
                             <Button type="submit" disabled={createCouponMutation.isPending}>
@@ -237,7 +245,9 @@ export function CreateCouponClient({ eventId }: { eventId: string }) {
                     <aside className="xl:sticky xl:top-17 xl:self-start">
                         <Card className="gap-0 py-0">
                             <CardHeader className="border-b py-3">
-                                <CardTitle className="text-xs font-medium text-muted-foreground">{t("preview")}</CardTitle>
+                                <CardTitle className="text-xs font-medium text-muted-foreground">
+                                    {t("preview")}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3 py-4 text-sm">
                                 <div className="flex items-center justify-between gap-3">

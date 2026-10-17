@@ -38,9 +38,15 @@ export function AppSidebar({ onOpenCommand, onNavigate }: AppSidebarProps) {
     return (
         <div className="flex h-full flex-col text-sidebar-foreground">
             <div className="flex h-11 shrink-0 items-center gap-2 px-3">
-                <Link href="/" onClick={onNavigate} className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40">
+                <Link
+                    href="/"
+                    onClick={onNavigate}
+                    className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                >
                     <BrandMark />
-                    <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">{t("brand")}</span>
+                    <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">
+                        {t("brand")}
+                    </span>
                 </Link>
                 {canCreateEvent && !onNavigate && (
                     <Button asChild variant="ghost" size="icon-sm" className="ml-auto text-muted-foreground">
@@ -88,7 +94,12 @@ export function AppSidebar({ onOpenCommand, onNavigate }: AppSidebarProps) {
                                                 : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                                         )}
                                     >
-                                        <Icon className={cn("size-4", active ? "text-foreground" : "text-muted-foreground")} />
+                                        <Icon
+                                            className={cn(
+                                                "size-4",
+                                                active ? "text-foreground" : "text-muted-foreground",
+                                            )}
+                                        />
                                         {t(item.labelKey)}
                                     </Link>
                                 );

@@ -23,12 +23,14 @@ export const LoginSchema = z
     })
     .meta({ description: "User login credentials" });
 
-export const ForgotPasswordSchema = z.object({ email: emailField });
+export const ForgotPasswordSchema = z.object({ email: emailField }).meta({ description: "User forgot password DTO" });
 
-export const ResetPasswordSchema = z.object({
-    token: z.string().min(1),
-    newPassword: passwordField,
-});
+export const ResetPasswordSchema = z
+    .object({
+        token: z.string().min(1),
+        newPassword: passwordField,
+    })
+    .meta({ description: "User reset password DTO" });
 
 export const ResetPasswordFormSchema = z
     .object({
