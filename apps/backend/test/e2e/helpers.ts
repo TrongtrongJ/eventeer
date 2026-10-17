@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { Client } from "pg";
-import { Test } from "@nestjs/testing";
+import { Test, type TestingModuleBuilder } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DataSource } from "typeorm";
 
@@ -22,7 +22,8 @@ async function ensureDatabase() {
     await admin.end();
 }
 
-export async function bootApp() {
+/** `configure` lets a suite swap providers (e.g. a fake S3) before the app is compiled. */
+export async function bootApp(configure?: (builder: TestingModuleBuilder) => TestingModuleBuilder) {
     // The suite TRUNCATEs every table. Never let it near a database that isn't clearly a test one.
     if (!process.env.DB_NAME?.endsWith("_test")) {
         throw new Error(`Refusing to run e2e tests against "${process.env.DB_NAME}": DB_NAME must end with "_test"`);
@@ -32,7 +33,8 @@ export async function bootApp() {
     const { AppModule } = await import("../../src/app.module.js");
     const { configureApp } = await import("../../src/app.setup.js");
 
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const builder = Test.createTestingModule({ imports: [AppModule] });
+    const moduleRef = await (configure ? configure(builder) : builder).compile();
     const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
     configureApp(app);
     await app.init();

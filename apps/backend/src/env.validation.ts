@@ -15,6 +15,9 @@ const booleanFlag = (fallback: boolean) =>
         .default(fallback ? "true" : "false")
         .transform(v => v === "true");
 
+/** `.env` files leave unset values as "": treat that as absent instead of failing z.url(). */
+const optionalUrl = () => z.preprocess(v => (v === "" ? undefined : v), z.url().optional());
+
 export const envSchema = z
     .object({
         NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -55,6 +58,21 @@ export const envSchema = z
         STRIPE_SECRET_KEY: z.string().optional(),
         STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
+        // Direct-to-S3 event image uploads. Unset S3_BUCKET = feature off (the API answers 503).
+        // Credentials are NOT configured here: the AWS SDK's default chain supplies them
+        // (task role / IRSA in production, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY locally).
+        S3_BUCKET: z.string().optional(),
+        S3_REGION: z.string().optional(),
+        /** Custom endpoint for S3-compatible stores (MinIO, LocalStack). Leave unset for AWS. */
+        S3_ENDPOINT: optionalUrl(),
+        /** Endpoint the BROWSER posts to when it differs from S3_ENDPOINT (e.g. http://localhost:9000 vs http://minio:9000). */
+        S3_PUBLIC_ENDPOINT: optionalUrl(),
+        S3_FORCE_PATH_STYLE: booleanFlag(false),
+        /** Where uploaded images are served from: the CloudFront domain, or <endpoint>/<bucket> for MinIO. */
+        S3_PUBLIC_BASE_URL: optionalUrl(),
+        /** Seconds a presigned upload stays valid. */
+        S3_UPLOAD_URL_TTL: z.coerce.number().int().min(30).max(3600).default(300),
+
         SMTP_HOST: z.string().optional(),
         SMTP_PORT: z.coerce.number().default(587),
         SMTP_USER: z.string().optional(),
@@ -76,6 +94,25 @@ export const envSchema = z
         CIRCUIT_BREAKER_RESET_TIMEOUT: z.coerce.number().default(30000),
     })
     .check(ctx => {
+        // Half-configured uploads would only fail at the first presign: refuse to boot instead.
+        const s3 = {
+            S3_BUCKET: ctx.value.S3_BUCKET,
+            S3_REGION: ctx.value.S3_REGION,
+            S3_PUBLIC_BASE_URL: ctx.value.S3_PUBLIC_BASE_URL,
+        };
+        if (Object.values(s3).some(Boolean)) {
+            for (const [key, value] of Object.entries(s3)) {
+                if (!value) {
+                    ctx.issues.push({
+                        code: "custom",
+                        path: [key],
+                        input: value,
+                        message: "Required when any S3_* image upload setting is provided",
+                    });
+                }
+            }
+        }
+
         // Production must never fall back to mock payments or unsent email.
         if (ctx.value.NODE_ENV === "production") {
             const need = (key: keyof typeof ctx.value, why: string) => {
@@ -95,6 +132,15 @@ export const envSchema = z
             }
 
             if (ctx.value.FEATURE_EMAIL_ENABLED) need("SMTP_HOST", "email is enabled");
+
+            if (ctx.value.S3_PUBLIC_BASE_URL && !ctx.value.S3_PUBLIC_BASE_URL.startsWith("https://")) {
+                ctx.issues.push({
+                    code: "custom",
+                    path: ["S3_PUBLIC_BASE_URL"],
+                    input: ctx.value.S3_PUBLIC_BASE_URL,
+                    message: "Must be https in production (mixed content)",
+                });
+            }
 
             if (!ctx.value.FRONTEND_URL.startsWith("https://")) {
                 ctx.issues.push({

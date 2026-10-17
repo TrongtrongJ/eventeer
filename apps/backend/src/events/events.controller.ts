@@ -1,5 +1,7 @@
 import { Controller, ForbiddenException } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { EventsService, EventFilters } from "./events.service";
+import { EventImagesService } from "./event-images.service";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { UserRole } from "../entities/user.entity";
 import { Implement } from "@orpc/nest";
@@ -12,7 +14,31 @@ import { Public } from "../auth/decorators/public.decorator";
 
 @Controller()
 export class EventsController {
-    constructor(private readonly eventsService: EventsService) {}
+    constructor(
+        private readonly eventsService: EventsService,
+        private readonly eventImages: EventImagesService,
+    ) {}
+
+    // Each call mints a signed S3 upload: cap how fast one client can ask.
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
+    @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+    @Implement(eventContract.createImageUpload)
+    async createImageUpload() {
+        return implement(eventContract.createImageUpload)
+            .use(withCorrelationId)
+            .use(withCurrentUser)
+            .use(requireRoles([UserRole.ORGANIZER, UserRole.ADMIN]))
+            .handler(async ({ input, context }) => {
+                const { user, correlationId } = context;
+                const upload = await this.eventImages.createUpload(user.userId, input);
+                return {
+                    success: true,
+                    data: upload,
+                    correlationId: correlationId,
+                    timestamp: new Date().toISOString(),
+                };
+            });
+    }
 
     @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
     @Implement(eventContract.create)
@@ -114,7 +140,7 @@ export class EventsController {
                     }
                 }
 
-                const event = await this.eventsService.update(input.params.id, input.body, correlationId);
+                const event = await this.eventsService.update(input.params.id, input.body, correlationId, user.userId);
                 return {
                     success: true,
                     data: event,

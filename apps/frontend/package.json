@@ -42,6 +42,7 @@
         "radix-ui": "^1.8.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
+        "react-easy-crop": "^6.0.0",
         "react-hook-form": "^7.71.2",
         "react-qr-code": "^2.0.12",
         "socket.io-client": "^4.6.0",

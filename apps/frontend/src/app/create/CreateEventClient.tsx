@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { EventImageField } from "@/components/event-image/EventImageField";
 
 const initialFormData: CreateEventDto = {
     title: "",
@@ -29,7 +30,6 @@ const initialFormData: CreateEventDto = {
     capacity: 100,
     ticketPrice: 0,
     currency: "THB",
-    imageUrl: "",
 };
 
 interface CouponForm {
@@ -62,6 +62,7 @@ export function CreateEventClient() {
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { isValid },
     } = useForm<CreateEventDto>({
         resolver: zodResolver(CreateEventSchema),
@@ -224,13 +225,13 @@ export function CreateEventClient() {
                             </Field>
                         </div>
                         <Field>
-                            <FieldLabel htmlFor="imageUrl">{t("imageUrl")}</FieldLabel>
-                            <Input
-                                id="imageUrl"
-                                type="url"
-                                placeholder="https://example.com/image.jpg"
-                                {...register("imageUrl")}
+                            <FieldLabel>{t("image")}</FieldLabel>
+                            <EventImageField
+                                onChange={key =>
+                                    setValue("imageUploadKey", key, { shouldValidate: true, shouldDirty: true })
+                                }
                             />
+                            <FieldDescription>{t("imageHelp")}</FieldDescription>
                         </Field>
                     </FieldSet>
 

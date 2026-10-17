@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { inputAwareDateTime } from "./constants";
 import { basePaginationSchema } from "./base/entity.schemas";
+import { EventImageUploadKeySchema } from "./event-image.schemas";
 
 export const currency = ["THB", "USD", "EUR", "GBP"] as const;
 
@@ -16,12 +17,15 @@ export const CreateEventSchema = z.object({
     capacity: z.number().int().positive().max(100000),
     ticketPrice: z.number().nonnegative().max(1000000),
     currency: z.enum(currency).optional().default(currency[0]),
+    /** External image link. Uploaded images go through `imageUploadKey` instead. "" clears the image. */
     imageUrl: z.url().or(z.literal("")).optional(),
+    /** Key returned by `events.createImageUpload`; the API attaches that upload and sets `imageUrl`. */
+    imageUploadKey: EventImageUploadKeySchema.optional(),
 });
 
 export const UpdateEventSchema = CreateEventSchema.partial();
 
-export const EventSchema = CreateEventSchema.extend({
+export const EventSchema = CreateEventSchema.omit({ imageUploadKey: true }).extend({
     id: z.uuid(),
     organizerId: z.uuid().optional(),
     organizerName: z.string().optional(),

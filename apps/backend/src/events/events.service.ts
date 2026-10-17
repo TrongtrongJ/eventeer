@@ -6,6 +6,7 @@ import { CreateEventDto, UpdateEventDto, EventDto } from "@packages/shared-schem
 import { WebsocketGateway } from "../websocket/websocket.gateway";
 import { buildPaginatedResponse, PaginationInput } from "../common/pagination";
 import { ResourceNotFoundException } from "../common/exceptions/business.exception";
+import { EventImagesService } from "./event-images.service";
 
 export interface EventFilters {
     location?: string;
@@ -36,6 +37,7 @@ export class EventsService {
         @InjectRepository(Event)
         private readonly eventRepository: Repository<Event>,
         private readonly websocketGateway: WebsocketGateway,
+        private readonly images: EventImagesService,
     ) {}
 
     async findAllPaginated(pagination: PaginationInput, filters: EventFilters) {
@@ -80,16 +82,28 @@ export class EventsService {
         const startDate = new Date(dto.startDate);
         const endDate = new Date(dto.endDate);
         this.assertValidWindow(startDate, endDate);
+        this.assertSingleImageSource(dto);
 
-        const event = await this.eventRepository.save(
-            this.eventRepository.create({
-                ...dto,
-                organizerId,
-                availableSeats: dto.capacity,
-                startDate,
-                endDate,
-            }),
-        );
+        const { imageUploadKey, ...fields } = dto;
+        const uploaded = imageUploadKey ? await this.images.attach(organizerId, imageUploadKey) : undefined;
+
+        let event: Event;
+        try {
+            event = await this.eventRepository.save(
+                this.eventRepository.create({
+                    ...fields,
+                    ...(uploaded && { imageUrl: uploaded.url }),
+                    organizerId,
+                    availableSeats: dto.capacity,
+                    startDate,
+                    endDate,
+                }),
+            );
+        } catch (err) {
+            // Don't leave a published image that no event points at.
+            if (uploaded) await this.images.discard(uploaded.url);
+            throw err;
+        }
 
         this.logger.log({ message: "Event created", correlationId, eventId: event.id, organizerId });
         return this.toDto(event);
@@ -113,13 +127,14 @@ export class EventsService {
         return this.toDto(event);
     }
 
-    async update(id: string, dto: UpdateEventDto, correlationId: string): Promise<EventDto> {
+    async update(id: string, dto: UpdateEventDto, correlationId: string, actorId: string): Promise<EventDto> {
         const event = await this.eventRepository.findOne({ where: { id }, relations: ["organizer"] });
         if (!event) throw new ResourceNotFoundException("Event", id);
 
         const startDate = dto.startDate ? new Date(dto.startDate) : event.startDate;
         const endDate = dto.endDate ? new Date(dto.endDate) : event.endDate;
         this.assertValidWindow(startDate, endDate);
+        this.assertSingleImageSource(dto);
 
         // Changing capacity must preserve the number of seats already sold.
         if (dto.capacity !== undefined && dto.capacity !== event.capacity) {
@@ -131,16 +146,27 @@ export class EventsService {
             event.capacity = dto.capacity;
         }
 
-        const { startDate: _s, endDate: _e, capacity: _c, ...rest } = dto;
-        Object.assign(event, rest, { startDate, endDate });
+        const { startDate: _s, endDate: _e, capacity: _c, imageUploadKey, ...rest } = dto;
+        const previousImageUrl = event.imageUrl;
+        const uploaded = imageUploadKey ? await this.images.attach(actorId, imageUploadKey) : undefined;
+        Object.assign(event, rest, { startDate, endDate }, uploaded && { imageUrl: uploaded.url });
 
-        const saved = await this.eventRepository.save(event);
+        let saved: Event;
+        try {
+            saved = await this.eventRepository.save(event);
+        } catch (err) {
+            if (uploaded) await this.images.discard(uploaded.url);
+            throw err;
+        }
+        // Replaced or cleared: the old object is now unreferenced.
+        if (previousImageUrl && previousImageUrl !== saved.imageUrl) await this.images.discard(previousImageUrl);
         this.logger.log({ message: "Event updated", correlationId, eventId: id });
         this.broadcastSeats(saved.id, saved.availableSeats, saved.capacity);
         return this.toDto(saved);
     }
 
     async delete(id: string, correlationId: string): Promise<void> {
+        const existing = await this.eventRepository.findOne({ where: { id }, select: { id: true, imageUrl: true } });
         try {
             const result = await this.eventRepository.delete(id);
             if (result.affected === 0) throw new ResourceNotFoundException("Event", id);
@@ -151,6 +177,7 @@ export class EventsService {
             }
             throw err;
         }
+        await this.images.discard(existing?.imageUrl);
         this.logger.log({ message: "Event deleted", correlationId, eventId: id });
     }
 
@@ -209,6 +236,13 @@ export class EventsService {
             capacity,
             timestamp: new Date().toISOString(),
         });
+    }
+
+    /** An event has one image: either an external link or an upload, never both. */
+    private assertSingleImageSource(dto: { imageUrl?: string; imageUploadKey?: string }) {
+        if (dto.imageUploadKey && dto.imageUrl) {
+            throw new BadRequestException("Provide either imageUrl or imageUploadKey, not both");
+        }
     }
 
     private assertValidWindow(start: Date, end: Date) {

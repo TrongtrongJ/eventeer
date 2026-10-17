@@ -41,4 +41,53 @@ describe("env validation", () => {
     it("rejects malformed durations", () => {
         expect(() => validate({ ACCESS_TOKEN_TTL: "soon" })).toThrow();
     });
+
+    describe("image uploads (S3)", () => {
+        const s3 = {
+            S3_BUCKET: "example-eventeer-images",
+            S3_REGION: "ap-southeast-1",
+            S3_PUBLIC_BASE_URL: "https://images.example.com",
+        };
+
+        it("is off by default: nothing to configure, nothing required", () => {
+            const env = validate({});
+            expect(env.S3_BUCKET).toBeUndefined();
+            expect(env.S3_UPLOAD_URL_TTL).toBe(300);
+        });
+
+        it("accepts a complete setting, and optional MinIO-style endpoints", () => {
+            expect(validate(s3).S3_BUCKET).toBe("example-eventeer-images");
+            const dev = validate({ ...s3, S3_ENDPOINT: "http://localhost:9000", S3_FORCE_PATH_STYLE: "true" });
+            expect(dev.S3_FORCE_PATH_STYLE).toBe(true);
+        });
+
+        it("refuses a half-configured setup instead of failing on the first upload", () => {
+            expect(() => validate({ S3_BUCKET: "b" })).toThrow(/S3_REGION/);
+            expect(() => validate({ S3_BUCKET: "b" })).toThrow(/S3_PUBLIC_BASE_URL/);
+            expect(() => validate({ ...s3, S3_BUCKET: undefined })).toThrow(/S3_BUCKET/);
+        });
+
+        it("treats blank .env values as unset (copying .env.example must boot)", () => {
+            const env = validate({
+                S3_BUCKET: "",
+                S3_REGION: "",
+                S3_ENDPOINT: "",
+                S3_PUBLIC_ENDPOINT: "",
+                S3_PUBLIC_BASE_URL: "",
+            });
+            expect(env.S3_ENDPOINT).toBeUndefined();
+        });
+
+        it("requires https for the public base URL in production (mixed content)", () => {
+            expect(() => validate({ ...prod, ...s3, S3_PUBLIC_BASE_URL: "http://images.example.com" })).toThrow(
+                /https/,
+            );
+            expect(validate({ ...prod, ...s3 }).isProd).toBe(true);
+        });
+
+        it("bounds the presigned URL lifetime", () => {
+            expect(() => validate({ S3_UPLOAD_URL_TTL: "5" })).toThrow();
+            expect(() => validate({ S3_UPLOAD_URL_TTL: "86400" })).toThrow();
+        });
+    });
 });

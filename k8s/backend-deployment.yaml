@@ -13,6 +13,8 @@ spec:
             labels:
                 app: backend
         spec:
+            # IRSA: gives the pods S3 access through an IAM role with no stored keys (see serviceaccount.yaml).
+            serviceAccountName: backend
             containers:
                 - name: backend
                   image: eventeer-api:0.1.0 # pin an immutable tag (never :latest)
@@ -82,6 +84,35 @@ spec:
                             secretKeyRef:
                                 name: smtp-secret
                                 key: password
+                      - name: S3_BUCKET
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: s3-bucket
+                      - name: S3_REGION
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: s3-region
+                      - name: S3_PUBLIC_BASE_URL
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: s3-public-base-url
+                      # Only for clusters WITHOUT IRSA / pod identity. Skipped when the Secret is absent,
+                      # in which case the SDK falls back to the pod's role credentials.
+                      - name: AWS_ACCESS_KEY_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: aws-s3-secret
+                                key: access-key-id
+                                optional: true
+                      - name: AWS_SECRET_ACCESS_KEY
+                        valueFrom:
+                            secretKeyRef:
+                                name: aws-s3-secret
+                                key: secret-access-key
+                                optional: true
                       - name: FEATURE_EMAIL_ENABLED
                         value: "true"
                       - name: FEATURE_PAYMENT_ENABLED

@@ -6,10 +6,10 @@ help: ## Show this help
 install: ## Install dependencies (Yarn 4 via Corepack)
 	corepack enable && yarn install
 
-infra: ## Start Postgres + Redis only (run the apps natively with `yarn dev`)
-	docker compose up -d postgres redis
+infra: ## Start Postgres + Redis + MinIO only (run the apps natively with `yarn dev`)
+	docker compose up -d postgres redis minio minio-init
 
-up: ## Start everything in containers (API + web + Postgres + Redis)
+up: ## Start everything in containers (API + web + Postgres + Redis + MinIO)
 	docker compose --profile app up --build
 
 down: ## Stop containers

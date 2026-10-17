@@ -62,6 +62,12 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "image_upload_allowed_origins" {
+  description = "Web app origins allowed to POST event images straight to the images bucket (CORS)"
+  type        = list(string)
+  default     = ["https://your-web-app.example.com"]
+}
+
 variable "db_username" {
   description = "Database master username"
   type        = string
@@ -86,6 +92,8 @@ variable "jwt_refresh_secret" {
   type        = string
   sensitive   = true
 }
+
+data "aws_caller_identity" "current" {}
 
 # ================================================================
 # VPC & NETWORKING
@@ -557,6 +565,200 @@ resource "aws_cloudfront_distribution" "frontend" {
 }
 
 # ================================================================
+# EVENT IMAGES (direct-to-S3 uploads, served through CloudFront)
+# ================================================================
+#
+# Browser --presigned POST--> tmp/events/<userId>/<uuid>   (private, expires after 1 day)
+# API     --server-side copy--> events/<uuid>             (served publicly via CloudFront only)
+
+resource "aws_s3_bucket" "event_images" {
+  # Bucket names are global: the account id keeps this one unique.
+  bucket = "${var.project_name}-event-images-${var.environment}-${data.aws_caller_identity.current.account_id}"
+
+  tags = {
+    Name = "${var.project_name}-event-images-${var.environment}"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "event_images" {
+  bucket                  = aws_s3_bucket.event_images.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "event_images" {
+  bucket = aws_s3_bucket.event_images.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "event_images" {
+  bucket = aws_s3_bucket.event_images.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# The browser POSTs the file here directly, so the bucket must allow the web app's origin.
+resource "aws_s3_bucket_cors_configuration" "event_images" {
+  bucket = aws_s3_bucket.event_images.id
+
+  cors_rule {
+    allowed_methods = ["POST"]
+    allowed_origins = var.image_upload_allowed_origins
+    allowed_headers = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
+# Uploads that never get attached to an event disappear by themselves.
+resource "aws_s3_bucket_lifecycle_configuration" "event_images" {
+  bucket = aws_s3_bucket.event_images.id
+
+  rule {
+    id     = "expire-unattached-uploads"
+    status = "Enabled"
+
+    filter {
+      prefix = "tmp/"
+    }
+
+    expiration {
+      days = 1
+    }
+  }
+
+  rule {
+    id     = "abort-incomplete-multipart"
+    status = "Enabled"
+
+    filter {}
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
+resource "aws_cloudfront_origin_access_control" "event_images" {
+  name                              = "${var.project_name}-event-images-${var.environment}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+# User-uploaded files are served from a different origin than the app. These headers make sure a
+# file that is not really an image can never run as a page.
+resource "aws_cloudfront_response_headers_policy" "event_images" {
+  name = "${var.project_name}-event-images-${var.environment}"
+
+  custom_headers_config {
+    items {
+      header   = "X-Content-Type-Options"
+      value    = "nosniff"
+      override = true
+    }
+    items {
+      header   = "Content-Security-Policy"
+      value    = "default-src 'none'; img-src 'self'; sandbox"
+      override = true
+    }
+  }
+}
+
+resource "aws_cloudfront_distribution" "event_images" {
+  enabled     = true
+  comment     = "${var.project_name} event images (${var.environment})"
+  price_class = "PriceClass_100"
+
+  origin {
+    domain_name              = aws_s3_bucket.event_images.bucket_regional_domain_name
+    origin_id                = "event-images-s3"
+    origin_access_control_id = aws_cloudfront_origin_access_control.event_images.id
+  }
+
+  default_cache_behavior {
+    target_origin_id           = "event-images-s3"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.event_images.id
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+
+# CloudFront may read published images only. tmp/ (unverified uploads) is never publicly readable.
+resource "aws_s3_bucket_policy" "event_images" {
+  bucket = aws_s3_bucket.event_images.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontReadPublishedImages"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.event_images.arn}/events/*"
+        Condition = {
+          StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.event_images.arn }
+        }
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.event_images]
+}
+
+# What the API needs, and nothing more: sign uploads under tmp/, verify and copy them into events/,
+# and delete replaced images. (Signing a POST needs no permission of its own beyond PutObject.)
+resource "aws_iam_role_policy" "event_images_access" {
+  name = "${var.project_name}-event-images-access-${var.environment}"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "UploadsToTmp"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Resource = "${aws_s3_bucket.event_images.arn}/tmp/*"
+      },
+      {
+        Sid      = "PublishedImages"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Resource = "${aws_s3_bucket.event_images.arn}/events/*"
+      }
+    ]
+  })
+}
+
+# ================================================================
 # APPLICATION LOAD BALANCER
 # ================================================================
 
@@ -764,7 +966,10 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "REDIS_HOST", value = aws_elasticache_replication_group.main.primary_endpoint_address },
         { name = "REDIS_PORT", value = "6379" },
         { name = "FEATURE_PAYMENT_ENABLED", value = "true" },
-        { name = "FEATURE_EMAIL_ENABLED", value = "true" }
+        { name = "FEATURE_EMAIL_ENABLED", value = "true" },
+        { name = "S3_BUCKET", value = aws_s3_bucket.event_images.id },
+        { name = "S3_REGION", value = var.aws_region },
+        { name = "S3_PUBLIC_BASE_URL", value = "https://${aws_cloudfront_distribution.event_images.domain_name}" }
       ]
 
       secrets = [
@@ -941,6 +1146,16 @@ output "redis_endpoint" {
 output "ecr_repository_url" {
   description = "ECR repository URL"
   value       = aws_ecr_repository.backend.repository_url
+}
+
+output "event_images_bucket" {
+  description = "S3 bucket receiving direct event image uploads"
+  value       = aws_s3_bucket.event_images.id
+}
+
+output "event_images_cdn_url" {
+  description = "Public base URL for event images (use as S3_PUBLIC_BASE_URL)"
+  value       = "https://${aws_cloudfront_distribution.event_images.domain_name}"
 }
 
 output "s3_bucket_name" {

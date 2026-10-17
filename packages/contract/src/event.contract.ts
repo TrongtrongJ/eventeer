@@ -1,7 +1,14 @@
 import { oc } from "@orpc/contract";
 import { openapi } from "@orpc/openapi";
 import { z } from "zod";
-import { EventSchema, CreateEventSchema, EventQuerySchema, UpdateEventSchema } from "@packages/shared-schemas";
+import {
+    EventSchema,
+    CreateEventSchema,
+    EventQuerySchema,
+    UpdateEventSchema,
+    CreateEventImageUploadSchema,
+    EventImageUploadSchema,
+} from "@packages/shared-schemas";
 import { createBaseResponse } from "./base/base-response.dto";
 import { createPaginatedResponse } from "./base/base-pagination.dto";
 
@@ -14,6 +21,22 @@ export const eventContract = oc.router({
                 method: "POST",
                 path: "/events",
                 description: "Create new event",
+                tags: ["Event"],
+            }),
+        ),
+    createImageUpload: oc
+        .input(CreateEventImageUploadSchema)
+        .output(createBaseResponse(EventImageUploadSchema))
+        .errors({
+          SERVICE_UNAVAILABLE: {
+            message: "Image uploads are not configured",
+          },
+        })
+        .meta(
+            openapi({
+                method: "POST",
+                path: "/events/image-upload",
+                description: "Get a short-lived presigned POST for uploading an event image straight to S3",
                 tags: ["Event"],
             }),
         ),

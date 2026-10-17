@@ -1,5 +1,6 @@
 import { z } from "zod";
 export * from "./event.schemas";
+export * from "./event-image.schemas";
 export * from "./booking.schemas";
 export * from "./coupon.schemas";
 export * from "./auth.schemas";

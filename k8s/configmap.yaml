@@ -10,3 +10,8 @@ data:
     trust-proxy: "1"
     smtp-host: smtp.gmail.com
     smtp-port: "587"
+    # Event image uploads (direct-to-S3). Placeholders: replace with your own bucket/region/domain.
+    # s3-public-base-url is the CloudFront domain from terraform/main.tf (must be https in production).
+    s3-bucket: your-eventeer-images-bucket
+    s3-region: your-aws-region
+    s3-public-base-url: https://your-distribution-id.cloudfront.net
