@@ -196,6 +196,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 - [ ] Metrics and tracing export (correlation IDs and health checks only for now)
 - [ ] Terraform brought in line with the Next.js server and opaque sessions
 
-## Optional (might implement but the project is currently too small)
-- [ ] Microservices and implement SAGA pattern (modularized and correlationId prepared)
-- [ ] Feature flag by ConfigCat (Not many flags worth moving from env flags)
+## Optional (The project is currently small, self-contained)
+- [ ] Microservices and SAGA pattern (already modularized, correlationId prepared)
+- [ ] Feature flag by ConfigCat (Not enough flags worth moving from env)
+- [ ] Full observability and OpenTelemetry (external service dependent)
