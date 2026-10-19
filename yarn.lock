@@ -1294,10 +1294,14 @@ __metadata:
     "@nestjs/config": "npm:^12.0.0"
     "@nestjs/core": "npm:^12.0.0"
     "@nestjs/graphql": "npm:^14.0.0"
+    "@nestjs/idempotency": "npm:^0.0.2"
     "@nestjs/jwt": "npm:12.0.0"
+    "@nestjs/locks": "npm:^0.0.3"
+    "@nestjs/mail": "npm:^0.0.1"
     "@nestjs/passport": "npm:12.0.0"
     "@nestjs/platform-express": "npm:^12.0.0"
     "@nestjs/platform-socket.io": "npm:^12.0.0"
+    "@nestjs/resilience": "npm:^0.0.2"
     "@nestjs/schematics": "npm:^12.0.0"
     "@nestjs/swagger": "npm:12.0.0"
     "@nestjs/terminus": "npm:^12.0.0"
@@ -2634,6 +2638,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nestjs/idempotency@npm:^0.0.2":
+  version: 0.0.2
+  resolution: "@nestjs/idempotency@npm:0.0.2"
+  peerDependencies:
+    "@nestjs/common": ^11.0.0 || ^12.0.0
+    "@nestjs/core": ^11.0.0 || ^12.0.0
+    "@nestjs/microservices": ^11.0.0 || ^12.0.0
+    graphql: ^16.0.0 || ^17.0.0
+    reflect-metadata: ^0.1.13 || ^0.2.0
+    rxjs: ^7.1.0
+  peerDependenciesMeta:
+    "@nestjs/microservices":
+      optional: true
+    graphql:
+      optional: true
+  checksum: 10c0/24dfbaf6c253cd139338f3128d545913f8b34fdfe69dc3440df6ed74f9ac737bac4ede517490d1ef7e8523a6e37d6e118b3420514aceff04bde172394e038ab7
+  languageName: node
+  linkType: hard
+
 "@nestjs/jwt@npm:12.0.0":
   version: 12.0.0
   resolution: "@nestjs/jwt@npm:12.0.0"
@@ -2643,6 +2666,30 @@ __metadata:
   peerDependencies:
     "@nestjs/common": ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0
   checksum: 10c0/a0c99f5daded3ad48c6bc7d40146127ec8d686119b7e1583121ca1c8276a6fd1242094b3676105196f60ea4dc4118acbdec6bd6ade7f09793ba97fa404803324
+  languageName: node
+  linkType: hard
+
+"@nestjs/locks@npm:^0.0.3":
+  version: 0.0.3
+  resolution: "@nestjs/locks@npm:0.0.3"
+  peerDependencies:
+    "@nestjs/common": ^11.0.0 || ^12.0.0
+    "@nestjs/core": ^11.0.0 || ^12.0.0
+    reflect-metadata: ^0.1.13 || ^0.2.0
+    rxjs: ^7.1.0
+  checksum: 10c0/d3598c567f412b856469ee1ef1456ccfe79d3b1a2e90453ea30ca31f54bf75baabbcd38f145a8279bf35e4be19246cefc8f1d758a373d4ecf9782782e9066fb2
+  languageName: node
+  linkType: hard
+
+"@nestjs/mail@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "@nestjs/mail@npm:0.0.1"
+  peerDependencies:
+    "@nestjs/common": ^11.0.0 || ^12.0.0
+    "@nestjs/core": ^11.0.0 || ^12.0.0
+    reflect-metadata: ^0.1.13 || ^0.2.0
+    rxjs: ^7.1.0
+  checksum: 10c0/5b7f7385ab3580de7c175b92c3d120b1eb87d20a1d639c52ff22cd59db0b385c27aaf52d7eb99673fcaad69db2615409afd0998f714b9d66461a1d3c6caf26a4
   languageName: node
   linkType: hard
 
@@ -2700,6 +2747,28 @@ __metadata:
     "@nestjs/websockets": ^12.0.0
     rxjs: ^7.1.0
   checksum: 10c0/abea87c76308a7142e42a453f6bd5ddecc3521d1efb5dda52904948811c52c1cacc1a02ccb77774205135ff29bb85e5e62ca4fba6d7d4a812aa9a7236ebebc60
+  languageName: node
+  linkType: hard
+
+"@nestjs/resilience@npm:^0.0.2":
+  version: 0.0.2
+  resolution: "@nestjs/resilience@npm:0.0.2"
+  peerDependencies:
+    "@nestjs/common": ^12.0.0
+    "@nestjs/core": ^12.0.0
+    "@nestjs/microservices": ^12.0.0
+    "@nestjs/websockets": ^12.0.0
+    graphql: ^16.0.0 || ^17.0.0
+    reflect-metadata: ^0.1.13 || ^0.2.0
+    rxjs: ^7.1.0
+  peerDependenciesMeta:
+    "@nestjs/microservices":
+      optional: true
+    "@nestjs/websockets":
+      optional: true
+    graphql:
+      optional: true
+  checksum: 10c0/a655d16692f2aa3ce9e2f245d3a30d67e701df4fa985f88104dc35b2b628b49924b6cf2c21d39e122c4e407c051bf91b11da92cf7061c9d1e62142a154a09fdb
   languageName: node
   linkType: hard
 

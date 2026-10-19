@@ -186,17 +186,18 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 - [x] Architecture and AWS design documentation
 - [x] Unit, API e2e and web e2e suites; GitHub Actions and Bitbucket Pipelines
 - [x] Kubernetes manifests
-- [ ] Migrate remaining Nest exceptions to the oRPC error pattern (partial)
+- [ ] Migrate circuit breaker, idempotency to new official nestjs packages (partial)
 - [ ] Edge cases (partial)
     - [x] Concurrent token refresh (thundering herd), including across tabs
     - [x] Coupon and seat races, double-scan, late payment after hold expiry
-    - [ ] ...
+    - [ ] Atomic update on event update, handling ticket booking in-between
+    - [ ] Delay failed BullMQ email instead of burning them on multiple failures
 - [ ] Complete dockerization (partial)
-- [ ] Redis-backed rate limiting (limits are per replica today)
-- [ ] Metrics and tracing export (correlation IDs and health checks only for now)
 - [ ] Terraform brought in line with the Next.js server and opaque sessions
 
 ## Optional (The project is currently small, self-contained)
 - [ ] Microservices and SAGA pattern (already modularized, correlationId prepared)
 - [ ] Feature flag by ConfigCat (Not enough flags worth moving from env)
 - [ ] Full observability and OpenTelemetry (external service dependent)
+- [ ] Redis-backed rate limiting (limits are per replica today)
+- [ ] Metrics and tracing export (correlation IDs and health checks only for now)
