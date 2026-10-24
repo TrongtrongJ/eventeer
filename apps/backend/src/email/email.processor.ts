@@ -2,6 +2,8 @@ import { Processor, Process } from "@nestjs/bull";
 import type { Job } from "bull";
 import { Logger } from "@nestjs/common";
 import { EmailService, EmailJob } from "./email.service";
+import { Resilience, Retry } from "@nestjs/resilience";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
 
 @Processor("email")
 export class EmailProcessor {
@@ -9,6 +11,8 @@ export class EmailProcessor {
 
     constructor(private readonly emailService: EmailService) {}
 
+    @Resilience(RESILIENCE_PRESET.SMTP)
+    @Retry({ idempotent: true })
     @Process("booking-confirmation")
     async handleBookingConfirmation(job: Job<EmailJob>) {
         this.logger.log({
@@ -38,6 +42,8 @@ export class EmailProcessor {
         }
     }
 
+    @Resilience(RESILIENCE_PRESET.SMTP)
+    @Retry({ idempotent: true })
     @Process("email-verification")
     async handleEmailVerification(job: Job<EmailJob>) {
         this.logger.log({
@@ -67,6 +73,8 @@ export class EmailProcessor {
         }
     }
 
+    @Resilience(RESILIENCE_PRESET.SMTP)
+    @Retry({ idempotent: true })
     @Process("password-reset")
     async handlePasswordReset(job: Job<EmailJob>) {
         this.logger.log({

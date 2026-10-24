@@ -22,6 +22,7 @@ import { WebsocketModule } from "./websocket/websocket.module";
 import { HealthModule } from "./health/health.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { GraphQLModule } from "./graphql/graphql.module";
+import { registerResilienceModule } from "./config/resilience.config";
 
 @Module({
     imports: [
@@ -50,6 +51,7 @@ import { GraphQLModule } from "./graphql/graphql.module";
         registerTypeORMWithConfig(),
         registerBullMQWithConfig(),
         registerORPC(),
+        registerResilienceModule(),
         AuthModule,
         EventsModule,
         BookingsModule,

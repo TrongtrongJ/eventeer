@@ -62,7 +62,6 @@ export class CircuitBreakerService {
         } catch (error: any) {
             this.onFailure(circuitName);
 
-            // if (fallback && circuit.state === CircuitState.OPEN) {
             if (fallback && circuit.state === CircuitState.HALF_OPEN) {
                 this.logger.warn({
                     message: "Executing fallback after failure",

@@ -3,7 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bull";
 import { type Queue } from "bull";
 import * as nodemailer from "nodemailer";
-import { CircuitBreakerService } from "../common/circuit-breaker/circuit-breaker.service";
 import type { EnvConfig } from "../env.validation";
 
 const esc = (value: unknown): string =>
@@ -58,7 +57,6 @@ export class EmailService {
     constructor(
         @InjectQueue("email") private readonly emailQueue: Queue,
         private readonly configService: ConfigService<EnvConfig, true>,
-        private readonly circuitBreaker: CircuitBreakerService,
     ) {
         this.transporter = nodemailer.createTransport({
             host: this.configService.get("SMTP_HOST", { infer: true }),
@@ -118,7 +116,7 @@ export class EmailService {
         const { to, subject, html, correlationId } = emailData;
 
         try {
-            await this.circuitBreaker.execute("email-service", async () => {
+            /*await this.circuitBreaker.execute("email-service", async () => {
                 const info = await this.transporter.sendMail({
                     from: this.configService.get("EMAIL_FROM", { infer: true }),
                     to,
@@ -132,6 +130,19 @@ export class EmailService {
                     to,
                     messageId: info.messageId,
                 });
+            });*/
+            const info = await this.transporter.sendMail({
+                from: this.configService.get("EMAIL_FROM", { infer: true }),
+                to,
+                subject,
+                html,
+            });
+
+            this.logger.log({
+                message: "Email sent successfully",
+                correlationId,
+                to,
+                messageId: info.messageId,
             });
         } catch (error: any) {
             this.logger.error({

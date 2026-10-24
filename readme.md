@@ -187,9 +187,10 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 - [x] Unit, API e2e and web e2e suites; GitHub Actions and Bitbucket Pipelines
 - [x] Kubernetes manifests
 - [ ] Migrate circuit breaker, idempotency to new official nestjs packages (partial)
-- [ ] Edge cases (partial)
+- [ ] Resilience and concurrency edge cases (partial)
     - [x] Concurrent token refresh (thundering herd), including across tabs
     - [x] Coupon and seat races, double-scan, late payment after hold expiry
+    - [X] Wrapping costly Argon2 hashing with bulkhead
     - [ ] Atomic update on event update, handling ticket booking in-between
     - [ ] Delay failed BullMQ email instead of burning them on multiple failures
 - [ ] Complete dockerization (partial)

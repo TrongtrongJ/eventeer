@@ -9,6 +9,8 @@ import { setAuthCookiesOnResponse } from "./auth-cookies";
 import { generateToken, safeEqual } from "./utils/token.util";
 import type { AuthResult } from "./auth.service";
 import type { SessionMeta } from "./session.service";
+import { Resilience } from "@nestjs/resilience";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
 
 type Provider = "google" | "github" | "facebook";
 const PROVIDERS: Provider[] = ["google", "github", "facebook"];
@@ -33,6 +35,7 @@ export class OAuthController {
         this.secure = config.get("isProd", { infer: true });
     }
 
+    @Resilience(RESILIENCE_PRESET.OAUTH)
     @Get(":provider")
     start(@Param("provider") provider: string, @Res() res: Response) {
         const p = this.assertProvider(provider);
@@ -56,6 +59,7 @@ export class OAuthController {
         res.redirect(url);
     }
 
+    @Resilience(RESILIENCE_PRESET.OAUTH)
     @Get(":provider/callback")
     async callback(
         @Param("provider") provider: string,

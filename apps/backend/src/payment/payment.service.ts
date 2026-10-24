@@ -1,7 +1,6 @@
 import { Injectable, Logger, BadRequestException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
-import { CircuitBreakerService } from "../common/circuit-breaker/circuit-breaker.service";
 import type { EnvConfig } from "../env.validation";
 
 export interface CreatedIntent {
@@ -33,13 +32,12 @@ export class PaymentService {
 
     constructor(
         config: ConfigService<EnvConfig, true>,
-        private readonly circuitBreaker: CircuitBreakerService,
     ) {
         const key = config.get("STRIPE_SECRET_KEY", { infer: true });
         const enabled = config.get("FEATURE_PAYMENT_ENABLED", { infer: true });
         this.webhookSecret = config.get("STRIPE_WEBHOOK_SECRET", { infer: true });
 
-        this.stripe = enabled && key ? new Stripe(key) : null;
+        this.stripe = enabled && key ? new Stripe(key, { timeout: 10_000, maxNetworkRetries: 1 }) : null;
         if (!this.stripe) {
             this.logger.warn("Stripe is not configured: using MOCK payments (non-production only)");
         }
@@ -153,7 +151,8 @@ export class PaymentService {
     private async call<T>(circuit: string, fn: () => Promise<T>): Promise<T> {
         try {
             // No fallback on purpose: if Stripe is unavailable we fail closed.
-            return await this.circuitBreaker.execute(circuit, fn);
+            // return await this.circuitBreaker.execute(circuit, fn);
+            return await fn();
         } catch (err) {
             this.logger.error(`${circuit} failed: ${(err as Error).message}`);
             throw new ServiceUnavailableException("Payment provider is temporarily unavailable");

@@ -34,10 +34,8 @@ export const envSchema = z
         REDIS_HOST: z.string().default("localhost"),
         REDIS_PORT: z.coerce.number().default(6379),
 
-        // Opaque-token sessions
-        ACCESS_TOKEN_SECRET: z.string().default("fallback-access-key-change-in-production"),
+        // Opaque-token session
         ACCESS_TOKEN_TTL: duration("15m"),
-        REFRESH_TOKEN_SECRET: z.string().default("fallback-refresh-key-change-in-production"),
         REFRESH_TOKEN_TTL: duration("7d"),
         /** Hard cap on a session's total life regardless of refresh activity. */
         SESSION_MAX_LIFETIME: duration("30d"),
