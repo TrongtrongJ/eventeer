@@ -1,5 +1,4 @@
 import { Controller } from "@nestjs/common";
-import { Bulkhead } from '@nestjs/resilience';
 import { Throttle } from "@nestjs/throttler";
 import { Implement } from "@orpc/nest";
 import { implement } from "@orpc/server";
@@ -43,7 +42,6 @@ export class AuthController {
 
     @Public()
     @Throttle(STRICT)
-    @Bulkhead({ maxConcurrent: 2, maxQueue: 50, queueTimeout: '5s' })
     @Implement(authContract.register)
     async register() {
         return implement(authContract.register)
@@ -62,7 +60,6 @@ export class AuthController {
     @Public()
     @Throttle(STRICT)
     @Implement(authContract.login)
-    @Bulkhead({ maxConcurrent: 2, maxQueue: 50, queueTimeout: '5s' })
     async login() {
         return implement(authContract.login)
             .use(withCorrelationId)

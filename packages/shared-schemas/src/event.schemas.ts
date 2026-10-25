@@ -19,7 +19,9 @@ export const CreateEventSchema = z.object({
     imageUrl: z.url().or(z.literal("")).optional(),
 });
 
-export const UpdateEventSchema = CreateEventSchema.partial();
+// `currency` has a default on create. A partial would inherit it and reset the currency to THB on every
+// update that omits it, so it is re-declared here without the default.
+export const UpdateEventSchema = CreateEventSchema.extend({ currency: z.enum(currency) }).partial();
 
 export const EventSchema = CreateEventSchema.extend({
     id: z.uuid(),

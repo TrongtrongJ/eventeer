@@ -1,3 +1,18 @@
+# Redis holds the mail queue (jobs can now wait hours for SMTP to recover), the booking-create idempotency
+# records and the session cache, so it is persisted (AOF) and must never evict: Bull requires `noeviction`.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: redis-pvc
+    namespace: event-management
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 1Gi
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,6 +20,8 @@ metadata:
     namespace: event-management
 spec:
     replicas: 1
+    strategy:
+        type: Recreate # one ReadWriteOnce volume: the old pod must release it first
     selector:
         matchLabels:
             app: redis
@@ -16,8 +33,22 @@ spec:
             containers:
                 - name: redis
                   image: redis:7-alpine
+                  args: ["--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
                   ports:
                       - containerPort: 6379
+                  volumeMounts:
+                      - name: redis-data
+                        mountPath: /data
+                  readinessProbe:
+                      exec:
+                          command: ["redis-cli", "ping"]
+                      periodSeconds: 5
+                  livenessProbe:
+                      exec:
+                          command: ["redis-cli", "ping"]
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+                      timeoutSeconds: 3
                   resources:
                       requests:
                           memory: "128Mi"
@@ -25,6 +56,10 @@ spec:
                       limits:
                           memory: "256Mi"
                           cpu: "200m"
+            volumes:
+                - name: redis-data
+                  persistentVolumeClaim:
+                      claimName: redis-pvc
 
 ---
 apiVersion: v1

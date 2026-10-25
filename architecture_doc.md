@@ -127,13 +127,13 @@ Both packages are built to `dist/`, so the CommonJS-compiled API and the Next.js
 | `events`            | Event CRUD, filtering and pagination, seat primitives (`reserveSeats`, `releaseSeats`), seat broadcasts |
 | `bookings`          | Booking lifecycle, Stripe webhook controller, GraphQL resolver                                          |
 | `coupons`           | Coupon CRUD, `redeem` / `release` (always called inside the booking transaction)                        |
-| `payment`           | Stripe adapter (plus a dev-only mock), circuit-breaker wrapped. No dependency on booking code           |
+| `payment`           | Stripe adapter (plus a dev-only mock), under the `stripe` resilience preset. No dependency on booking code           |
 | `tickets`           | Check-in validation and QR lookup                                                                       |
 | `email`             | Queueing, templates, SMTP delivery                                                                      |
 | `websocket`         | Socket.IO gateway and Redis adapter                                                                     |
 | `maintenance`       | Repeatable jobs: hold expiry, session purge                                                             |
 | `health`, `graphql` | Health endpoints, GraphQL wiring                                                                        |
-| `common`            | Circuit breaker, money helpers, pagination, exception filter, middleware                                |
+| `common`            | Idempotency store, resilience logging, money helpers, pagination, exception filter, middleware                                |
 
 `bookings` depends on `events`, `coupons`, `payment` and `email`. The webhook controller lives in `bookings` rather than `payment` so that `payment` stays a leaf.
 
@@ -357,7 +357,7 @@ Clients join a Socket.IO room `event:<id>` and receive `seat:update` with `{ eve
 
 | Queue         | Jobs                                                                | Behaviour                                                                                               |
 | :------------ | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------ |
-| `email`       | booking confirmation, email verification, password reset            | 3 attempts, exponential backoff from 2 s, failed jobs retained                                          |
+| `email`       | booking confirmation, email verification, password reset            | 6 attempts, backoff from 30 s; attempts rejected by an open SMTP circuit are not counted; failed jobs kept 7 days |
 | `maintenance` | `expire-holds` every 60 s (100 per run), `purge-sessions` every 6 h | Repeatable jobs keyed by `jobId`, so N replicas registering the same schedule produce one recurring job |
 
 Handlers are idempotent (conditional updates), because Bull delivers at least once and any replica may run a job. Processors currently run inside the API processes; splitting them into a separate worker deployment is a packaging change if job load ever needs to scale independently.
@@ -388,10 +388,10 @@ Handlers are idempotent (conditional updates), because Bull delivers at least on
 | API dies between commit and payment-intent creation | The booking has no intent and stays `PENDING`; the expiry job releases it after the hold.                                                                                               |
 | Two scanners scan one ticket                        | One atomic claim succeeds; the other sees "Ticket already used".                                                                                                                        |
 | Redis down                                          | Authentication falls back to Postgres. Queued work and cross-replica seat broadcasts degrade, and `/health` reports Redis as down. A failure to queue an email never fails the booking. |
-| SMTP down                                           | Jobs retry with backoff; the SMTP circuit opens after repeated failures. Bookings are unaffected.                                                                                       |
+| SMTP down                                           | The SMTP circuit opens; queued mails wait for it without using attempts and go out once it closes. Bookings are unaffected.                                                                                       |
 | Replicas race                                       | Refresh uses compare-and-swap; repeatable jobs are deduplicated; every state transition is a conditional update.                                                                        |
 
-The circuit breaker counts failures per named circuit (each Stripe operation and the email transport have their own), opens after a threshold (default 5), and probes again after a cooldown. It is in-process and does not time out calls itself.
+Breakers come from `@nestjs/resilience`, one per dependency (Stripe, SMTP, Redis session cache, and each OAuth provider), opening on a failure rate over a sliding window and probing after a cooldown. Calls also carry a timeout. Only outages count: Stripe 4xx answers and a rejected recipient do not.
 
 ---
 
@@ -401,7 +401,7 @@ What exists:
 
 - **Correlation IDs.** Accepted from `x-correlation-id` when well-formed, otherwise generated (UUIDv7); returned in the response header and included in service and request logs, and passed into Stripe metadata and queued jobs.
 - **Request logging** (method, URL, status, duration) and warnings for refresh-token reuse, payment amount mismatch, late payments and circuit state changes.
-- **Health:** `GET /health` (database and Redis) and `GET /health/ready`.
+- **Health:** `GET /health` (database and Redis) and `GET /health/ready`. In Kubernetes, readiness uses `/health` (a pod without Postgres leaves rotation) and liveness uses `/health/ready`, so a dependency outage never restarts pods. The API handles SIGTERM gracefully (`enableShutdownHooks`), which matters because it also runs the mail workers.
 
 What does not: there is no metrics exporter, tracing backend or JSON log formatter wired up. Logs are structured objects through Nest's `Logger`; shipping them to a log platform means adding a formatter.
 
@@ -434,7 +434,7 @@ CI (GitHub Actions; an equivalent Bitbucket Pipelines file exists): lint, typech
 ## Known limitations
 
 - **Rate limiting and circuit-breaker state are per process.** The throttler uses in-memory storage, so effective limits scale with replica count. Moving it to Redis storage is the straightforward fix.
-- **Booking creation has no client idempotency key.** A double-submit creates two holds. The 10/min throttle and hold expiry bound the impact; an idempotency key would remove it.
+- **The web app does not send an `Idempotency-Key` on booking creation yet.** The API honours one (replay or in-flight rejection, per user, 24 h); until the client sends it, a double-submit still creates two holds, bounded by the 10/min throttle and hold expiry.
 - **One hot event serialises on one row.** Fine for the intended scale. For flash-sale traffic, the next step is a waiting room or pre-allocated seat counters rather than a faster database.
 - **Redis clients are plain single-node connections.** There is no TLS or cluster configuration, which matters for managed Redis with in-transit encryption (see the AWS document).
 - **No read/write split.** All queries use the primary.

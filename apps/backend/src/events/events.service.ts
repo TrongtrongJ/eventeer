@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, EntityManager } from "typeorm";
+import { Booking } from "../entities/booking.entity";
 import { Event } from "../entities/event.entity";
 import { CreateEventDto, UpdateEventDto, EventDto } from "@packages/shared-schemas";
 import { WebsocketGateway } from "../websocket/websocket.gateway";
@@ -113,28 +114,53 @@ export class EventsService {
         return this.toDto(event);
     }
 
+    /**
+     * Updates an event while bookings may be arriving.
+     *
+     * Seat counts are owned by concurrent atomic UPDATEs (reserveSeats / releaseSeats). Reading the row,
+     * computing `availableSeats` in the app and saving it back would overwrite a booking that committed
+     * in between: seats sold again, or capacity lowered below tickets already issued, with no constraint
+     * to stop it. So the row is locked FOR UPDATE for the whole read-validate-write. Bookings that arrive
+     * meanwhile wait on the same row (a few milliseconds) and then run against the new capacity, so every
+     * check below sees the final truth, and nothing external is called while the lock is held.
+     */
     async update(id: string, dto: UpdateEventDto, correlationId: string): Promise<EventDto> {
-        const event = await this.eventRepository.findOne({ where: { id }, relations: ["organizer"] });
-        if (!event) throw new ResourceNotFoundException("Event", id);
+        await this.eventRepository.manager.transaction(async manager => {
+            // No relations here: Postgres cannot lock the nullable side of an outer join.
+            const event = await manager.findOne(Event, { where: { id }, lock: { mode: "pessimistic_write" } });
+            if (!event) throw new ResourceNotFoundException("Event", id);
 
-        const startDate = dto.startDate ? new Date(dto.startDate) : event.startDate;
-        const endDate = dto.endDate ? new Date(dto.endDate) : event.endDate;
-        this.assertValidWindow(startDate, endDate);
+            const startDate = dto.startDate ? new Date(dto.startDate) : event.startDate;
+            const endDate = dto.endDate ? new Date(dto.endDate) : event.endDate;
+            this.assertValidWindow(startDate, endDate);
 
-        // Changing capacity must preserve the number of seats already sold.
-        if (dto.capacity !== undefined && dto.capacity !== event.capacity) {
-            const sold = event.capacity - event.availableSeats;
-            if (dto.capacity < sold) {
-                throw new BadRequestException(`Capacity cannot be lower than the ${sold} seats already booked`);
+            // Changing capacity must preserve the number of seats already sold or held. `sold` is read
+            // under the lock, so it cannot change before the write below.
+            if (dto.capacity !== undefined && dto.capacity !== event.capacity) {
+                const sold = event.capacity - event.availableSeats;
+                if (dto.capacity < sold) {
+                    throw new BadRequestException(`Capacity cannot be lower than the ${sold} seats already booked`);
+                }
+                event.availableSeats = dto.capacity - sold;
+                event.capacity = dto.capacity;
             }
-            event.availableSeats = dto.capacity - sold;
-            event.capacity = dto.capacity;
-        }
 
-        const { startDate: _s, endDate: _e, capacity: _c, ...rest } = dto;
-        Object.assign(event, rest, { startDate, endDate });
+            // Amounts on existing bookings are stored without a currency and shown in the event's. Changing it
+            // afterwards would silently relabel what customers already paid. Nobody can book while we hold the lock,
+            // so this check cannot be raced either.
+            if (dto.currency !== undefined && dto.currency !== event.currency) {
+                if (await manager.exists(Booking, { where: { eventId: id } })) {
+                    throw new ConflictException("The currency cannot be changed once the event has bookings");
+                }
+            }
 
-        const saved = await this.eventRepository.save(event);
+            const { startDate: _s, endDate: _e, capacity: _c, ...rest } = dto;
+            Object.assign(event, rest, { startDate, endDate });
+            await manager.save(event);
+        });
+
+        // After commit, and re-read with the organizer, so the response and the broadcast show what is stored.
+        const saved = await this.eventRepository.findOneOrFail({ where: { id }, relations: ["organizer"] });
         this.logger.log({ message: "Event updated", correlationId, eventId: id });
         this.broadcastSeats(saved.id, saved.availableSeats, saved.capacity);
         return this.toDto(saved);

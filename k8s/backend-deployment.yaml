@@ -13,6 +13,9 @@ spec:
             labels:
                 app: backend
         spec:
+            # The API also runs the mail workers. After SIGTERM it finishes in-flight requests and the mail being
+            # sent (enableShutdownHooks); the pod then gets this long before SIGKILL.
+            terminationGracePeriodSeconds: 40
             containers:
                 - name: backend
                   image: eventeer-api:0.1.0 # pin an immutable tag (never :latest)
@@ -82,24 +85,92 @@ spec:
                             secretKeyRef:
                                 name: smtp-secret
                                 key: password
+                      - name: EMAIL_FROM
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: email-from
                       - name: FEATURE_EMAIL_ENABLED
                         value: "true"
                       - name: FEATURE_PAYMENT_ENABLED
                         value: "true"
+                      - name: GOOGLE_CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: google-client-id
+                                optional: true
+                      - name: GOOGLE_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: google-client-secret
+                                optional: true
+                      - name: GOOGLE_REDIRECT_URI
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: google-redirect-uri
+                      - name: GITHUB_CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: github-client-id
+                                optional: true
+                      - name: GITHUB_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: github-client-secret
+                                optional: true
+                      - name: GITHUB_REDIRECT_URI
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: github-redirect-uri
+                      - name: FACEBOOK_APP_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: facebook-app-id
+                                optional: true
+                      - name: FACEBOOK_APP_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: oauth-secret
+                                key: facebook-app-secret
+                                optional: true
+                      - name: FACEBOOK_REDIRECT_URI
+                        valueFrom:
+                            configMapKeyRef:
+                                name: backend-config
+                                key: facebook-redirect-uri
                   ports:
                       - containerPort: 4000
+                  lifecycle:
+                      preStop:
+                          # Let the Service stop routing here before SIGTERM, so no request lands on a closing server.
+                          exec:
+                              command: ["sleep", "5"]
+                  # Liveness must not depend on Postgres or Redis: the API degrades without them (session cache,
+                  # circuit breakers, queued mail), and restarting every pod during a dependency blip makes it worse.
                   livenessProbe:
-                      httpGet:
-                          path: /health
-                          port: 4000
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                  readinessProbe:
                       httpGet:
                           path: /health/ready
                           port: 4000
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+                      timeoutSeconds: 3
+                  # Readiness does ping Postgres (/health): a pod that cannot reach the database leaves rotation.
+                  # A Redis outage is reported in the body but does not fail it, since the API still serves.
+                  readinessProbe:
+                      httpGet:
+                          path: /health
+                          port: 4000
                       initialDelaySeconds: 10
                       periodSeconds: 5
+                      timeoutSeconds: 3
+                      failureThreshold: 3
                   resources:
                       requests:
                           memory: "256Mi"

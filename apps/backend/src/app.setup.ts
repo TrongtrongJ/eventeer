@@ -26,6 +26,9 @@ export function configureApp(app: INestApplication) {
     app.use("/payment/webhook", raw({ type: "application/json", limit: "1mb" }));
     // Same reason: oRPC owns the body stream, but Apollo's express integration needs a parsed body.
     app.use("/graphql", json({ limit: "100kb" }));
+    // The idempotency interceptor fingerprints the body to reject a key reused with a different payload,
+    // so it must be parsed before it runs. oRPC reuses an already-parsed body.
+    app.use("/bookings/create", json({ limit: "100kb" }));
     app.use(cookieParser());
 
     app.useGlobalFilters(new GlobalExceptionFilter(isProd));

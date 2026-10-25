@@ -3,7 +3,10 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { HttpService } from "@nestjs/axios";
+import type { AxiosRequestConfig } from "axios";
 import { firstValueFrom } from "rxjs";
+import { ResilienceService, type ResiliencePolicy } from "@nestjs/resilience";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
 import { User, UserRole, AuthProvider } from "../entities/user.entity";
 import { AuthResult, AuthService } from "./auth.service";
 import type { SessionMeta } from "./session.service";
@@ -24,9 +27,13 @@ interface GoogleOAuthTokenRes {
     token_type: "Bearer";
 }
 
+type OAuthProvider = "google" | "github" | "facebook";
+
 @Injectable()
 export class OAuthService {
     private readonly logger = new Logger(OAuthService.name);
+    /** One circuit breaker per provider: Google being down must not block GitHub sign-in. */
+    private readonly policies: Record<OAuthProvider, ResiliencePolicy>;
 
     constructor(
         @InjectRepository(User)
@@ -34,7 +41,25 @@ export class OAuthService {
         private readonly configService: ConfigService,
         private readonly authService: AuthService,
         private readonly httpService: HttpService,
-    ) {}
+        resilience: ResilienceService,
+    ) {
+        this.policies = {
+            google: resilience.preset(RESILIENCE_PRESET.OAUTH_GOOGLE),
+            github: resilience.preset(RESILIENCE_PRESET.OAUTH_GITHUB),
+            facebook: resilience.preset(RESILIENCE_PRESET.OAUTH_FACEBOOK),
+        };
+    }
+
+    /**
+     * Every outbound provider request goes through here: it gets the provider's timeout and breaker, and
+     * the attempt's AbortSignal so a timed-out request is actually cancelled, not left running.
+     */
+    private send<T = any>(provider: OAuthProvider, config: AxiosRequestConfig): Promise<{ data: T }> {
+        return this.policies[provider].execute(
+            ({ signal }) => firstValueFrom(this.httpService.request<T>({ ...config, signal })),
+            { source: `OAuthService.${provider}` },
+        );
+    }
 
     // Google OAuth
     getGoogleAuthUrl(state: string): string {
@@ -54,24 +79,26 @@ export class OAuthService {
     async handleGoogleCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
         try {
             // Exchange code for tokens
-            const tokenResponse = await firstValueFrom(
-                this.httpService.post<GoogleOAuthTokenRes>("https://oauth2.googleapis.com/token", {
+            const tokenResponse = await this.send<GoogleOAuthTokenRes>("google", {
+                method: "POST",
+                url: "https://oauth2.googleapis.com/token",
+                data: {
                     code,
                     client_id: this.configService.get("GOOGLE_CLIENT_ID"),
                     client_secret: this.configService.get("GOOGLE_CLIENT_SECRET"),
                     redirect_uri: this.configService.get("GOOGLE_REDIRECT_URI"),
                     grant_type: "authorization_code",
-                }),
-            );
+                },
+            });
 
             const { access_token } = tokenResponse.data;
 
             // Get user profile
-            const profileResponse = await firstValueFrom(
-                this.httpService.get("https://www.googleapis.com/oauth2/v2/userinfo", {
-                    headers: { Authorization: `Bearer ${access_token}` },
-                }),
-            );
+            const profileResponse = await this.send("google", {
+                method: "GET",
+                url: "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers: { Authorization: `Bearer ${access_token}` },
+            });
 
             const profile: OAuthProfile = {
                 id: profileResponse.data.id,
@@ -109,35 +136,25 @@ export class OAuthService {
     async handleGitHubCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
         try {
             // Exchange code for token
-            const tokenResponse = await firstValueFrom(
-                this.httpService.post(
-                    "https://github.com/login/oauth/access_token",
-                    {
-                        client_id: this.configService.get("GITHUB_CLIENT_ID"),
-                        client_secret: this.configService.get("GITHUB_CLIENT_SECRET"),
-                        code,
-                        redirect_uri: this.configService.get("GITHUB_REDIRECT_URI"),
-                    },
-                    {
-                        headers: { Accept: "application/json" },
-                    },
-                ),
-            );
+            const tokenResponse = await this.send("github", {
+                method: "POST",
+                url: "https://github.com/login/oauth/access_token",
+                data: {
+                    client_id: this.configService.get("GITHUB_CLIENT_ID"),
+                    client_secret: this.configService.get("GITHUB_CLIENT_SECRET"),
+                    code,
+                    redirect_uri: this.configService.get("GITHUB_REDIRECT_URI"),
+                },
+                headers: { Accept: "application/json" },
+            });
 
             const { access_token } = tokenResponse.data;
 
             // Get user profile
+            const headers = { Authorization: `Bearer ${access_token}` };
             const [userResponse, emailsResponse] = await Promise.all([
-                firstValueFrom(
-                    this.httpService.get("https://api.github.com/user", {
-                        headers: { Authorization: `Bearer ${access_token}` },
-                    }),
-                ),
-                firstValueFrom(
-                    this.httpService.get("https://api.github.com/user/emails", {
-                        headers: { Authorization: `Bearer ${access_token}` },
-                    }),
-                ),
+                this.send("github", { method: "GET", url: "https://api.github.com/user", headers }),
+                this.send("github", { method: "GET", url: "https://api.github.com/user/emails", headers }),
             ]);
 
             // Only a primary AND verified GitHub email may identify the user.
@@ -180,28 +197,28 @@ export class OAuthService {
     async handleFacebookCallback(code: string, meta: SessionMeta, correlationId: string): Promise<AuthResult> {
         try {
             // Exchange code for token
-            const tokenResponse = await firstValueFrom(
-                this.httpService.get("https://graph.facebook.com/v12.0/oauth/access_token", {
-                    params: {
-                        client_id: this.configService.get("FACEBOOK_APP_ID"),
-                        client_secret: this.configService.get("FACEBOOK_APP_SECRET"),
-                        redirect_uri: this.configService.get("FACEBOOK_REDIRECT_URI"),
-                        code,
-                    },
-                }),
-            );
+            const tokenResponse = await this.send("facebook", {
+                method: "GET",
+                url: "https://graph.facebook.com/v12.0/oauth/access_token",
+                params: {
+                    client_id: this.configService.get("FACEBOOK_APP_ID"),
+                    client_secret: this.configService.get("FACEBOOK_APP_SECRET"),
+                    redirect_uri: this.configService.get("FACEBOOK_REDIRECT_URI"),
+                    code,
+                },
+            });
 
             const { access_token } = tokenResponse.data;
 
             // Get user profile
-            const profileResponse = await firstValueFrom(
-                this.httpService.get("https://graph.facebook.com/me", {
-                    params: {
-                        fields: "id,email,first_name,last_name,picture",
-                        access_token,
-                    },
-                }),
-            );
+            const profileResponse = await this.send("facebook", {
+                method: "GET",
+                url: "https://graph.facebook.com/me",
+                params: {
+                    fields: "id,email,first_name,last_name,picture",
+                    access_token,
+                },
+            });
 
             const profile: OAuthProfile = {
                 id: profileResponse.data.id,

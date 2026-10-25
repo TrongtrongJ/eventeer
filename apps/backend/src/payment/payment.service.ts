@@ -1,7 +1,9 @@
 import { Injectable, Logger, BadRequestException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
+import { ResilienceError, ResilienceService, type AttemptContext, type ResiliencePolicy } from "@nestjs/resilience";
 import type { EnvConfig } from "../env.validation";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
 
 export interface CreatedIntent {
     id: string;
@@ -29,15 +31,17 @@ export class PaymentService {
     private readonly logger = new Logger(PaymentService.name);
     private readonly stripe: Stripe | null;
     private readonly webhookSecret?: string;
+    private readonly policy: ResiliencePolicy;
 
-    constructor(
-        config: ConfigService<EnvConfig, true>,
-    ) {
+    constructor(config: ConfigService<EnvConfig, true>, resilience: ResilienceService) {
+        this.policy = resilience.preset(RESILIENCE_PRESET.STRIPE);
         const key = config.get("STRIPE_SECRET_KEY", { infer: true });
         const enabled = config.get("FEATURE_PAYMENT_ENABLED", { infer: true });
         this.webhookSecret = config.get("STRIPE_WEBHOOK_SECRET", { infer: true });
 
-        this.stripe = enabled && key ? new Stripe(key, { timeout: 10_000, maxNetworkRetries: 1 }) : null;
+        // Retries belong to the Stripe resilience preset, so the SDK's own are off (they would multiply).
+        // The SDK cannot be aborted, so its timeout is the one that actually frees the connection.
+        this.stripe = enabled && key ? new Stripe(key, { timeout: 8_000, maxNetworkRetries: 0 }) : null;
         if (!this.stripe) {
             this.logger.warn("Stripe is not configured: using MOCK payments (non-production only)");
         }
@@ -148,13 +152,20 @@ export class PaymentService {
         }
     }
 
-    private async call<T>(circuit: string, fn: () => Promise<T>): Promise<T> {
+    /**
+     * Runs one Stripe call under the Stripe preset (retry, timeout, circuit breaker).
+     * No fallback on purpose: if Stripe is unavailable we fail closed.
+     */
+    private async call<T>(operation: string, fn: (context: AttemptContext) => Promise<T>): Promise<T> {
         try {
-            // No fallback on purpose: if Stripe is unavailable we fail closed.
-            // return await this.circuitBreaker.execute(circuit, fn);
-            return await fn();
+            return await this.policy.execute(fn, { source: `PaymentService.${operation}` });
         } catch (err) {
-            this.logger.error(`${circuit} failed: ${(err as Error).message}`);
+            // Timeout / open circuit: let it through as is, it maps to 504 / 503 with Retry-After.
+            if (err instanceof ResilienceError) {
+                this.logger.error(`${operation} failed: ${err.code} (${err.message})`);
+                throw err;
+            }
+            this.logger.error(`${operation} failed: ${(err as Error).message}`);
             throw new ServiceUnavailableException("Payment provider is temporarily unavailable");
         }
     }

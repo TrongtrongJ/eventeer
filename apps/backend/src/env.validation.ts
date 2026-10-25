@@ -68,10 +68,6 @@ export const envSchema = z
         FACEBOOK_APP_ID: z.string().optional(),
         FACEBOOK_APP_SECRET: z.string().optional(),
         FACEBOOK_REDIRECT_URI: z.string().optional(),
-
-        CIRCUIT_BREAKER_THRESHOLD: z.coerce.number().default(5),
-        CIRCUIT_BREAKER_TIMEOUT: z.coerce.number().default(60000),
-        CIRCUIT_BREAKER_RESET_TIMEOUT: z.coerce.number().default(30000),
     })
     .check(ctx => {
         // Production must never fall back to mock payments or unsent email.

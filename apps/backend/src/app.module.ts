@@ -23,6 +23,8 @@ import { HealthModule } from "./health/health.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { GraphQLModule } from "./graphql/graphql.module";
 import { registerResilienceModule } from "./config/resilience.config";
+import { registerIdempotencyModule, IDEMPOTENCY_PROVIDERS } from "./common/idempotency/idempotency.config";
+import { ResilienceLogger } from "./common/resilience/resilience-logger.service";
 
 @Module({
     imports: [
@@ -51,6 +53,8 @@ import { registerResilienceModule } from "./config/resilience.config";
         registerTypeORMWithConfig(),
         registerBullMQWithConfig(),
         registerORPC(),
+        // Idempotency first: its interceptor must be outermost so a replay never goes through the resilience policies.
+        registerIdempotencyModule(),
         registerResilienceModule(),
         AuthModule,
         EventsModule,
@@ -65,6 +69,8 @@ import { registerResilienceModule } from "./config/resilience.config";
         GraphQLModule,
     ],
     providers: [
+        ResilienceLogger,
+        ...IDEMPOTENCY_PROVIDERS,
         // Order matters: throttle -> CSRF origin check -> authenticate -> authorize.
         { provide: APP_GUARD, useClass: AppThrottlerGuard },
         { provide: APP_GUARD, useClass: OriginGuard },

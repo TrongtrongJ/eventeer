@@ -41,7 +41,15 @@ function fakeQueryBuilder(raw: unknown[] = []) {
 }
 
 describe("EventsService", () => {
-    let repo: { save: any; create: any; findOne: any; delete: any; createQueryBuilder?: any };
+    let repo: {
+        save: any;
+        create: any;
+        findOne: any;
+        delete: any;
+        createQueryBuilder?: any;
+        manager?: any;
+        findOneOrFail?: any;
+    };
     let gateway: { emitSeatUpdate: any };
     let service: EventsService;
 
@@ -85,13 +93,27 @@ describe("EventsService", () => {
         });
     });
 
-    describe("update", () => {
+    describe("update (atomic against concurrent bookings)", () => {
+        let tx: { findOne: any; save: any; exists: any };
+
+        beforeEach(() => {
+            tx = { findOne: vi.fn(), save: vi.fn(async e => e), exists: vi.fn().mockResolvedValue(false) };
+            repo.manager = { transaction: vi.fn(async (fn: any) => fn(tx)) };
+            // the post-commit read: whatever the transaction saved
+            repo.findOneOrFail = vi.fn(async () => tx.save.mock.calls.at(-1)?.[0] ?? makeEvent());
+        });
+
+        it("reads the event under a pessimistic write lock, without joins", async () => {
+            tx.findOne.mockResolvedValue(makeEvent());
+            await service.update("evt-1", { title: "New" } as any, "cid");
+            const [, options] = tx.findOne.mock.calls[0];
+            expect(options.lock).toEqual({ mode: "pessimistic_write" });
+            expect(options.relations).toBeUndefined(); // FOR UPDATE cannot lock an outer join
+        });
+
         it("changing capacity preserves the seats already sold (100 -> 150 with 40 sold = 110 free)", async () => {
-            const event = makeEvent();
-            repo.findOne.mockResolvedValue(event);
-
+            tx.findOne.mockResolvedValue(makeEvent());
             const updated = await service.update("evt-1", { capacity: 150 } as any, "cid");
-
             expect(updated.capacity).toBe(150);
             expect(updated.availableSeats).toBe(110);
             expect(gateway.emitSeatUpdate).toHaveBeenCalledWith(
@@ -99,30 +121,70 @@ describe("EventsService", () => {
             );
         });
 
-        it("refuses to lower capacity below the seats already sold", async () => {
-            repo.findOne.mockResolvedValue(makeEvent()); // 40 sold
+        it("uses the sold count of the LOCKED row, so a booking that landed first is respected", async () => {
+            // the row the lock returns already shows 90 sold (a booking committed since the caller last looked)
+            tx.findOne.mockResolvedValue(makeEvent({ availableSeats: 10 }));
+            await expect(service.update("evt-1", { capacity: 95 } as any, "cid")).resolves.toMatchObject({
+                capacity: 95,
+                availableSeats: 5,
+            });
+            tx.findOne.mockResolvedValue(makeEvent({ availableSeats: 2 })); // 98 sold
+            await expect(service.update("evt-1", { capacity: 95 } as any, "cid")).rejects.toThrow(
+                /98 seats already booked/,
+            );
+        });
+
+        it("refuses to lower capacity below the seats already sold, and writes nothing", async () => {
+            tx.findOne.mockResolvedValue(makeEvent()); // 40 sold
             await expect(service.update("evt-1", { capacity: 39 } as any, "cid")).rejects.toThrow(
                 /40 seats already booked/,
             );
-            expect(repo.save).not.toHaveBeenCalled();
+            expect(tx.save).not.toHaveBeenCalled();
+            expect(gateway.emitSeatUpdate).not.toHaveBeenCalled();
         });
 
         it("allows lowering capacity exactly to the sold count", async () => {
-            repo.findOne.mockResolvedValue(makeEvent());
+            tx.findOne.mockResolvedValue(makeEvent());
             const updated = await service.update("evt-1", { capacity: 40 } as any, "cid");
             expect(updated.availableSeats).toBe(0);
         });
 
+        it("leaves the seat counters alone when capacity is not part of the update", async () => {
+            tx.findOne.mockResolvedValue(makeEvent());
+            const updated = await service.update("evt-1", { title: "Renamed" } as any, "cid");
+            expect(updated.availableSeats).toBe(60);
+            expect(updated.capacity).toBe(100);
+        });
+
         it("validates the resulting date window against the stored dates too", async () => {
-            repo.findOne.mockResolvedValue(makeEvent());
-            // only endDate supplied, earlier than the stored startDate
+            tx.findOne.mockResolvedValue(makeEvent());
             await expect(
                 service.update("evt-1", { endDate: iso(1).toISOString() } as any, "cid"),
             ).rejects.toBeInstanceOf(BadRequestException);
         });
 
+        it("refuses to change the currency once the event has bookings", async () => {
+            tx.findOne.mockResolvedValue(makeEvent());
+            tx.exists.mockResolvedValue(true);
+            await expect(service.update("evt-1", { currency: "USD" } as any, "cid")).rejects.toBeInstanceOf(
+                ConflictException,
+            );
+            expect(tx.save).not.toHaveBeenCalled();
+        });
+
+        it("allows the currency to change while there are no bookings, and ignores an unchanged one", async () => {
+            tx.findOne.mockResolvedValue(makeEvent());
+            await expect(service.update("evt-1", { currency: "USD" } as any, "cid")).resolves.toMatchObject({
+                currency: "USD",
+            });
+            tx.exists.mockClear();
+            tx.findOne.mockResolvedValue(makeEvent()); // fresh row: stored currency is THB
+            await service.update("evt-1", { currency: "THB" } as any, "cid"); // same as stored
+            expect(tx.exists).not.toHaveBeenCalled();
+        });
+
         it("404s for an unknown event", async () => {
-            repo.findOne.mockResolvedValue(null);
+            tx.findOne.mockResolvedValue(null);
             await expect(service.update("nope", {} as any, "cid")).rejects.toMatchObject({ status: 404 });
         });
     });
