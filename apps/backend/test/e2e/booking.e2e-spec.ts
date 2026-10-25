@@ -187,4 +187,106 @@ describe("Events, bookings, coupons, tickets (E2E)", () => {
         await book(alice, eventId).expect(200);
         await org.delete(`/events/${eventId}`).expect(409);
     });
+    it("updating an event never loses a booking that lands in between (capacity vs concurrent buyers)", async () => {
+        // Many rounds: the old read-modify-write lost an update only when the two interleaved.
+        for (let round = 0; round < 6; round++) {
+            const eventId = await newEvent({ capacity: 20 });
+            const updates = [22, 30, 24].map(capacity => org.put(`/events/${eventId}`).send({ capacity }));
+            const buys = Array.from({ length: 6 }, (_, i) => book(i % 2 ? alice : bob, eventId));
+
+            const results = await Promise.all([...updates, ...buys]);
+
+            const [{ capacity, availableSeats }] = await db.query(
+                `SELECT capacity, "availableSeats" FROM events WHERE id = $1`,
+                [eventId],
+            );
+            const [{ held }] = await db.query(
+                `SELECT COALESCE(SUM(quantity), 0)::int AS held FROM bookings
+                 WHERE "eventId" = $1 AND status IN ('PENDING','CONFIRMED')`,
+                [eventId],
+            );
+            // Seats the event says are taken == seats actually held by bookings. A lost update breaks this.
+            expect(capacity - availableSeats).toBe(held);
+            expect(availableSeats).toBeGreaterThanOrEqual(0);
+            expect(results.filter(r => r.status >= 500)).toHaveLength(0);
+        }
+    });
+
+    it("an update that would drop capacity below what a concurrent booking just took is refused", async () => {
+        const eventId = await newEvent({ capacity: 10 });
+        await book(alice, eventId, { quantity: 6 }).expect(200);
+        const results = await Promise.all([
+            org.put(`/events/${eventId}`).send({ capacity: 6 }),
+            book(bob, eventId, { quantity: 4 }),
+        ]);
+        const [{ capacity, availableSeats }] = await db.query(
+            `SELECT capacity, "availableSeats" FROM events WHERE id = $1`,
+            [eventId],
+        );
+        const [{ held }] = await db.query(
+            `SELECT COALESCE(SUM(quantity), 0)::int AS held FROM bookings WHERE "eventId" = $1 AND status IN ('PENDING','CONFIRMED')`,
+            [eventId],
+        );
+        expect(capacity - availableSeats).toBe(held); // consistent whichever of the two won
+        expect(held).toBeLessThanOrEqual(capacity);
+        expect(results.every(r => r.status < 500)).toBe(true);
+    });
+
+    it("an update that omits the currency keeps it; changing it after sales is refused", async () => {
+        const eventId = await newEvent({ currency: "USD" });
+        await org.put(`/events/${eventId}`).send({ title: "Renamed Fest" }).expect(200);
+        const [{ currency }] = await db.query(`SELECT currency FROM events WHERE id = $1`, [eventId]);
+        expect(currency).toBe("USD"); // used to be reset to THB by the schema default
+        await book(alice, eventId).expect(200);
+        await org.put(`/events/${eventId}`).send({ currency: "EUR" }).expect(409);
+    });
+
+    it("booking with an Idempotency-Key: a retry returns the same booking and takes seats once", async () => {
+        const eventId = await newEvent({ capacity: 10 });
+        const key = `key-${Date.now()}-a`;
+        const send = () => book(alice, eventId, { quantity: 2 }).set("Idempotency-Key", key);
+
+        const first = await send().expect(200);
+        const retry = await send().expect(200);
+
+        expect(retry.body.data.id).toBe(first.body.data.id);
+        expect(await seats(eventId)).toBe(8);
+        const [{ n }] = await db.query(`SELECT COUNT(*)::int AS n FROM bookings WHERE "eventId" = $1`, [eventId]);
+        expect(n).toBe(1);
+    });
+
+    it("a double submit racing with the same Idempotency-Key creates one booking", async () => {
+        const eventId = await newEvent({ capacity: 10 });
+        const key = `key-${Date.now()}-b`;
+        const results = await Promise.all(
+            Array.from({ length: 4 }, () => book(alice, eventId).set("Idempotency-Key", key)),
+        );
+        const [{ n }] = await db.query(`SELECT COUNT(*)::int AS n FROM bookings WHERE "eventId" = $1`, [eventId]);
+        expect(n).toBe(1);
+        // the others either replayed the result or were told to retry shortly (409/429-style), never a second hold
+        expect(results.filter(r => r.status === 200).length).toBeGreaterThanOrEqual(1);
+        expect(results.every(r => r.status < 500)).toBe(true);
+    });
+
+    it("the same Idempotency-Key with a different payload is rejected, and keys are private per user", async () => {
+        const eventId = await newEvent({ capacity: 10 });
+        const key = `key-${Date.now()}-c`;
+        await book(alice, eventId, { quantity: 1 }).set("Idempotency-Key", key).expect(200);
+
+        const reused = await book(alice, eventId, { quantity: 3 }).set("Idempotency-Key", key);
+        expect(reused.status).toBeGreaterThanOrEqual(400);
+        expect(reused.status).toBeLessThan(500);
+
+        // another customer using the same key gets their own booking, not Alice's
+        const bobs = await book(bob, eventId, { quantity: 1 }).set("Idempotency-Key", key).expect(200);
+        const alices = await book(alice, eventId, { quantity: 1 }).set("Idempotency-Key", key).expect(200);
+        expect(bobs.body.data.userId).not.toBe(alices.body.data.userId);
+    });
+
+    it("without an Idempotency-Key, behaviour is unchanged (two calls, two holds)", async () => {
+        const eventId = await newEvent({ capacity: 10 });
+        await book(alice, eventId).expect(200);
+        await book(alice, eventId).expect(200);
+        expect(await seats(eventId)).toBe(8);
+    });
 });

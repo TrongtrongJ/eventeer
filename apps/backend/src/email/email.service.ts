@@ -3,8 +3,10 @@ import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bull";
 import { type Queue } from "bull";
 import * as nodemailer from "nodemailer";
-import { CircuitBreakerService } from "../common/circuit-breaker/circuit-breaker.service";
+import { ResilienceService, type ResiliencePolicy } from "@nestjs/resilience";
 import type { EnvConfig } from "../env.validation";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
+import { EMAIL_JOB_OPTIONS, EMAIL_TTL_MS } from "./email-queue.config";
 
 const esc = (value: unknown): string =>
     String(value ?? "")
@@ -19,6 +21,8 @@ export interface EmailJob {
     subject: string;
     html: string;
     correlationId: string;
+    /** Epoch ms after which the mail is no longer worth sending (its link has expired, say). */
+    deliverBy?: number;
 }
 
 export interface BookingConfirmationData {
@@ -54,16 +58,23 @@ export class EmailService {
     private readonly featureEnabled: boolean;
     private readonly frontendUrl: string;
     private readonly isProd: boolean;
+    private readonly smtp: ResiliencePolicy;
 
     constructor(
         @InjectQueue("email") private readonly emailQueue: Queue,
         private readonly configService: ConfigService<EnvConfig, true>,
-        private readonly circuitBreaker: CircuitBreakerService,
+        resilience: ResilienceService,
     ) {
+        this.smtp = resilience.preset(RESILIENCE_PRESET.SMTP);
         this.transporter = nodemailer.createTransport({
             host: this.configService.get("SMTP_HOST", { infer: true }),
             port: this.configService.get("SMTP_PORT", { infer: true }),
             secure: this.configService.get("SMTP_PORT", { infer: true }) === 465,
+            // nodemailer waits 2 min to connect and 10 min on an idle socket by default. Keep these
+            // below the policy's 15 s budget so an abandoned attempt does not linger after it.
+            connectionTimeout: 8_000,
+            greetingTimeout: 8_000,
+            socketTimeout: 12_000,
             auth: {
                 user: this.configService.get("SMTP_USER", { infer: true }),
                 pass: this.configService.get("SMTP_PASS", { infer: true }),
@@ -94,16 +105,9 @@ export class EmailService {
                 subject: `Booking Confirmation - ${esc(data.eventTitle)}`,
                 html,
                 correlationId,
+                deliverBy: Date.now() + EMAIL_TTL_MS.BOOKING_CONFIRMATION,
             },
-            {
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 2000,
-                },
-                removeOnComplete: true,
-                removeOnFail: false,
-            },
+            EMAIL_JOB_OPTIONS,
         );
 
         this.logger.log({
@@ -114,35 +118,30 @@ export class EmailService {
         });
     }
 
+    /**
+     * One SMTP delivery under the SMTP policy (timeout + circuit breaker). Failures propagate untouched:
+     * the processor decides what to do with them, because the queue, not this call, owns retries.
+     */
     async sendEmail(emailData: EmailJob): Promise<void> {
         const { to, subject, html, correlationId } = emailData;
 
-        try {
-            await this.circuitBreaker.execute("email-service", async () => {
-                const info = await this.transporter.sendMail({
+        const info = await this.smtp.execute(
+            () =>
+                this.transporter.sendMail({
                     from: this.configService.get("EMAIL_FROM", { infer: true }),
                     to,
                     subject,
                     html,
-                });
+                }),
+            { source: "EmailService.sendEmail" },
+        );
 
-                this.logger.log({
-                    message: "Email sent successfully",
-                    correlationId,
-                    to,
-                    messageId: info.messageId,
-                });
-            });
-        } catch (error: any) {
-            this.logger.error({
-                message: "Failed to send email",
-                correlationId,
-                to,
-                error: error.message,
-                stack: error.stack,
-            });
-            throw error;
-        }
+        this.logger.log({
+            message: "Email sent successfully",
+            correlationId,
+            to,
+            messageId: info.messageId,
+        });
     }
 
     private generateBookingConfirmationHtml(data: BookingConfirmationData): string {
@@ -234,16 +233,9 @@ export class EmailService {
                 subject: "Verify Your Email Address",
                 html,
                 correlationId,
+                deliverBy: Date.now() + EMAIL_TTL_MS.EMAIL_VERIFICATION,
             },
-            {
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 2000,
-                },
-                removeOnComplete: true,
-                removeOnFail: false,
-            },
+            EMAIL_JOB_OPTIONS,
         );
 
         this.logger.log({
@@ -276,16 +268,9 @@ export class EmailService {
                 subject: "Reset Your Password",
                 html,
                 correlationId,
+                deliverBy: Date.now() + EMAIL_TTL_MS.PASSWORD_RESET,
             },
-            {
-                attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: 2000,
-                },
-                removeOnComplete: true,
-                removeOnFail: false,
-            },
+            EMAIL_JOB_OPTIONS,
         );
 
         this.logger.log({

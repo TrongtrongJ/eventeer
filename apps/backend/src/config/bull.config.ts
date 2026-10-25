@@ -1,6 +1,7 @@
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bull";
 import type { EnvConfig } from "../env.validation";
+import { EMAIL_BACKOFF, emailBackoff } from "../email/email-queue.config";
 
 export function registerBullMQWithConfig() {
     return BullModule.forRootAsync({
@@ -8,6 +9,10 @@ export function registerBullMQWithConfig() {
         inject: [ConfigService],
         useFactory: (config: ConfigService<EnvConfig, true>) => ({
             redis: { host: config.get("REDIS_HOST", { infer: true }), port: config.get("REDIS_PORT", { infer: true }) },
+            settings: {
+                // Referenced by job options as `backoff: { type: "email-delivery" }` (see EMAIL_JOB_OPTIONS).
+                backoffStrategies: { [EMAIL_BACKOFF]: emailBackoff },
+            },
         }),
     });
 }

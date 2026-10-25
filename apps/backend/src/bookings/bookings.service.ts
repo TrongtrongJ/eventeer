@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { isRejection } from "../common/resilience/rejection";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomBytes } from "crypto";
 import { DataSource, EntityManager, In, LessThan, Repository } from "typeorm";
@@ -223,6 +224,8 @@ export class BookingsService {
                 if (await this.release(booking.id, BookingStatus.EXPIRED)) expired++;
             } catch (err) {
                 this.logger.error(`Failed to expire booking ${booking.id}: ${(err as Error).message}`);
+                // An open circuit would fail the other holds identically; stop and retry on the next run.
+                if (isRejection(err)) break;
             }
         }
         return expired;

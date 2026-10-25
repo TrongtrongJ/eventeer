@@ -1,5 +1,6 @@
 import { Controller } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import { Idempotent } from "@nestjs/idempotency";
 import { Implement } from "@orpc/nest";
 import { implement } from "@orpc/server";
 import { bookingContract } from "@packages/contract";
@@ -27,6 +28,9 @@ export class BookingsController {
 
     // Creating a booking takes inventory; keep scripted hoarding in check.
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
+    // A double click or a retry after a lost response must not take a second hold. Clients send an
+    // Idempotency-Key header; calls without one behave as before.
+    @Idempotent()
     @Implement(bookingContract.createBooking)
     async createBooking() {
         return implement(bookingContract.createBooking)

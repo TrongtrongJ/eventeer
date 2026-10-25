@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
+import { CircuitOpenError } from "@nestjs/resilience";
 import { BookingsService } from "./bookings.service";
 import { BookingStatus } from "../entities/booking.entity";
 import { UserRole } from "../entities/user.entity";
@@ -380,6 +381,18 @@ describe("BookingsService", () => {
             expect(payments.cancelPaymentIntent).toHaveBeenCalledWith("pi_1");
             expect(bookings.get("b-1").status).toBe(BookingStatus.EXPIRED);
             expect(events.releaseSeats).toHaveBeenCalledWith(manager, "evt-1", 2);
+        });
+
+        it("stops the sweep when Stripe is rejecting calls (open circuit) instead of failing every hold", async () => {
+            seed({ id: "b-1", expiresAt: past() });
+            seed({ id: "b-2", expiresAt: past(), paymentIntentId: "pi_2" });
+            payments.getPaymentStatus.mockRejectedValue(new CircuitOpenError("stripe", 30_000));
+
+            expect(await service.expireStaleHolds()).toBe(0);
+
+            expect(payments.getPaymentStatus).toHaveBeenCalledTimes(1); // not once per hold
+            expect(bookings.get("b-1").status).toBe(BookingStatus.PENDING); // untouched, retried next run
+            expect(bookings.get("b-2").status).toBe(BookingStatus.PENDING);
         });
 
         it("confirms instead of expiring when the customer paid just in time", async () => {

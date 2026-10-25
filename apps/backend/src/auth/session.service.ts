@@ -3,11 +3,13 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { InjectRedis } from "@liaoliaots/nestjs-redis";
 import Redis from "ioredis";
+import { CircuitOpenError, ResilienceService, type ResiliencePolicy } from "@nestjs/resilience";
 import { In, IsNull, LessThan, Not, Repository } from "typeorm";
 import type { CurrentUserData } from "@packages/shared-schemas";
 import { AuthSession } from "../entities/auth-session.entity";
 import type { User } from "../entities/user.entity";
 import type { EnvConfig } from "../env.validation";
+import { RESILIENCE_PRESET } from "../config/resilience.config";
 import { generateToken, hashToken } from "./utils/token.util";
 
 export interface IssuedTokens {
@@ -56,11 +58,17 @@ export class SessionService {
     private static readonly CACHE_TTL_SECONDS = 30;
     private static readonly REFRESH_GRACE_MS = 10_000;
 
+    /** Fast timeout + circuit breaker for the cache only; Postgres stays the source of truth. */
+    private readonly cachePolicy: ResiliencePolicy;
+
     constructor(
         @InjectRepository(AuthSession) private readonly sessions: Repository<AuthSession>,
         private readonly config: ConfigService<EnvConfig, true>,
         @InjectRedis() private readonly redis: Redis,
-    ) {}
+        resilience: ResilienceService,
+    ) {
+        this.cachePolicy = resilience.preset(RESILIENCE_PRESET.REDIS_SESSION);
+    }
 
     // ── Issue ─────────────────────────────────────────────────────────────────
 
@@ -251,31 +259,46 @@ export class SessionService {
         }
     }
 
-    // Cache failures must never take authentication down: fall back to Postgres.
+    // Cache failures must never take authentication down: fall back to Postgres. Every call runs under
+    // the redis-session policy, so a slow or dead Redis costs one 150 ms timeout and then the breaker
+    // skips it entirely instead of adding Redis's connection retries to every authenticated request.
     private async cacheGet(key: string): Promise<CachedPrincipal | null> {
         try {
-            const raw = await this.redis.get(key);
+            const raw = await this.cachePolicy.execute(() => this.redis.get(key), {
+                source: "SessionService.cacheGet",
+            });
             return raw ? (JSON.parse(raw) as CachedPrincipal) : null;
         } catch (err) {
-            this.logger.warn(`Session cache read failed: ${(err as Error).message}`);
+            this.cacheFailed("read", err);
             return null;
         }
     }
 
     private async cacheSet(key: string, value: CachedPrincipal, ttlSeconds: number): Promise<void> {
         try {
-            await this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
+            await this.cachePolicy.execute(() => this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds), {
+                source: "SessionService.cacheSet",
+            });
         } catch (err) {
-            this.logger.warn(`Session cache write failed: ${(err as Error).message}`);
+            this.cacheFailed("write", err);
         }
     }
 
     private async cacheDel(accessHashes: string[]): Promise<void> {
         if (!accessHashes.length) return;
         try {
-            await this.redis.del(...accessHashes.map(h => SessionService.CACHE_PREFIX + h));
+            await this.cachePolicy.execute(
+                () => this.redis.del(...accessHashes.map(h => SessionService.CACHE_PREFIX + h)),
+                { source: "SessionService.cacheDel" },
+            );
         } catch (err) {
-            this.logger.warn(`Session cache eviction failed: ${(err as Error).message}`);
+            this.cacheFailed("eviction", err);
         }
+    }
+
+    private cacheFailed(operation: string, err: unknown): void {
+        // An open circuit is already logged once when it opens; one line per request would only bury it.
+        if (err instanceof CircuitOpenError) return;
+        this.logger.warn(`Session cache ${operation} failed: ${(err as Error).message}`);
     }
 }

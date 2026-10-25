@@ -8,6 +8,8 @@ import {
     RequestHeadersHandlerPluginContext,
 } from "@orpc/server/plugins";
 import { Request } from "express";
+import { ResilienceError, ResilienceTimeoutError } from "@nestjs/resilience";
+import { isRejection } from "../../common/resilience/rejection";
 
 declare module "@orpc/server" {
     interface DefaultInitialContext extends RequestHeadersHandlerPluginContext, ResponseHeadersHandlerPluginContext {
@@ -38,7 +40,13 @@ const STATUS_TO_ORPC_CODE: Record<number, string> = {
  * idiomatic Nest exceptions (BadRequest, Conflict, NotFound...), so translate them here once,
  * preserving the status and message, instead of wrapping every call site.
  */
-const translateNestExceptions = async ({ next }: { next: () => Promise<unknown> }) => {
+export const translateNestExceptions = async ({
+    next,
+    context,
+}: {
+    next: () => Promise<unknown>;
+    context?: { resHeaders?: Headers };
+}) => {
     try {
         return await next();
     } catch (error) {
@@ -48,6 +56,20 @@ const translateNestExceptions = async ({ next }: { next: () => Promise<unknown> 
                 typeof body === "string" ? body : ((body as { message?: string | string[] }).message ?? error.message);
             throw new ORPCError(STATUS_TO_ORPC_CODE[error.getStatus()] ?? "INTERNAL_SERVER_ERROR", {
                 message: Array.isArray(message) ? message[0] : message,
+                cause: error,
+            });
+        }
+        // Errors from resilience policies used inside services (open circuit, full bulkhead, timeout).
+        // The module's own mapping only sees what escapes the handler, and oRPC has already turned these into 500.
+        if (error instanceof ResilienceError) {
+            if (isRejection(error) && error.retryAfterMs) {
+                context?.resHeaders?.set("retry-after", String(Math.ceil(error.retryAfterMs / 1000)));
+            }
+            const timedOut = error instanceof ResilienceTimeoutError;
+            throw new ORPCError(timedOut ? "GATEWAY_TIMEOUT" : "SERVICE_UNAVAILABLE", {
+                message: timedOut
+                    ? "The request took too long, please try again"
+                    : "Service is busy, please try again shortly",
                 cause: error,
             });
         }

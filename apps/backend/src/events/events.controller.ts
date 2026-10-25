@@ -1,4 +1,6 @@
 import { Controller, ForbiddenException } from "@nestjs/common";
+import { Bulkhead } from "@nestjs/resilience";
+import { BULKHEAD } from "../config/resilience.config";
 import { EventsService, EventFilters } from "./events.service";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { UserRole } from "../entities/user.entity";
@@ -34,6 +36,7 @@ export class EventsController {
     }
 
     @Public()
+    @Bulkhead(BULKHEAD.EVENT_SEARCH)
     @Implement(eventContract.findAll)
     async findAll() {
         return implement(eventContract.findAll)

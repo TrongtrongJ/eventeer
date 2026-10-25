@@ -13,6 +13,9 @@ async function bootstrap() {
     // bodyParser is off: oRPC consumes the raw request stream itself.
     const app = await NestFactory.create(AppModule, { bodyParser: false });
     configureApp(app);
+    // SIGTERM (every rollout) must close the HTTP server, the Bull workers and the Redis connections:
+    // otherwise an email being sent is cut off and re-run after its lock expires.
+    app.enableShutdownHooks();
 
     const config = app.get<ConfigService<EnvConfig, true>>(ConfigService);
 

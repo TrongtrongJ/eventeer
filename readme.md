@@ -4,7 +4,7 @@ Event ticketing platform: organizers publish events and coupons, customers book 
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-12-red.svg)](https://nestjs.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4-black.svg)](https://nextjs.org/)
 [![oRPC](https://img.shields.io/badge/oRPC-2.beta-pink.svg)](https://orpc.dev/)
 
 ## Contents
@@ -29,7 +29,6 @@ Every endpoint is declared once in [`packages/contract`](packages/contract) (oRP
 - The API implements the contract (`@Implement(...)` on Nest controllers). The web app consumes the same contract through a typed client and TanStack Query option builders. Renaming a field fails compilation on whichever side did not follow.
 - The same Zod schemas validate forms, GraphQL resolver input and WebSocket payload types.
 - The OpenAPI document is generated from the contract at boot and served with Scalar at `/docs`. There are no hand-written annotations to drift.
-- Services throw plain Nest exceptions; one oRPC interceptor and a global filter map them to the oRPC error shape, so the client always receives a typed `{ code, message }`.
 
 ### 2. Opaque, cookie-only, dual-token sessions
 
@@ -52,8 +51,9 @@ No JWTs. Tokens are 256-bit random values with no claims, stored as SHA-256 hash
 
 ### 4. Resilience and operability
 
-- **Circuit breaker** around Stripe and SMTP calls (failure-count based, per process).
-- **Email** is queued on Bull with retries and exponential backoff; a mail failure never fails or rolls back a booking.
+- **`@nestjs/resilience`** around the calls that can hang: Stripe (timeout, retry, breaker), SMTP and each OAuth provider (timeout, breaker), the Redis session cache (150 ms timeout, breaker, falls back to Postgres). Bulkheads guard Argon2 hashing (memory) and the public event search (DB pool). Breaker state is per process.
+- **Email** is queued on Bull. While the SMTP breaker is open, jobs wait without using an attempt; real failures back off from 30 s, permanent rejections fail at once, and mails past their useful life (a reset link, say) are dropped. A mail failure never fails or rolls back a booking.
+- **Idempotent booking creation** (`Idempotency-Key`, Redis-backed, scoped per user) and a row-locked event update, so editing capacity cannot overwrite seats a concurrent booking just took.
 - **Correlation IDs** are accepted (if well-formed) or generated per request, returned in a header and attached to log entries.
 - **Live seat counts** over Socket.IO with the Redis adapter, so an update from any API replica reaches clients on every replica. Broadcasts happen after commit.
 - **Config is validated at boot** (Zod). Production additionally requires an HTTPS frontend URL and, with payments enabled, Stripe keys; it refuses to start without them.
@@ -165,7 +165,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 ## Deployment
 
 - **Images:** multi-stage Dockerfiles for the API and the web app (Next.js `standalone` output). `NEXT_PUBLIC_*` values are build arguments.
-- **Kubernetes** ([`k8s/`](k8s)): API 3-10 replicas and web 2-5 replicas behind HPAs, a migration Job, and a single-host Ingress that serves web, `/api/*` and `/socket.io/*` from one origin (required for first-party auth cookies). Postgres and Redis manifests are for demo clusters; use managed services otherwise.
+- **Kubernetes** ([`k8s/`](k8s)): API 3-10 replicas and web 2-5 replicas behind HPAs, a migration Job, and a single-host Ingress that serves web, `/api/*` and `/socket.io/*` from one origin (required for first-party auth cookies). Postgres and Redis manifests are for demo clusters (both on persistent volumes; Redis runs AOF with `noeviction`, which Bull needs); use managed services otherwise.
 - **AWS:** design and trade-offs in [`aws_architecture_doc.md`](aws_architecture_doc.md); [`terraform/`](terraform) is a baseline that lags that design (see the doc).
 
 ---
@@ -186,16 +186,20 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 - [x] Architecture and AWS design documentation
 - [x] Unit, API e2e and web e2e suites; GitHub Actions and Bitbucket Pipelines
 - [x] Kubernetes manifests
-- [ ] Migrate circuit breaker, idempotency to new official nestjs packages (partial)
-- [ ] Edge cases (partial)
+- [x] Migrate circuit breaker, idempotency to new official nestjs packages (backend; the web app does not send an `Idempotency-Key` yet)
+- [x] Resilience and concurrency edge cases
     - [x] Concurrent token refresh (thundering herd), including across tabs
     - [x] Coupon and seat races, double-scan, late payment after hold expiry
-    - [ ] Atomic update on event update, handling ticket booking in-between
-    - [ ] Delay failed BullMQ email instead of burning them on multiple failures
-- [ ] Complete dockerization (partial)
-- [ ] Terraform brought in line with the Next.js server and opaque sessions
+    - [x] Wrapping costly Argon2 hashing with bulkhead
+    - [x] Atomic update on event update, handling ticket booking in-between
+    - [x] Delay failed Bull email instead of burning them on multiple failures
+    - [ ] ....
+- [x] Complete dockerization
+- [x] Terraform brought in line with the Next.js server and opaque sessions
+- [ ] Clear old VITE React leftovers (frontend is now NextJS)
 
 ## Optional (The project is currently small, self-contained)
+
 - [ ] Microservices and SAGA pattern (already modularized, correlationId prepared)
 - [ ] Feature flag by ConfigCat (Not enough flags worth moving from env)
 - [ ] Full observability and OpenTelemetry (external service dependent)

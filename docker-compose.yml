@@ -21,6 +21,8 @@ services:
 
     redis:
         image: redis:7-alpine
+        # Bull (mail queue) and the idempotency records live here: keep them across restarts, and never evict them.
+        command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
         ports:
             - "6379:6379"
         volumes:
@@ -52,6 +54,8 @@ services:
             # Empty Stripe keys = mock payments; pair with an empty NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
             STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
             STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+        # Time to finish the request and the mail being sent on SIGTERM (see enableShutdownHooks in main.ts).
+        stop_grace_period: 30s
         depends_on:
             postgres: { condition: service_healthy }
             redis: { condition: service_healthy }
@@ -72,7 +76,7 @@ services:
             # The Next.js SERVER reaches the API over the compose network.
             API_INTERNAL_URL: http://backend:4000
         depends_on:
-            - backend
+            backend: { condition: service_healthy }
 
 volumes:
     postgres_data:

@@ -34,10 +34,8 @@ export const envSchema = z
         REDIS_HOST: z.string().default("localhost"),
         REDIS_PORT: z.coerce.number().default(6379),
 
-        // Opaque-token sessions
-        ACCESS_TOKEN_SECRET: z.string().default("fallback-access-key-change-in-production"),
+        // Opaque-token session
         ACCESS_TOKEN_TTL: duration("15m"),
-        REFRESH_TOKEN_SECRET: z.string().default("fallback-refresh-key-change-in-production"),
         REFRESH_TOKEN_TTL: duration("7d"),
         /** Hard cap on a session's total life regardless of refresh activity. */
         SESSION_MAX_LIFETIME: duration("30d"),
@@ -70,10 +68,6 @@ export const envSchema = z
         FACEBOOK_APP_ID: z.string().optional(),
         FACEBOOK_APP_SECRET: z.string().optional(),
         FACEBOOK_REDIRECT_URI: z.string().optional(),
-
-        CIRCUIT_BREAKER_THRESHOLD: z.coerce.number().default(5),
-        CIRCUIT_BREAKER_TIMEOUT: z.coerce.number().default(60000),
-        CIRCUIT_BREAKER_RESET_TIMEOUT: z.coerce.number().default(30000),
     })
     .check(ctx => {
         // Production must never fall back to mock payments or unsent email.

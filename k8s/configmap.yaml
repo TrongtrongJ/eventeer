@@ -10,3 +10,9 @@ data:
     trust-proxy: "1"
     smtp-host: smtp.gmail.com
     smtp-port: "587"
+    # Must be an address the SMTP account may send as (Gmail rewrites or rejects anything else).
+    email-from: noreply@event-management.example.com
+    # OAuth callbacks are served under /api (see ingress.yaml). Register these exact URLs with each provider.
+    google-redirect-uri: https://event-management.example.com/api/auth/oauth/google/callback
+    github-redirect-uri: https://event-management.example.com/api/auth/oauth/github/callback
+    facebook-redirect-uri: https://event-management.example.com/api/auth/oauth/facebook/callback
