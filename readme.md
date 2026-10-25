@@ -29,7 +29,6 @@ Every endpoint is declared once in [`packages/contract`](packages/contract) (oRP
 - The API implements the contract (`@Implement(...)` on Nest controllers). The web app consumes the same contract through a typed client and TanStack Query option builders. Renaming a field fails compilation on whichever side did not follow.
 - The same Zod schemas validate forms, GraphQL resolver input and WebSocket payload types.
 - The OpenAPI document is generated from the contract at boot and served with Scalar at `/docs`. There are no hand-written annotations to drift.
-- Services throw plain Nest exceptions; one oRPC interceptor and a global filter map them to the oRPC error shape, so the client always receives a typed `{ code, message }`.
 
 ### 2. Opaque, cookie-only, dual-token sessions
 
@@ -191,14 +190,16 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): lint + typecheck + 
 - [x] Resilience and concurrency edge cases
     - [x] Concurrent token refresh (thundering herd), including across tabs
     - [x] Coupon and seat races, double-scan, late payment after hold expiry
-    - [X] Wrapping costly Argon2 hashing with bulkhead
+    - [x] Wrapping costly Argon2 hashing with bulkhead
     - [x] Atomic update on event update, handling ticket booking in-between
     - [x] Delay failed Bull email instead of burning them on multiple failures
     - [ ] ....
-- [X] Complete dockerization
-- [X] Terraform brought in line with the Next.js server and opaque sessions
+- [x] Complete dockerization
+- [x] Terraform brought in line with the Next.js server and opaque sessions
+- [ ] Clear old VITE React leftovers (frontend is now NextJS)
 
 ## Optional (The project is currently small, self-contained)
+
 - [ ] Microservices and SAGA pattern (already modularized, correlationId prepared)
 - [ ] Feature flag by ConfigCat (Not enough flags worth moving from env)
 - [ ] Full observability and OpenTelemetry (external service dependent)

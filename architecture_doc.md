@@ -121,19 +121,19 @@ Both packages are built to `dist/`, so the CommonJS-compiled API and the Next.js
 
 ### Modules
 
-| Module              | Responsibility                                                                                          |
-| :------------------ | :------------------------------------------------------------------------------------------------------ |
-| `auth`              | Session service, local and OAuth login, authentication / origin / roles guards                          |
-| `events`            | Event CRUD, filtering and pagination, seat primitives (`reserveSeats`, `releaseSeats`), seat broadcasts |
-| `bookings`          | Booking lifecycle, Stripe webhook controller, GraphQL resolver                                          |
-| `coupons`           | Coupon CRUD, `redeem` / `release` (always called inside the booking transaction)                        |
-| `payment`           | Stripe adapter (plus a dev-only mock), under the `stripe` resilience preset. No dependency on booking code           |
-| `tickets`           | Check-in validation and QR lookup                                                                       |
-| `email`             | Queueing, templates, SMTP delivery                                                                      |
-| `websocket`         | Socket.IO gateway and Redis adapter                                                                     |
-| `maintenance`       | Repeatable jobs: hold expiry, session purge                                                             |
-| `health`, `graphql` | Health endpoints, GraphQL wiring                                                                        |
-| `common`            | Idempotency store, resilience logging, money helpers, pagination, exception filter, middleware                                |
+| Module              | Responsibility                                                                                             |
+| :------------------ | :--------------------------------------------------------------------------------------------------------- |
+| `auth`              | Session service, local and OAuth login, authentication / origin / roles guards                             |
+| `events`            | Event CRUD, filtering and pagination, seat primitives (`reserveSeats`, `releaseSeats`), seat broadcasts    |
+| `bookings`          | Booking lifecycle, Stripe webhook controller, GraphQL resolver                                             |
+| `coupons`           | Coupon CRUD, `redeem` / `release` (always called inside the booking transaction)                           |
+| `payment`           | Stripe adapter (plus a dev-only mock), under the `stripe` resilience preset. No dependency on booking code |
+| `tickets`           | Check-in validation and QR lookup                                                                          |
+| `email`             | Queueing, templates, SMTP delivery                                                                         |
+| `websocket`         | Socket.IO gateway and Redis adapter                                                                        |
+| `maintenance`       | Repeatable jobs: hold expiry, session purge                                                                |
+| `health`, `graphql` | Health endpoints, GraphQL wiring                                                                           |
+| `common`            | Idempotency store, resilience logging, money helpers, pagination, exception filter, middleware             |
 
 `bookings` depends on `events`, `coupons`, `payment` and `email`. The webhook controller lives in `bookings` rather than `payment` so that `payment` stays a leaf.
 
@@ -355,10 +355,10 @@ Clients join a Socket.IO room `event:<id>` and receive `seat:update` with `{ eve
 
 ### Queues
 
-| Queue         | Jobs                                                                | Behaviour                                                                                               |
-| :------------ | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------ |
+| Queue         | Jobs                                                                | Behaviour                                                                                                         |
+| :------------ | :------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------- |
 | `email`       | booking confirmation, email verification, password reset            | 6 attempts, backoff from 30 s; attempts rejected by an open SMTP circuit are not counted; failed jobs kept 7 days |
-| `maintenance` | `expire-holds` every 60 s (100 per run), `purge-sessions` every 6 h | Repeatable jobs keyed by `jobId`, so N replicas registering the same schedule produce one recurring job |
+| `maintenance` | `expire-holds` every 60 s (100 per run), `purge-sessions` every 6 h | Repeatable jobs keyed by `jobId`, so N replicas registering the same schedule produce one recurring job           |
 
 Handlers are idempotent (conditional updates), because Bull delivers at least once and any replica may run a job. Processors currently run inside the API processes; splitting them into a separate worker deployment is a packaging change if job load ever needs to scale independently.
 
@@ -388,7 +388,7 @@ Handlers are idempotent (conditional updates), because Bull delivers at least on
 | API dies between commit and payment-intent creation | The booking has no intent and stays `PENDING`; the expiry job releases it after the hold.                                                                                               |
 | Two scanners scan one ticket                        | One atomic claim succeeds; the other sees "Ticket already used".                                                                                                                        |
 | Redis down                                          | Authentication falls back to Postgres. Queued work and cross-replica seat broadcasts degrade, and `/health` reports Redis as down. A failure to queue an email never fails the booking. |
-| SMTP down                                           | The SMTP circuit opens; queued mails wait for it without using attempts and go out once it closes. Bookings are unaffected.                                                                                       |
+| SMTP down                                           | The SMTP circuit opens; queued mails wait for it without using attempts and go out once it closes. Bookings are unaffected.                                                             |
 | Replicas race                                       | Refresh uses compare-and-swap; repeatable jobs are deduplicated; every state transition is a conditional update.                                                                        |
 
 Breakers come from `@nestjs/resilience`, one per dependency (Stripe, SMTP, Redis session cache, and each OAuth provider), opening on a failure rate over a sliding window and probing after a cooldown. Calls also carry a timeout. Only outages count: Stripe 4xx answers and a rejected recipient do not.

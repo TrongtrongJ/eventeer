@@ -1,41 +1,41 @@
 {
-  "folders": [
-    {
-      "path": "."
+    "folders": [
+        {
+            "path": ".",
+        },
+        {
+            "path": "apps/backend",
+        },
+        {
+            "path": "apps/frontend",
+        },
+        {
+            "path": "packages/shared-schemas",
+        },
+        {
+            "path": "packages/contract",
+        },
+    ],
+    "settings": {
+        "search.exclude": {
+            "**/node_modules": true,
+            "**/dist": true,
+            "apps/**/dist": true,
+            "apps/**/.next": true,
+            "**/.turbo": true,
+            "packages/**/dist": true,
+        },
+        "files.exclude": {
+            "**/node_modules": true,
+            "**/dist": true,
+            "**/.next": true,
+            "**/.turbo": true,
+        },
+        "files.watcherExclude": {
+            "**/node_modules/*/**": true,
+            "**/dist/*/**": true,
+        },
+        "js/ts.preferences.importModuleSpecifier": "non-relative",
+        "js/ts.tsdk.path": "node_modules\\typescript\\lib",
     },
-    {
-      "path": "apps/backend"
-    },
-    {
-      "path": "apps/frontend"
-    },
-    {
-      "path": "packages/shared-schemas"
-    },
-    {
-      "path": "packages/contract"
-    }
-  ],
-  "settings": {
-    "search.exclude": {
-        "**/node_modules": true,
-        "**/dist": true,
-        "apps/**/dist": true,
-        "apps/**/.next": true,
-        "**/.turbo": true,
-        "packages/**/dist": true
-    },
-    "files.exclude": {
-        "**/node_modules": true,
-        "**/dist": true,
-        "**/.next": true,
-        "**/.turbo": true
-    },
-    "files.watcherExclude": {
-        "**/node_modules/*/**": true,
-        "**/dist/*/**": true
-    },
-    "js/ts.preferences.importModuleSpecifier": "non-relative",
-    "js/ts.tsdk.path": "node_modules\\typescript\\lib"
-  }
 }
